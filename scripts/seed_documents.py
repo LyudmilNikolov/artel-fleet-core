@@ -8,6 +8,7 @@ import asyncio
 import io
 import random
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -16,23 +17,25 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
+from app.i18n import _
 from app.models.document import Document, DocumentType, EntityType
-from app.models.vehicle import Vehicle
 from app.models.driver import Driver
+from app.models.vehicle import Vehicle
+from app.utils.formatting import money
 from app.utils.s3 import get_s3_client
 
 # Colors for vehicle photos
 VEHICLE_COLORS = [
-    (41, 128, 185),    # Blue
-    (44, 62, 80),      # Dark gray
-    (192, 57, 43),     # Red
-    (39, 174, 96),     # Green
-    (142, 68, 173),    # Purple
-    (243, 156, 18),    # Orange
-    (127, 140, 141),   # Silver
-    (236, 240, 241),   # White-ish
-    (52, 73, 94),      # Navy
-    (22, 160, 133),    # Teal
+    (41, 128, 185),  # Blue
+    (44, 62, 80),  # Dark gray
+    (192, 57, 43),  # Red
+    (39, 174, 96),  # Green
+    (142, 68, 173),  # Purple
+    (243, 156, 18),  # Orange
+    (127, 140, 141),  # Silver
+    (236, 240, 241),  # White-ish
+    (52, 73, 94),  # Navy
+    (22, 160, 133),  # Teal
 ]
 
 DOC_BG_COLORS = {
@@ -57,26 +60,14 @@ def generate_vehicle_photo(brand: str, model: str, plate: str, width: int = 800,
     car_y = height * 0.45
     # Body
     body_color = tuple(max(0, c - 30) for c in bg_color)
-    draw.rounded_rectangle(
-        [width * 0.15, car_y, width * 0.85, car_y + height * 0.25],
-        radius=15, fill=body_color
-    )
+    draw.rounded_rectangle([width * 0.15, car_y, width * 0.85, car_y + height * 0.25], radius=15, fill=body_color)
     # Roof
     roof_color = tuple(max(0, c - 50) for c in bg_color)
-    draw.rounded_rectangle(
-        [width * 0.28, car_y - height * 0.15, width * 0.72, car_y + 5],
-        radius=12, fill=roof_color
-    )
+    draw.rounded_rectangle([width * 0.28, car_y - height * 0.15, width * 0.72, car_y + 5], radius=12, fill=roof_color)
     # Windows
     win_color = (200, 220, 240)
-    draw.rounded_rectangle(
-        [width * 0.30, car_y - height * 0.13, width * 0.48, car_y - 2],
-        radius=6, fill=win_color
-    )
-    draw.rounded_rectangle(
-        [width * 0.52, car_y - height * 0.13, width * 0.70, car_y - 2],
-        radius=6, fill=win_color
-    )
+    draw.rounded_rectangle([width * 0.30, car_y - height * 0.13, width * 0.48, car_y - 2], radius=6, fill=win_color)
+    draw.rounded_rectangle([width * 0.52, car_y - height * 0.13, width * 0.70, car_y - 2], radius=6, fill=win_color)
     # Wheels
     wheel_y = car_y + height * 0.25 - 5
     for wx in [width * 0.28, width * 0.72]:
@@ -92,7 +83,7 @@ def generate_vehicle_photo(brand: str, model: str, plate: str, width: int = 800,
         font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
         font_plate = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-    except (OSError, IOError):
+    except OSError:
         font_large = ImageFont.load_default()
         font_small = font_large
         font_plate = font_large
@@ -126,7 +117,9 @@ def generate_vehicle_photo(brand: str, model: str, plate: str, width: int = 800,
     return buf.getvalue()
 
 
-def generate_document_image(doc_type: DocumentType, title: str, details: list[str], width: int = 600, height: int = 800) -> bytes:
+def generate_document_image(
+    doc_type: DocumentType, title: str, details: list[str], width: int = 600, height: int = 800
+) -> bytes:
     """Generate a document-style placeholder image (like a scanned doc)."""
     bg = DOC_BG_COLORS.get(doc_type, (250, 250, 250))
     img = Image.new("RGB", (width, height), bg)
@@ -136,7 +129,7 @@ def generate_document_image(doc_type: DocumentType, title: str, details: list[st
         font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
         font_body = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
-    except (OSError, IOError):
+    except OSError:
         font_title = ImageFont.load_default()
         font_body = font_title
         font_small = font_title
@@ -152,7 +145,12 @@ def generate_document_image(doc_type: DocumentType, title: str, details: list[st
     }.get(doc_type, (100, 100, 100))
 
     draw.rectangle([0, 0, width, 60], fill=header_color)
-    draw.text((20, 15), f"FleetCore — {doc_type.value.upper()}", fill=(255, 255, 255), font=font_title)
+    draw.text(
+        (20, 15),
+        f"FleetCore — {_('document_type.' + doc_type.value, 'bg').upper()}",
+        fill=(255, 255, 255),
+        font=font_title,
+    )
 
     # Title
     draw.text((30, 80), title, fill=(33, 33, 33), font=font_title)
@@ -168,20 +166,24 @@ def generate_document_image(doc_type: DocumentType, title: str, details: list[st
 
     # Stamp circle (for official look)
     stamp_x, stamp_y = width - 130, height - 180
-    stamp_color = (*header_color, 60)
     draw.ellipse([stamp_x, stamp_y, stamp_x + 100, stamp_y + 100], outline=header_color, width=2)
     draw.ellipse([stamp_x + 5, stamp_y + 5, stamp_x + 95, stamp_y + 95], outline=header_color, width=1)
     # stamp text
-    st_bbox = draw.textbbox((0, 0), "УТВЕРЖДЕНО", font=font_small)
+    st_bbox = draw.textbbox((0, 0), "ОДОБРЕНО", font=font_small)
     stw = st_bbox[2] - st_bbox[0]
-    draw.text((stamp_x + (100 - stw) // 2, stamp_y + 35), "УТВЕРЖДЕНО", fill=header_color, font=font_small)
+    draw.text((stamp_x + (100 - stw) // 2, stamp_y + 35), "ОДОБРЕНО", fill=header_color, font=font_small)
 
     # Signature line
     draw.line([(30, height - 80), (200, height - 80)], fill=(100, 100, 100), width=1)
-    draw.text((30, height - 75), "Подпись / Signature", fill=(150, 150, 150), font=font_small)
+    draw.text((30, height - 75), "Подпис", fill=(150, 150, 150), font=font_small)
 
     # Date
-    draw.text((30, height - 40), f"Дата: 2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}", fill=(100, 100, 100), font=font_small)
+    draw.text(
+        (30, height - 40),
+        f"Дата: 2025-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
+        fill=(100, 100, 100),
+        font=font_small,
+    )
 
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=90)
@@ -197,7 +199,7 @@ def generate_driver_photo(name: str, employee_id: str, width: int = 400, height:
         font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
         font_id = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
-    except (OSError, IOError):
+    except OSError:
         font_name = ImageFont.load_default()
         font_id = font_name
         font_small = font_name
@@ -279,17 +281,17 @@ async def seed_files():
                 elif doc.type == DocumentType.INVOICE:
                     data = generate_document_image(
                         DocumentType.INVOICE,
-                        f"Счёт-фактура № {random.randint(1000, 9999)}",
+                        f"Фактура № {random.randint(1000, 9999)}",
                         [
-                            f"Поставщик: {'AutoMaster Service' if random.random() > 0.5 else 'Toyota Center Almaty'}",
-                            f"Дата: 2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}",
-                            f"Сумма: {random.randint(10, 500) * 1000:,} KZT",
+                            f"Доставчик: {'AutoMaster Service' if random.random() > 0.5 else 'Toyota Center Almaty'}",
+                            f"Дата: 2025-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
+                            "Сума: " + money(Decimal(random.randint(10, 500)) * 10, "bg"),
                             "",
-                            "Наименование работ:",
-                            f"  1. {'Замена масла и фильтров' if random.random() > 0.5 else 'Диагностика двигателя'}",
-                            f"  2. {'Замена тормозных колодок' if random.random() > 0.5 else 'Балансировка колёс'}",
+                            "Извършени дейности:",
+                            f"  1. {'Смяна на масло и филтри' if random.random() > 0.5 else 'Диагностика на двигателя'}",
+                            f"  2. {'Смяна на спирачни накладки' if random.random() > 0.5 else 'Баланс на колела'}",
                             "",
-                            "Итого с НДС: включено",
+                            "Общо с включен ДДС",
                         ],
                     )
                     mime = "image/jpeg"
@@ -297,14 +299,14 @@ async def seed_files():
                 elif doc.type == DocumentType.ACT:
                     data = generate_document_image(
                         DocumentType.ACT,
-                        f"Акт выполненных работ № {random.randint(100, 9999)}",
+                        f"Протокол за извършени дейности № {random.randint(100, 9999)}",
                         [
-                            f"Исполнитель: {random.choice(['Bosch Car Service', 'FIT Auto', 'TechnoService KZ'])}",
-                            f"Заказчик: ТОО FleetCore",
-                            f"Дата: 2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}",
+                            f"Изпълнител: {random.choice(['Bosch Car Service', 'FIT Auto', 'TechnoService KZ'])}",
+                            "Възложител: FleetCore",
+                            f"Дата: 2025-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
                             "",
-                            "Работы выполнены в полном объёме.",
-                            "Претензий к качеству нет.",
+                            "Дейностите са изпълнени изцяло.",
+                            "Няма възражения за качеството.",
                         ],
                     )
                     mime = "image/jpeg"
@@ -315,13 +317,13 @@ async def seed_files():
                         f"Договор № {random.choice(['INS', 'LEA', 'SRV'])}-{random.randint(10000, 99999)}",
                         [
                             f"Контрагент: {random.choice(['Nomad Insurance', 'Halyk Leasing', 'Eurasia Insurance'])}",
-                            f"Период: 12 месяцев",
-                            f"Сумма: {random.randint(100, 5000) * 1000:,} KZT",
+                            "Период: 12 месеца",
+                            "Сума: " + money(Decimal(random.randint(100, 5000)) * 10, "bg"),
                             "",
-                            "Предмет договора:",
-                            f"  {random.choice(['Страхование КАСКО', 'Лизинг ТС', 'Сервисное обслуживание'])}",
+                            "Предмет на договора:",
+                            f"  {random.choice(['Застраховка Каско', 'Лизинг на превозно средство', 'Техническо обслужване'])}",
                             "",
-                            "Стороны пришли к соглашению.",
+                            "Страните постигнаха съгласие.",
                         ],
                     )
                     mime = "image/jpeg"
@@ -329,15 +331,15 @@ async def seed_files():
                 elif doc.type == DocumentType.INSURANCE:
                     data = generate_document_image(
                         DocumentType.INSURANCE,
-                        f"Полис № {random.randint(100000, 999999)}",
+                        f"Полица № {random.randint(100000, 999999)}",
                         [
-                            f"Страховщик: {random.choice(['Nomad Insurance', 'Eurasia', 'Halyk Insurance'])}",
+                            f"Застраховател: {random.choice(['Nomad Insurance', 'Eurasia', 'Halyk Insurance'])}",
                             f"Тип: {random.choice(['КАСКО', 'ОСАГО', 'ДСАГО'])}",
-                            f"Срок: 12 мес.",
-                            f"Премия: {random.randint(50, 500) * 1000:,} KZT",
+                            "Срок: 12 месеца",
+                            "Премия: " + money(Decimal(random.randint(50, 500)) * 10, "bg"),
                             "",
-                            "Застрахованное ТС:",
-                            f"  Гос. номер: по реестру",
+                            "Застраховано превозно средство:",
+                            "  Регистрационен номер: по регистър",
                         ],
                     )
                     mime = "image/jpeg"
@@ -349,14 +351,15 @@ async def seed_files():
                         f"Документ: {doc.filename}",
                         [
                             f"Тип: {doc.type.value}",
-                            f"Загружен: {doc.uploaded_at}",
-                            f"Размер: {doc.size_bytes} байт",
+                            f"Качен: {doc.uploaded_at}",
+                            f"Размер: {doc.size_bytes} байта",
                         ],
                     )
                     mime = "image/jpeg"
 
                 # Upload to MinIO at the existing s3_key
                 from io import BytesIO
+
                 s3.client.upload_fileobj(
                     BytesIO(data),
                     s3.bucket,

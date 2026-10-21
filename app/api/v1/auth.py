@@ -13,6 +13,7 @@ from app.schemas.user import (
     UserRead,
 )
 from app.services.auth_service import AuthService
+from app.services.errors import error_detail
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -31,7 +32,7 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
         )
         return user
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail(e))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -41,7 +42,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         user, access_token, refresh_token = await service.authenticate(data.username, data.password)
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail(e))
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -51,7 +52,7 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
         access_token, refresh_token = await service.refresh_token(data.refresh_token)
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail(e))
 
 
 @router.get("/me", response_model=UserRead)
@@ -69,4 +70,4 @@ async def change_password(
     try:
         await service.change_password(current_user.id, data.current_password, data.new_password)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail(e))

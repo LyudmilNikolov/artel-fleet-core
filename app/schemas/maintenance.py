@@ -17,7 +17,7 @@ class MaintenanceCreate(BaseModel):
     mileage_at_service: int | None = None
     next_service_mileage: int | None = None
     next_service_date: date | None = None
-    cost: Decimal | None = None
+    cost: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     service_provider: str | None = None
     performed_by: str | None = None
 
@@ -31,7 +31,7 @@ class MaintenanceUpdate(BaseModel):
     mileage_at_service: int | None = None
     next_service_mileage: int | None = None
     next_service_date: date | None = None
-    cost: Decimal | None = None
+    cost: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     service_provider: str | None = None
     performed_by: str | None = None
 

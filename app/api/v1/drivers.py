@@ -11,6 +11,7 @@ from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.driver import DriverCreate, DriverRead, DriverUpdate
 from app.services.driver_service import DriverService
+from app.services.errors import error_detail
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
@@ -28,7 +29,9 @@ async def list_drivers(
     items, total = await service.list_drivers(q=q, status=status, page=page, size=size)
     return PaginatedResponse(
         items=[DriverRead.model_validate(d) for d in items],
-        total=total, page=page, size=size,
+        total=total,
+        page=page,
+        size=size,
         pages=BaseRepository.calc_pages(total, size),
     )
 
@@ -38,23 +41,27 @@ async def get_driver(driver_id: UUID, db: AsyncSession = Depends(get_db), _: Use
     service = DriverService(db)
     driver = await service.get_by_id(driver_id)
     if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+        raise HTTPException(status_code=404, detail="error.driver_not_found")
     return driver
 
 
 @router.post("", response_model=DriverRead, status_code=status.HTTP_201_CREATED)
-async def create_driver(data: DriverCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)):
+async def create_driver(
+    data: DriverCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)
+):
     service = DriverService(db)
     return await service.create(data)
 
 
 @router.patch("/{driver_id}", response_model=DriverRead)
-async def update_driver(driver_id: UUID, data: DriverUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)):
+async def update_driver(
+    driver_id: UUID, data: DriverUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)
+):
     service = DriverService(db)
     try:
         return await service.update(driver_id, data)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=error_detail(e))
 
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -63,4 +70,4 @@ async def delete_driver(driver_id: UUID, db: AsyncSession = Depends(get_db), _: 
     try:
         await service.delete(driver_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=error_detail(e))

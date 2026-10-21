@@ -109,9 +109,18 @@ Open http://localhost:8000 in your browser.
 
 ### Internationalization
 
-Supported languages: Russian, English, Kazakh, Turkish.
+Supported languages: Bulgarian (`bg`, default) and English (`en`).
 
-Language can be switched from the top navigation bar and is stored per user.
+Browser pages resolve language from a valid `?lang=bg/en`, the signed session,
+the authenticated user preference, then Bulgarian. Browser headers do not change
+this default. The language switcher saves the selection in the session and user
+profile. Anonymous selections survive login, and logout retains the language.
+Query overrides affect only the current request.
+
+API requests resolve a valid query override, then supported `Accept-Language`
+preferences (including regional tags and quality values), then the authenticated
+user preference, then Bulgarian. Only lowercase `bg` and `en` preference writes
+are accepted. Background output takes an explicit locale and defaults to Bulgarian.
 
 ## API
 
@@ -122,6 +131,26 @@ REST API available at `/api/v1/`:
 - `GET /api/v1/reports/fleet-utilization` — fleet stats
 - `GET /api/v1/reports/export/tco.xlsx` — download Excel report
 - Full Swagger docs at `/docs`
+
+### Currency and exact money
+
+All new financial records use EUR exclusively. Omitted expense currency defaults
+to `EUR`; other codes, lowercase variants and explicit null currency are rejected
+on create and update. Monetary values use Decimal with the existing database
+precision: 12 digits including 2 decimals, or 8 including 2 for fuel unit prices.
+Excess precision is rejected. Report JSON monetary fields are exact decimal
+strings (an intentional API change); consumers must parse them as decimal values.
+Charts use numeric coordinates only for drawing and preserve exact amounts for
+labels. Pages display two decimals and the `EUR` code in either locale.
+
+Excel and BOM-prefixed UTF-8 CSV exports have localized headings and enum labels.
+CSV amounts remain decimal strings and dates remain ISO. Excel money cells use
+EUR formatting; values beyond Excel's reliable precision are stored as exact text.
+PDF report export is not implemented.
+
+Existing installations must follow [the EUR deployment procedure](docs/eur-deployment.md)
+before running migrations. Financial data blocks the schema transition until a
+separately reviewed remediation is approved. There is no automatic conversion.
 
 ## Development
 
@@ -146,6 +175,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### Run tests
 
 ```bash
+# Use an explicitly disposable PostgreSQL database, never development data.
+export TEST_DATABASE_URL=postgresql+asyncpg://test_user:password@localhost/fleetcore_test
+export TEST_DATABASE_URL_SYNC=postgresql+psycopg2://test_user:password@localhost/fleetcore_test
+VAULT_ADDR= VAULT_TOKEN= DATABASE_URL="$TEST_DATABASE_URL" DATABASE_URL_SYNC="$TEST_DATABASE_URL_SYNC" alembic upgrade head
 pytest tests/ -v
 ```
 
@@ -181,7 +214,7 @@ app/
 ├── repositories/    # Data access layer
 ├── tasks/           # Celery background tasks
 ├── templates/       # Jinja2 templates
-├── i18n/            # Translation files (ru, en, kz, tr)
+├── i18n/            # Translation files (bg, en)
 └── utils/           # Security, S3, email, export utilities
 ```
 

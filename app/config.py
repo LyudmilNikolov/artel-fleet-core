@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "FleetCore"
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
-    DEFAULT_LANGUAGE: str = "ru"
+    DEFAULT_LANGUAGE: str = "bg"
 
     # Database (no defaults — must come from Vault or env)
     DATABASE_URL: str = ""

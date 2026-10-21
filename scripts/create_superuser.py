@@ -1,23 +1,26 @@
 """Create a superuser (admin) account."""
 
+import argparse
 import asyncio
 import sys
 
 from app.database import AsyncSessionLocal
+from app.i18n import _
 from app.models.user import UserRole
 from app.services.auth_service import AuthService
+from app.services.errors import render_error
 
 
-async def main():
-    username = input("Username [admin]: ").strip() or "admin"
-    email = input("Email [admin@fleetcore.local]: ").strip() or "admin@fleetcore.local"
-    full_name = input("Full name [Administrator]: ").strip() or "Administrator"
-    password = input("Password (required): ").strip()
+async def main(locale="bg"):
+    username = input(_("cli.username", locale)).strip() or "admin"
+    email = input(_("cli.email", locale)).strip() or "admin@fleetcore.local"
+    full_name = input(_("cli.full_name", locale)).strip() or "Administrator"
+    password = input(_("cli.password", locale)).strip()
     if not password:
-        print("Error: password is required", file=sys.stderr)
+        print(_("cli.password_required", locale), file=sys.stderr)
         sys.exit(1)
     if len(password) < 8:
-        print("Error: password must be at least 8 characters", file=sys.stderr)
+        print(_("cli.password_length", locale), file=sys.stderr)
         sys.exit(1)
 
     async with AsyncSessionLocal() as session:
@@ -31,11 +34,13 @@ async def main():
                 role=UserRole.ADMIN,
             )
             await session.commit()
-            print(f"Superuser created: {user.username} ({user.email})")
+            print(_("cli.created", locale, username=user.username, email=user.email))
         except ValueError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(render_error(e, locale), file=sys.stderr)
             sys.exit(1)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--locale", choices=("bg", "en"), default="bg")
+    asyncio.run(main(parser.parse_args().locale))

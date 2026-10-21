@@ -10,6 +10,7 @@ from app.models.vehicle import BodyType, FuelType, VehicleStatus
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
+from app.services.errors import error_detail
 from app.services.vehicle_service import VehicleService
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -30,12 +31,20 @@ async def list_vehicles(
 ):
     service = VehicleService(db)
     items, total = await service.list_vehicles(
-        q=q, status=status, brand=brand, fuel_type=fuel_type,
-        body_type=body_type, department=department, page=page, size=size,
+        q=q,
+        status=status,
+        brand=brand,
+        fuel_type=fuel_type,
+        body_type=body_type,
+        department=department,
+        page=page,
+        size=size,
     )
     return PaginatedResponse(
         items=[VehicleRead.model_validate(v) for v in items],
-        total=total, page=page, size=size,
+        total=total,
+        page=page,
+        size=size,
         pages=BaseRepository.calc_pages(total, size),
     )
 
@@ -49,7 +58,7 @@ async def get_vehicle(
     service = VehicleService(db)
     vehicle = await service.get_by_id(vehicle_id)
     if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail="error.vehicle_not_found")
     return vehicle
 
 
@@ -63,7 +72,7 @@ async def create_vehicle(
     try:
         return await service.create(data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail(e))
 
 
 @router.patch("/{vehicle_id}", response_model=VehicleRead)
@@ -77,7 +86,7 @@ async def update_vehicle(
     try:
         return await service.update(vehicle_id, data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail(e))
 
 
 @router.delete("/{vehicle_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -90,4 +99,4 @@ async def delete_vehicle(
     try:
         await service.delete(vehicle_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=error_detail(e))

@@ -11,26 +11,26 @@ class ExpenseCreate(BaseModel):
     vehicle_id: UUID
     driver_id: UUID | None = None
     category: ExpenseCategory
-    amount: Decimal = Field(..., ge=0)
-    currency: Currency = Currency.KZT
+    amount: Decimal = Field(..., ge=0, max_digits=12, decimal_places=2)
+    currency: Currency = Currency.EUR
     date: dt.date
     description: str | None = None
     vendor: str | None = None
     fuel_liters: float | None = None
-    fuel_price_per_liter: Decimal | None = None
+    fuel_price_per_liter: Decimal | None = Field(None, max_digits=8, decimal_places=2)
     fuel_type: str | None = None
     mileage_at_refuel: int | None = None
 
 
 class ExpenseUpdate(BaseModel):
     category: ExpenseCategory | None = None
-    amount: Decimal | None = None
-    currency: Currency | None = None
+    amount: Decimal | None = Field(None, max_digits=12, decimal_places=2)
+    currency: Currency = Currency.EUR
     date: dt.date | None = None
     description: str | None = None
     vendor: str | None = None
     fuel_liters: float | None = None
-    fuel_price_per_liter: Decimal | None = None
+    fuel_price_per_liter: Decimal | None = Field(None, max_digits=8, decimal_places=2)
     fuel_type: str | None = None
     mileage_at_refuel: int | None = None
 

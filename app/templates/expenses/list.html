@@ -29,7 +29,7 @@
                     <td class="px-4 py-3">{{ e.date }}</td>
                     <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + e.category.value) }}</span></td>
                     <td class="px-4 py-3 text-gray-500">{{ e.vendor or '—' }}</td>
-                    <td class="px-4 py-3 text-right font-mono font-medium">{{ "{:,.2f}".format(e.amount|float) }} {{ e.currency.value }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-medium">{{ money(e.amount) }}</td>
                 </tr>
                 {% else %}<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
             </tbody>

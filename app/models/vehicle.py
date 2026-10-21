@@ -1,5 +1,6 @@
 import enum
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import Date, Enum, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -57,7 +58,7 @@ class Vehicle(Base, UUIDPrimaryKey, TimestampMixin):
     )
     seats: Mapped[int | None] = mapped_column(Integer, nullable=True)
     purchase_date: Mapped[str | None] = mapped_column(Date, nullable=True)
-    purchase_price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    purchase_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     current_mileage: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[VehicleStatus] = mapped_column(
         Enum(VehicleStatus, name="vehicle_status"),

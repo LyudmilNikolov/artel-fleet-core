@@ -14,7 +14,7 @@ class ContractCreate(BaseModel):
     contract_number: str | None = None
     start_date: date
     end_date: date
-    amount: Decimal | None = None
+    amount: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     payment_frequency: PaymentFrequency = PaymentFrequency.ONE_TIME
     status: ContractStatus = ContractStatus.ACTIVE
     auto_renew: bool = False
@@ -26,7 +26,7 @@ class ContractUpdate(BaseModel):
     contract_number: str | None = None
     start_date: date | None = None
     end_date: date | None = None
-    amount: Decimal | None = None
+    amount: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     payment_frequency: PaymentFrequency | None = None
     status: ContractStatus | None = None
     auto_renew: bool | None = None

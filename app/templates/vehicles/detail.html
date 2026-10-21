@@ -57,7 +57,7 @@
             {{ field(_('vehicle.current_mileage'), "{:,}".format(vehicle.current_mileage) ~ ' km') }}
             {{ field(_('vehicle.department'), vehicle.department) }}
             {{ field(_('vehicle.purchase_date'), vehicle.purchase_date) }}
-            {{ field(_('vehicle.purchase_price'), "{:,.0f}".format(vehicle.purchase_price) ~ ' KZT' if vehicle.purchase_price else '—') }}
+            {{ field(_('vehicle.purchase_price'), money(vehicle.purchase_price)) }}
         </div>
         {% if vehicle.notes %}
         <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">

@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.user import UserRole
 
@@ -12,7 +13,7 @@ class UserCreate(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=255)
     password: str = Field(..., min_length=6, max_length=128)
     role: UserRole = UserRole.VIEWER
-    language: str = Field("ru", max_length=5)
+    language: Literal["bg", "en"] = "bg"
 
 
 class UserUpdate(BaseModel):
@@ -20,7 +21,14 @@ class UserUpdate(BaseModel):
     full_name: str | None = Field(None, max_length=255)
     role: UserRole | None = None
     is_active: bool | None = None
-    language: str | None = Field(None, max_length=5)
+    language: Literal["bg", "en"] | None = None
+
+    @field_validator("language")
+    @classmethod
+    def language_must_be_supported(cls, value):
+        if value is None:
+            raise ValueError("validation.language")
+        return value
 
 
 class UserRead(BaseModel):

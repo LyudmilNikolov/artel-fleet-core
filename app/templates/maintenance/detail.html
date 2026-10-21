@@ -14,7 +14,7 @@
         {{ field(_('common.type'), _('maintenance_type.' + record.type.value)) }}
         {{ field(_('maintenance.scheduled_date'), record.scheduled_date) }}
         {{ field(_('maintenance.completed_date'), record.completed_date) }}
-        {{ field(_('maintenance.cost'), "{:,.0f}".format(record.cost) ~ ' KZT' if record.cost else '—') }}
+        {{ field(_('maintenance.cost'), money(record.cost)) }}
         {{ field(_('maintenance.service_provider'), record.service_provider) }}
         {{ field(_('maintenance.mileage_at_service'), "{:,}".format(record.mileage_at_service) ~ ' km' if record.mileage_at_service else '—') }}
     </div>

@@ -2,8 +2,10 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.i18n.locales import SUPPORTED_LANGUAGES
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.services.errors import DomainError
 from app.utils.security import (
     create_access_token,
     create_refresh_token,
@@ -26,16 +28,18 @@ class AuthService:
         full_name: str,
         password: str,
         role: UserRole = UserRole.VIEWER,
-        language: str = "ru",
+        language: str = "bg",
     ) -> User:
         """Register a new user."""
+        if language not in SUPPORTED_LANGUAGES:
+            raise DomainError("validation.language")
         existing = await self.repo.get_by_username(username)
         if existing:
-            raise ValueError("Username already taken")
+            raise DomainError("auth.username_taken")
 
         existing = await self.repo.get_by_email(email)
         if existing:
-            raise ValueError("Email already registered")
+            raise DomainError("auth.email_registered")
 
         user = await self.repo.create(
             email=email,
@@ -51,10 +55,10 @@ class AuthService:
         """Authenticate user, return (user, access_token, refresh_token)."""
         user = await self.repo.get_by_username(username)
         if not user or not verify_password(password, user.hashed_password):
-            raise ValueError("Invalid username or password")
+            raise DomainError("auth.invalid_credentials")
 
         if not user.is_active:
-            raise ValueError("User account is disabled")
+            raise DomainError("auth.disabled")
 
         access_token = create_access_token(user.id, user.role.value)
         refresh_token = create_refresh_token(user.id)
@@ -64,12 +68,12 @@ class AuthService:
         """Refresh access token."""
         payload = decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
-            raise ValueError("Invalid refresh token")
+            raise DomainError("auth.invalid_refresh")
 
         user_id = UUID(payload["sub"])
         user = await self.repo.get_by_id(user_id)
         if not user or not user.is_active:
-            raise ValueError("User not found or disabled")
+            raise DomainError("auth.user_disabled")
 
         new_access = create_access_token(user.id, user.role.value)
         new_refresh = create_refresh_token(user.id)
@@ -79,10 +83,10 @@ class AuthService:
         """Change user password."""
         user = await self.repo.get_by_id(user_id)
         if not user:
-            raise ValueError("User not found")
+            raise DomainError("auth.user_missing")
 
         if not verify_password(current_password, user.hashed_password):
-            raise ValueError("Current password is incorrect")
+            raise DomainError("auth.current_password_incorrect")
 
         await self.repo.update(user, hashed_password=hash_password(new_password))
 

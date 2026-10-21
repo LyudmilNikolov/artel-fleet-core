@@ -6,7 +6,7 @@
 
     {% if data.monthly|length > 0 %}
     <div class="mb-4">
-        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ "{:,.0f}".format(data.total) }} KZT</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ money(data.total) }}</p>
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ _('dashboard.total_expenses') }}</p>
     </div>
 
@@ -33,7 +33,7 @@
                     "></div>
                     <span class="text-sm text-gray-700 dark:text-gray-300">{{ _('expense_category.' + cat.category) }}</span>
                 </div>
-                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ "{:,.0f}".format(cat.total) }} KZT</span>
+                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ money(cat.total) }}</span>
             </div>
             {% endfor %}
         </div>
@@ -50,13 +50,15 @@
                 return;
             }
             const labels = {{ data.monthly | map(attribute='month') | list | tojson }};
-            const values = {{ data.monthly | map(attribute='total') | list | tojson }};
+            const valuesExact = [{% for row in data.monthly %}{{ (row.total | string) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const valuesDisplay = [{% for row in data.monthly %}{{ money(row.total) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const values = valuesExact.map(Number);
             new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels.map(l => {
                         const d = new Date(l);
-                        return d.toLocaleDateString('{{ lang }}', {month: 'short', year: '2-digit'});
+                        return d.toLocaleDateString({{ ('bg-BG' if lang == 'bg' else 'en-GB') | tojson }}, {month: 'short', year: '2-digit'});
                     }),
                     datasets: [{
                         data: values,
@@ -69,7 +71,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => valuesDisplay[context.dataIndex] } } },
                     scales: {
                         y: {
                             beginAtZero: true,

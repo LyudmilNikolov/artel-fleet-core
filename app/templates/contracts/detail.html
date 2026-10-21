@@ -16,7 +16,7 @@
         {{ field(_('contract.contract_number'), contract.contract_number) }}
         {{ field(_('contract.start_date'), contract.start_date) }}
         {{ field(_('contract.end_date'), contract.end_date) }}
-        {{ field(_('common.amount'), "{:,.0f}".format(contract.amount) ~ ' KZT' if contract.amount else '—') }}
+        {{ field(_('common.amount'), money(contract.amount)) }}
         {{ field(_('contract.payment_frequency'), _('payment_frequency.' + contract.payment_frequency.value)) }}
         {{ field(_('contract.auto_renew'), _('docs.yes') if contract.auto_renew else _('docs.no')) }}
     </div>

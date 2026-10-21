@@ -31,7 +31,7 @@
                     {{ c.start_date }} — {{ c.end_date }}
                 </td>
                 <td class="px-4 py-3 text-right font-mono font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                    {% if c.amount %}{{ "{:,.0f}".format(c.amount) }} ₸{% else %}—{% endif %}
+                    {{ money(c.amount) }}
                 </td>
             </tr>
             {% endfor %}

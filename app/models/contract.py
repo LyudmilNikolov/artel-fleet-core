@@ -1,5 +1,6 @@
 import enum
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import Boolean, Date, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -42,7 +43,7 @@ class Contract(Base, UUIDPrimaryKey, TimestampMixin):
     contract_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     start_date: Mapped[str] = mapped_column(Date, nullable=False)
     end_date: Mapped[str] = mapped_column(Date, nullable=False, index=True)
-    amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     payment_frequency: Mapped[PaymentFrequency] = mapped_column(
         Enum(PaymentFrequency, name="payment_frequency"), default=PaymentFrequency.ONE_TIME, nullable=False
     )

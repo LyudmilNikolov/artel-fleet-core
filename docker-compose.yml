@@ -62,7 +62,8 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio
+    # Community-maintained MinIO build; upstream Docker Hub image is unavailable.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     command: server /data --console-address ":9001"
     ports:
       - "9002:9000"
@@ -89,6 +90,7 @@ services:
       VAULT_TOKEN: dev-token  # DEV ONLY
       APP_ENV: development
       APP_DEBUG: "true"
+      MINIO_EXTERNAL_ENDPOINT: localhost:9002
     volumes:
       - ./app:/app/app
       - ./static:/app/static

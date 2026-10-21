@@ -1,18 +1,19 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.vehicle import BodyType, FuelType, TransmissionType, VehicleStatus
+from app.repositories.base import BaseRepository
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 from app.services.contract_service import ContractService
+from app.services.errors import render_error
 from app.services.expense_service import ExpenseService
 from app.services.maintenance_service import MaintenanceService
 from app.services.mileage_service import MileageService
 from app.services.vehicle_service import VehicleService
-from app.repositories.base import BaseRepository
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
@@ -38,8 +39,9 @@ async def vehicle_list(
     pages = BaseRepository.calc_pages(total, size)
 
     return request.app.state.templates.TemplateResponse(
-        "vehicles/list.html",
-        {
+        request=request,
+        name="vehicles/list.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "vehicles",
@@ -64,8 +66,9 @@ async def vehicle_form_new(request: Request, db: AsyncSession = Depends(get_db))
         return RedirectResponse(url="/login", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
-        "vehicles/form.html",
-        {
+        request=request,
+        name="vehicles/form.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "vehicles",
@@ -109,8 +112,9 @@ async def vehicle_create(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url=f"/vehicles/{vehicle.id}", status_code=302)
     except (ValueError, Exception) as e:
         return request.app.state.templates.TemplateResponse(
-            "vehicles/form.html",
-            {
+            request=request,
+            name="vehicles/form.html",
+            context={
                 "request": request,
                 "user": user,
                 "active_page": "vehicles",
@@ -119,7 +123,7 @@ async def vehicle_create(request: Request, db: AsyncSession = Depends(get_db)):
                 "fuel_types": FuelType,
                 "transmission_types": TransmissionType,
                 "statuses": VehicleStatus,
-                "error": str(e),
+                "error": render_error(e, request.state.locale),
                 **request.app.state.template_globals(request),
             },
         )
@@ -137,8 +141,9 @@ async def vehicle_detail(request: Request, vehicle_id: UUID, db: AsyncSession = 
         return RedirectResponse(url="/vehicles", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
-        "vehicles/detail.html",
-        {
+        request=request,
+        name="vehicles/detail.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "vehicles",
@@ -160,8 +165,9 @@ async def vehicle_form_edit(request: Request, vehicle_id: UUID, db: AsyncSession
         return RedirectResponse(url="/vehicles", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
-        "vehicles/form.html",
-        {
+        request=request,
+        name="vehicles/form.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "vehicles",
@@ -184,7 +190,19 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
 
     form = await request.form()
     update_data = {}
-    for field in ["license_plate", "vin", "brand", "model", "color", "body_type", "fuel_type", "transmission", "department", "notes", "status"]:
+    for field in [
+        "license_plate",
+        "vin",
+        "brand",
+        "model",
+        "color",
+        "body_type",
+        "fuel_type",
+        "transmission",
+        "department",
+        "notes",
+        "status",
+    ]:
         val = form.get(field)
         if val is not None and val != "":
             update_data[field] = val
@@ -206,8 +224,9 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
         service = VehicleService(db)
         vehicle = await service.get_by_id(vehicle_id)
         return request.app.state.templates.TemplateResponse(
-            "vehicles/form.html",
-            {
+            request=request,
+            name="vehicles/form.html",
+            context={
                 "request": request,
                 "user": user,
                 "active_page": "vehicles",
@@ -216,7 +235,7 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
                 "fuel_types": FuelType,
                 "transmission_types": TransmissionType,
                 "statuses": VehicleStatus,
-                "error": str(e),
+                "error": render_error(e, request.state.locale),
                 **request.app.state.template_globals(request),
             },
         )
@@ -227,7 +246,9 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
 
 @router.get("/{vehicle_id}/tab/mileage", response_class=HTMLResponse)
 async def vehicle_tab_mileage(
-    request: Request, vehicle_id: UUID, db: AsyncSession = Depends(get_db),
+    request: Request,
+    vehicle_id: UUID,
+    db: AsyncSession = Depends(get_db),
 ):
     user = await get_web_user(request, db)
     if not user:
@@ -237,14 +258,17 @@ async def vehicle_tab_mileage(
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
-        "vehicles/partials/tab_mileage.html",
-        {"request": request, "logs": logs, "vehicle_id": str(vehicle_id), **ctx},
+        request=request,
+        name="vehicles/partials/tab_mileage.html",
+        context={"request": request, "logs": logs, "vehicle_id": str(vehicle_id), **ctx},
     )
 
 
 @router.get("/{vehicle_id}/tab/maintenance", response_class=HTMLResponse)
 async def vehicle_tab_maintenance(
-    request: Request, vehicle_id: UUID, db: AsyncSession = Depends(get_db),
+    request: Request,
+    vehicle_id: UUID,
+    db: AsyncSession = Depends(get_db),
 ):
     user = await get_web_user(request, db)
     if not user:
@@ -254,15 +278,17 @@ async def vehicle_tab_maintenance(
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
-        "vehicles/partials/tab_maintenance.html",
-        {"request": request, "records": records, "total": total,
-         "vehicle_id": str(vehicle_id), **ctx},
+        request=request,
+        name="vehicles/partials/tab_maintenance.html",
+        context={"request": request, "records": records, "total": total, "vehicle_id": str(vehicle_id), **ctx},
     )
 
 
 @router.get("/{vehicle_id}/tab/expenses", response_class=HTMLResponse)
 async def vehicle_tab_expenses(
-    request: Request, vehicle_id: UUID, db: AsyncSession = Depends(get_db),
+    request: Request,
+    vehicle_id: UUID,
+    db: AsyncSession = Depends(get_db),
 ):
     user = await get_web_user(request, db)
     if not user:
@@ -272,15 +298,17 @@ async def vehicle_tab_expenses(
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
-        "vehicles/partials/tab_expenses.html",
-        {"request": request, "records": records, "total": total,
-         "vehicle_id": str(vehicle_id), **ctx},
+        request=request,
+        name="vehicles/partials/tab_expenses.html",
+        context={"request": request, "records": records, "total": total, "vehicle_id": str(vehicle_id), **ctx},
     )
 
 
 @router.get("/{vehicle_id}/tab/contracts", response_class=HTMLResponse)
 async def vehicle_tab_contracts(
-    request: Request, vehicle_id: UUID, db: AsyncSession = Depends(get_db),
+    request: Request,
+    vehicle_id: UUID,
+    db: AsyncSession = Depends(get_db),
 ):
     user = await get_web_user(request, db)
     if not user:
@@ -290,7 +318,7 @@ async def vehicle_tab_contracts(
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
-        "vehicles/partials/tab_contracts.html",
-        {"request": request, "records": records, "total": total,
-         "vehicle_id": str(vehicle_id), **ctx},
+        request=request,
+        name="vehicles/partials/tab_contracts.html",
+        context={"request": request, "records": records, "total": total, "vehicle_id": str(vehicle_id), **ctx},
     )

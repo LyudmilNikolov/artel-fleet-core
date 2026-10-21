@@ -49,8 +49,6 @@ async def test_duplicate_plate_raises(db_session: AsyncSession):
     await service.create(data)
 
     # Attempt to create a second vehicle with the same plate but different VIN
-    duplicate_data = VehicleCreate(
-        **{**VEHICLE_CREATE_DATA, "vin": "WVWZZZ3CZWE999999"}
-    )
-    with pytest.raises(ValueError, match="already exists"):
+    duplicate_data = VehicleCreate(**{**VEHICLE_CREATE_DATA, "vin": "WVWZZZ3CZWE999999"})
+    with pytest.raises(ValueError, match="error.plate_exists"):
         await service.create(duplicate_data)

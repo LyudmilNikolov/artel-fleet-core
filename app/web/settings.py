@@ -32,8 +32,9 @@ async def users_page(
     pages = max(1, (total + size - 1) // size)
 
     return templates.TemplateResponse(
-        "settings/users.html",
-        {
+        request=request,
+        name="settings/users.html",
+        context={
             "request": request,
             "user": user,
             "users": items,
@@ -77,8 +78,9 @@ async def audit_log_page(
     logs = result.scalars().all()
 
     return templates.TemplateResponse(
-        "settings/audit_log.html",
-        {
+        request=request,
+        name="settings/audit_log.html",
+        context={
             "request": request,
             "user": user,
             "logs": logs,

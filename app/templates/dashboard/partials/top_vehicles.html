@@ -17,7 +17,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ v.license_plate }}</p>
                 </div>
             </div>
-            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ "{:,.0f}".format(v.total_cost) }} KZT</span>
+            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ money(v.total_cost) }}</span>
         </a>
         {% endfor %}
     </div>

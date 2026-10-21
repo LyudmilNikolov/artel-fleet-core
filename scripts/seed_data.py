@@ -8,7 +8,7 @@ WARNING: This script creates demo users with a shared password (SeedPass!2024).
 import asyncio
 import random
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
+from app.i18n import _
 from app.models.audit_log import AuditAction, AuditLog
 from app.models.contract import Contract, ContractStatus, ContractType, PaymentFrequency
 from app.models.document import Document, DocumentType, EntityType
@@ -53,7 +54,27 @@ NUM_NOTIFICATIONS = 600
 NUM_AUDIT_LOGS = 2000
 
 # Kazakhstan regions (2-digit codes)
-KZ_REGIONS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"]
+KZ_REGIONS = [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+]
 KZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 # Popular car brands/models in KZ
@@ -108,22 +129,52 @@ VEHICLES_DATA = [
 
 COLORS = ["White", "Black", "Silver", "Gray", "Blue", "Red", "Green", "Brown", "Beige"]
 DEPARTMENTS = [
-    "Administration", "Logistics", "Sales", "Engineering", "IT", "HR",
-    "Finance", "Operations", "Marketing", "Supply Chain", "Transport Pool",
-    "Executive", "Field Service", "Maintenance Team", "Security",
+    "Administration",
+    "Logistics",
+    "Sales",
+    "Engineering",
+    "IT",
+    "HR",
+    "Finance",
+    "Operations",
+    "Marketing",
+    "Supply Chain",
+    "Transport Pool",
+    "Executive",
+    "Field Service",
+    "Maintenance Team",
+    "Security",
 ]
 
 SERVICE_PROVIDERS = [
-    "Toyota Center Almaty", "Hyundai Auto Kazakhstan", "Kia Motors Nur-Sultan",
-    "AutoMaster Service", "Bosch Car Service", "Shell Helix Center",
-    "Mobil 1 Center", "Total Service Station", "FIT Auto",
-    "German Auto Service", "Japan Car Service", "Korean Auto Center",
-    "Quick Lube Express", "TechnoService KZ", "Euro Auto Repair",
+    "Toyota Center Almaty",
+    "Hyundai Auto Kazakhstan",
+    "Kia Motors Nur-Sultan",
+    "AutoMaster Service",
+    "Bosch Car Service",
+    "Shell Helix Center",
+    "Mobil 1 Center",
+    "Total Service Station",
+    "FIT Auto",
+    "German Auto Service",
+    "Japan Car Service",
+    "Korean Auto Center",
+    "Quick Lube Express",
+    "TechnoService KZ",
+    "Euro Auto Repair",
 ]
 
 FUEL_STATIONS = [
-    "KazMunayGas", "Helios", "Sinooil", "Royal Petrol", "Shell",
-    "Total Energies", "AQNIET", "Gazpromneft", "Rompetrol", "Lukoil",
+    "KazMunayGas",
+    "Helios",
+    "Sinooil",
+    "Royal Petrol",
+    "Shell",
+    "Total Energies",
+    "AQNIET",
+    "Gazpromneft",
+    "Rompetrol",
+    "Lukoil",
 ]
 
 # User-Agent strings for audit logs
@@ -168,57 +219,105 @@ DOC_TEMPLATES = {
     ],
 }
 
-# Notification message templates (Russian)
-NOTIFICATION_TEMPLATES = {
-    NotificationType.MAINTENANCE_REMINDER: [
-        ("Плановое ТО через {days} дней", "Автомобиль {plate} — запланировано ТО на {date}. Пожалуйста, подтвердите запись в сервис-центр."),
-        ("Просрочено ТО!", "Для автомобиля {plate} просрочено плановое обслуживание (дата: {date}). Требуется немедленное внимание."),
-        ("Приближается сервисный пробег", "Автомобиль {plate} приближается к пробегу планового ТО ({mileage} км). Запланируйте визит."),
-    ],
-    NotificationType.CONTRACT_EXPIRY: [
-        ("Истекает контракт через {days} дней", "Контракт {contract} для {plate} истекает {date}. Рассмотрите возможность продления."),
-        ("Контракт истёк!", "Контракт {contract} для автомобиля {plate} истёк. Требуется продление или заключение нового."),
-    ],
-    NotificationType.LICENSE_EXPIRY: [
-        ("ВУ истекает через {days} дней", "Водительское удостоверение {driver} истекает {date}. Необходимо продление."),
-        ("ВУ просрочено!", "Водительское удостоверение {driver} просрочено с {date}. Водитель не может управлять ТС."),
-    ],
-    NotificationType.MEDICAL_EXPIRY: [
-        ("Мед. справка истекает через {days} дней", "Медицинская справка водителя {driver} истекает {date}. Запланируйте медосмотр."),
-        ("Мед. справка просрочена!", "Медицинская справка водителя {driver} просрочена с {date}. Водитель отстранён от работы."),
-    ],
-    NotificationType.MILEAGE_ALERT: [
-        ("Аномальный пробег", "Автомобиль {plate}: зафиксирован скачок пробега +{delta} км за день. Проверьте корректность данных."),
-    ],
-    NotificationType.BUDGET_ALERT: [
-        ("Превышение бюджета", "Расходы на автомобиль {plate} превысили месячный лимит на {amount} тг. Текущие расходы: {total} тг."),
-    ],
-    NotificationType.SYSTEM: [
-        ("Новый пользователь зарегистрирован", "В системе зарегистрирован новый пользователь: {user}. Роль: {role}."),
-        ("Обновление системы", "FleetCore обновлён до версии {version}. Подробности в журнале изменений."),
-        ("Резервная копия создана", "Автоматическая резервная копия базы данных успешно создана ({size})."),
-        ("Импорт данных завершён", "Импорт данных из файла {file} завершён. Обработано {count} записей."),
-    ],
+# Stable catalog keys for newly generated recipient-localized notifications.
+NOTIFICATION_VARIANTS = {
+    NotificationType.MAINTENANCE_REMINDER: 3,
+    NotificationType.CONTRACT_EXPIRY: 2,
+    NotificationType.LICENSE_EXPIRY: 2,
+    NotificationType.MEDICAL_EXPIRY: 2,
+    NotificationType.MILEAGE_ALERT: 1,
+    NotificationType.BUDGET_ALERT: 1,
+    NotificationType.SYSTEM: 4,
 }
+
+
+def notification_templates(locale, notification_type):
+    """Resolve application-owned seed text explicitly for its recipient."""
+    locale = locale if locale in ("bg", "en") else "bg"
+    prefix = "seed.notification." + notification_type.value
+    return [
+        (_(f"{prefix}.{index}.title", locale), _(f"{prefix}.{index}.message", locale))
+        for index in range(NOTIFICATION_VARIANTS[notification_type])
+    ]
+
 
 # Kazakh first names (male and female)
 KZ_FIRST_NAMES = [
-    "Arman", "Nursultan", "Daulet", "Aibek", "Kanat", "Marat", "Ruslan",
-    "Yerlan", "Bauyrzhan", "Serik", "Aidar", "Nurzhan", "Timur", "Daniyar",
-    "Zhenis", "Askar", "Bolat", "Erbol", "Samat", "Kairat", "Amir",
-    "Aliya", "Dinara", "Zarina", "Aigul", "Madina", "Saltanat", "Asel",
-    "Gulnara", "Zhanna", "Raushan", "Ainur", "Kamila", "Laura", "Dana",
-    "Aizhan", "Moldir", "Symbat", "Nurgul", "Akmaral", "Zhaniya",
+    "Arman",
+    "Nursultan",
+    "Daulet",
+    "Aibek",
+    "Kanat",
+    "Marat",
+    "Ruslan",
+    "Yerlan",
+    "Bauyrzhan",
+    "Serik",
+    "Aidar",
+    "Nurzhan",
+    "Timur",
+    "Daniyar",
+    "Zhenis",
+    "Askar",
+    "Bolat",
+    "Erbol",
+    "Samat",
+    "Kairat",
+    "Amir",
+    "Aliya",
+    "Dinara",
+    "Zarina",
+    "Aigul",
+    "Madina",
+    "Saltanat",
+    "Asel",
+    "Gulnara",
+    "Zhanna",
+    "Raushan",
+    "Ainur",
+    "Kamila",
+    "Laura",
+    "Dana",
+    "Aizhan",
+    "Moldir",
+    "Symbat",
+    "Nurgul",
+    "Akmaral",
+    "Zhaniya",
 ]
 
 # Kazakh last names
 KZ_LAST_NAMES = [
-    "Aitbayev", "Baymuratov", "Dzhakishev", "Ermagambetov", "Iskakov",
-    "Kenzhebayev", "Muratov", "Nazarbayev", "Omarov", "Sarsenbayev",
-    "Tokayev", "Urazov", "Zhanseitov", "Abdrakhmanov", "Bektemirov",
-    "Dosymov", "Gabbasov", "Kairatov", "Mustafin", "Nurpeisov",
-    "Rakhimov", "Serikbayev", "Tursynbayev", "Yergaliyev", "Zhumatov",
-    "Almukhamedov", "Batyrbekov", "Galimov", "Kadyrbekov", "Mazhitov",
+    "Aitbayev",
+    "Baymuratov",
+    "Dzhakishev",
+    "Ermagambetov",
+    "Iskakov",
+    "Kenzhebayev",
+    "Muratov",
+    "Nazarbayev",
+    "Omarov",
+    "Sarsenbayev",
+    "Tokayev",
+    "Urazov",
+    "Zhanseitov",
+    "Abdrakhmanov",
+    "Bektemirov",
+    "Dosymov",
+    "Gabbasov",
+    "Kairatov",
+    "Mustafin",
+    "Nurpeisov",
+    "Rakhimov",
+    "Serikbayev",
+    "Tursynbayev",
+    "Yergaliyev",
+    "Zhumatov",
+    "Almukhamedov",
+    "Batyrbekov",
+    "Galimov",
+    "Kadyrbekov",
+    "Mazhitov",
 ]
 
 
@@ -246,7 +345,7 @@ def rand_date(start: date, end: date) -> date:
 def rand_datetime(start: date, end: date) -> datetime:
     """Generate a random timezone-aware datetime between two dates."""
     d = rand_date(start, end)
-    return datetime(d.year, d.month, d.day, random.randint(6, 22), random.randint(0, 59), tzinfo=timezone.utc)
+    return datetime(d.year, d.month, d.day, random.randint(6, 22), random.randint(0, 59), tzinfo=UTC)
 
 
 def rand_ip() -> str:
@@ -263,9 +362,20 @@ async def seed():
         # Clean existing seed data (keep admin user)
         print("Cleaning existing data...")
         from sqlalchemy import delete
+
         # Delete in order respecting FK constraints
-        for tbl in [AuditLog, Notification, NotificationPreference, Document, MileageLog,
-                     Expense, MaintenanceRecord, Contract, Vehicle, Driver]:
+        for tbl in [
+            AuditLog,
+            Notification,
+            NotificationPreference,
+            Document,
+            MileageLog,
+            Expense,
+            MaintenanceRecord,
+            Contract,
+            Vehicle,
+            Driver,
+        ]:
             await db.execute(delete(tbl))
         # Delete non-admin users
         await db.execute(delete(User).where(User.role != UserRole.ADMIN))
@@ -282,25 +392,25 @@ async def seed():
         users = []
         for i in range(5):
             user = User(
-                email=f"manager{i+1}@fleetcore.kz",
-                username=f"manager{i+1}",
+                email=f"manager{i + 1}@fleetcore.kz",
+                username=f"manager{i + 1}",
                 full_name=f"{random.choice(KZ_FIRST_NAMES)} {random.choice(KZ_LAST_NAMES)}",
                 hashed_password=hash_password("SeedPass!2024"),
                 role=UserRole.FLEET_MANAGER,
                 is_active=True,
-                language="ru",
+                language="bg",
             )
             db.add(user)
             users.append(user)
         for i in range(3):
             user = User(
-                email=f"viewer{i+1}@fleetcore.kz",
-                username=f"viewer{i+1}",
+                email=f"viewer{i + 1}@fleetcore.kz",
+                username=f"viewer{i + 1}",
                 full_name=f"{random.choice(KZ_FIRST_NAMES)} {random.choice(KZ_LAST_NAMES)}",
                 hashed_password=hash_password("SeedPass!2024"),
                 role=UserRole.VIEWER,
                 is_active=True,
-                language="ru",
+                language="bg",
             )
             db.add(user)
             users.append(user)
@@ -349,7 +459,12 @@ async def seed():
             year = random.randint(2016, 2025)
             purchase = rand_date(date(year, 1, 1), min(date(year, 12, 31), date.today()))
             status = random.choices(
-                [VehicleStatus.ACTIVE, VehicleStatus.IN_MAINTENANCE, VehicleStatus.DECOMMISSIONED, VehicleStatus.RESERVED],
+                [
+                    VehicleStatus.ACTIVE,
+                    VehicleStatus.IN_MAINTENANCE,
+                    VehicleStatus.DECOMMISSIONED,
+                    VehicleStatus.RESERVED,
+                ],
                 weights=[80, 10, 5, 5],
             )[0]
             plate = gen_plate()
@@ -363,8 +478,10 @@ async def seed():
 
             transmission = random.choice(list(TransmissionType))
             mileage = random.randint(5000, 350000) if year < 2025 else random.randint(0, 30000)
-            price = Decimal(str(random.randint(3_000_000, 45_000_000)))
-            assigned_driver = random.choice(active_driver_ids) if status == VehicleStatus.ACTIVE and random.random() > 0.3 else None
+            price = Decimal(random.randint(6000, 90000))
+            assigned_driver = (
+                random.choice(active_driver_ids) if status == VehicleStatus.ACTIVE and random.random() > 0.3 else None
+            )
 
             vehicle = Vehicle(
                 license_plate=plate,
@@ -377,7 +494,9 @@ async def seed():
                 fuel_type=FuelType(fuel),
                 engine_volume=engine,
                 transmission=transmission,
-                seats=random.choice([2, 5, 7, 8, 15, 25, 45]) if body in ("bus", "minivan") else random.choice([2, 5, 7]),
+                seats=random.choice([2, 5, 7, 8, 15, 25, 45])
+                if body in ("bus", "minivan")
+                else random.choice([2, 5, 7]),
                 purchase_date=purchase,
                 purchase_price=price,
                 current_mileage=mileage,
@@ -390,7 +509,9 @@ async def seed():
             vehicles.append(vehicle)
         await db.flush()
         vehicle_ids = [v.id for v in vehicles]
-        active_vehicle_ids = [v.id for v in vehicles if v.status in (VehicleStatus.ACTIVE, VehicleStatus.IN_MAINTENANCE)]
+        active_vehicle_ids = [
+            v.id for v in vehicles if v.status in (VehicleStatus.ACTIVE, VehicleStatus.IN_MAINTENANCE)
+        ]
 
         # ---- Create maintenance records ----
         print(f"Creating {NUM_MAINTENANCE} maintenance records...")
@@ -443,11 +564,18 @@ async def seed():
             title = random.choice(maint_titles[mtype])
             scheduled = rand_date(today - timedelta(days=365), today + timedelta(days=90))
             status = random.choices(
-                [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS, MaintenanceStatus.COMPLETED, MaintenanceStatus.CANCELLED],
+                [
+                    MaintenanceStatus.SCHEDULED,
+                    MaintenanceStatus.IN_PROGRESS,
+                    MaintenanceStatus.COMPLETED,
+                    MaintenanceStatus.CANCELLED,
+                ],
                 weights=[25, 10, 55, 10],
             )[0]
-            completed = scheduled + timedelta(days=random.randint(0, 5)) if status == MaintenanceStatus.COMPLETED else None
-            cost = Decimal(str(random.randint(5000, 500000))) if status == MaintenanceStatus.COMPLETED else None
+            completed = (
+                scheduled + timedelta(days=random.randint(0, 5)) if status == MaintenanceStatus.COMPLETED else None
+            )
+            cost = Decimal(random.randint(10, 1000)) if status == MaintenanceStatus.COMPLETED else None
             vid = random.choice(active_vehicle_ids)
 
             record = MaintenanceRecord(
@@ -460,7 +588,9 @@ async def seed():
                 completed_date=completed,
                 mileage_at_service=random.randint(10000, 300000),
                 next_service_mileage=random.randint(10000, 300000) + 10000 if random.random() > 0.5 else None,
-                next_service_date=scheduled + timedelta(days=random.randint(90, 365)) if random.random() > 0.5 else None,
+                next_service_date=scheduled + timedelta(days=random.randint(90, 365))
+                if random.random() > 0.5
+                else None,
                 cost=cost,
                 service_provider=random.choice(SERVICE_PROVIDERS),
                 performed_by=f"{random.choice(KZ_FIRST_NAMES)} {random.choice(KZ_LAST_NAMES)}",
@@ -469,7 +599,6 @@ async def seed():
             db.add(record)
             maintenance_objs.append(record)
         await db.flush()
-        maintenance_ids = [m.id for m in maintenance_objs]
 
         # ---- Create expenses ----
         print(f"Creating {NUM_EXPENSES} expense records...")
@@ -483,25 +612,29 @@ async def seed():
 
             if category == ExpenseCategory.FUEL:
                 liters = round(random.uniform(20, 80), 1)
-                price_per_liter = Decimal(str(round(random.uniform(180, 320), 2)))
-                amount = Decimal(str(round(float(price_per_liter) * liters, 2)))
+                price_per_liter = Decimal(random.randint(120, 200)) / 100
+                amount = (price_per_liter * Decimal(str(liters))).quantize(Decimal("0.01"))
                 fuel_type = random.choice(["AI-92", "AI-95", "AI-98", "DT"])
                 mileage_at_refuel = random.randint(10000, 300000)
                 vendor = random.choice(FUEL_STATIONS)
             else:
                 liters = None
                 price_per_liter = None
-                amount = Decimal(str(random.randint(1000, 300000)))
+                amount = Decimal(random.randint(10, 3000))
                 fuel_type = None
                 mileage_at_refuel = None
-                vendor = random.choice(SERVICE_PROVIDERS + FUEL_STATIONS) if category in (ExpenseCategory.PARTS, ExpenseCategory.SERVICE) else None
+                vendor = (
+                    random.choice(SERVICE_PROVIDERS + FUEL_STATIONS)
+                    if category in (ExpenseCategory.PARTS, ExpenseCategory.SERVICE)
+                    else None
+                )
 
             expense = Expense(
                 vehicle_id=vid,
                 driver_id=random.choice(active_driver_ids) if random.random() > 0.3 else None,
                 category=category,
                 amount=amount,
-                currency=Currency.KZT,
+                currency=Currency.EUR,
                 date=exp_date,
                 description=f"{category.value}: запись расхода",
                 vendor=vendor,
@@ -518,8 +651,18 @@ async def seed():
         contractors = {
             ContractType.LEASING: ["KazFinance Leasing", "Halyk Leasing", "BCC Leasing", "Freedom Finance Leasing"],
             ContractType.RENTAL: ["AutoRent KZ", "Hertz Kazakhstan", "Europcar KZ", "Sixt Kazakhstan"],
-            ContractType.INSURANCE_CASCO: ["Nomad Insurance", "Eurasia Insurance", "Halyk Insurance", "Freedom Insurance"],
-            ContractType.INSURANCE_OSAGO: ["Nomad Insurance", "Eurasia Insurance", "Halyk Insurance", "KompetenzGarant"],
+            ContractType.INSURANCE_CASCO: [
+                "Nomad Insurance",
+                "Eurasia Insurance",
+                "Halyk Insurance",
+                "Freedom Insurance",
+            ],
+            ContractType.INSURANCE_OSAGO: [
+                "Nomad Insurance",
+                "Eurasia Insurance",
+                "Halyk Insurance",
+                "KompetenzGarant",
+            ],
             ContractType.WARRANTY: ["Toyota Kazakhstan", "Hyundai Kazakhstan", "Kia Kazakhstan", "Official Dealer"],
             ContractType.SERVICE_CONTRACT: SERVICE_PROVIDERS[:8],
         }
@@ -541,7 +684,7 @@ async def seed():
                 contract_number=f"{ctype.value[:3].upper()}-{random.randint(10000, 99999)}",
                 start_date=start,
                 end_date=end,
-                amount=Decimal(str(random.randint(50000, 5_000_000))),
+                amount=Decimal(random.randint(100, 10000)),
                 payment_frequency=random.choice(list(PaymentFrequency)),
                 status=status,
                 auto_renew=random.random() > 0.7,
@@ -578,9 +721,7 @@ async def seed():
                 continue
 
             # Generate sorted timestamps and monotonically increasing mileage values
-            log_dates = sorted(
-                [rand_date(purchase_d, today) for _ in range(num_logs)]
-            )
+            log_dates = sorted([rand_date(purchase_d, today) for _ in range(num_logs)])
             # Generate increasing mileage points
             points = sorted(random.sample(range(1000, max(1001, total_km)), min(num_logs, max(1, total_km - 1000))))
             # If fewer points than dates, pad with the last value
@@ -608,7 +749,9 @@ async def seed():
                 break
 
         # Fill remaining slots with random logs
-        remaining_vehicles = [v for v in vehicles if v.status != VehicleStatus.DECOMMISSIONED and v.current_mileage > 1000]
+        remaining_vehicles = [
+            v for v in vehicles if v.status != VehicleStatus.DECOMMISSIONED and v.current_mileage > 1000
+        ]
         while logs_created < NUM_MILEAGE_LOGS and remaining_vehicles:
             v = random.choice(remaining_vehicles)
             purchase_d = v.purchase_date or date(v.year, 6, 1)
@@ -644,9 +787,7 @@ async def seed():
                     mime_type=tpl[1],
                     size_bytes=random.randint(tpl[2][0], tpl[2][1]),
                     uploaded_by=random.choice(all_user_ids) if all_user_ids else None,
-                    uploaded_at=rand_datetime(
-                        v.purchase_date or date(v.year, 1, 1), today
-                    ),
+                    uploaded_at=rand_datetime(v.purchase_date or date(v.year, 1, 1), today),
                 )
                 db.add(doc)
                 doc_counter += 1
@@ -715,7 +856,9 @@ async def seed():
 
         # Expense receipts (fill remaining)
         while doc_counter < NUM_DOCUMENTS:
-            doc_type = random.choice([DocumentType.SCAN, DocumentType.INVOICE, DocumentType.INSURANCE, DocumentType.OTHER])
+            doc_type = random.choice(
+                [DocumentType.SCAN, DocumentType.INVOICE, DocumentType.INSURANCE, DocumentType.OTHER]
+            )
             templates = DOC_TEMPLATES.get(doc_type, DOC_TEMPLATES[DocumentType.SCAN])
             tpl = random.choice(templates)
             doc = Document(
@@ -738,12 +881,16 @@ async def seed():
         sample_plates = [v.license_plate for v in random.sample(vehicles, min(50, len(vehicles)))]
         sample_driver_names = [d.full_name for d in random.sample(drivers, min(50, len(drivers)))]
 
+        notification_users = {u.id: u for u in users}
+        if admin is not None:
+            notification_users[admin.id] = admin
         for i in range(NUM_NOTIFICATIONS):
             ntype = random.choices(
                 list(NotificationType),
                 weights=[25, 20, 15, 10, 10, 5, 15],  # maintenance most common
             )[0]
-            templates = NOTIFICATION_TEMPLATES[ntype]
+            recipient = random.choice(list(notification_users.values()))
+            templates = notification_templates(recipient.language, ntype)
             title_tpl, msg_tpl = random.choice(templates)
 
             # Fill template placeholders
@@ -781,7 +928,11 @@ async def seed():
             # Determine entity reference
             entity_type_str = None
             entity_id_val = None
-            if ntype in (NotificationType.MAINTENANCE_REMINDER, NotificationType.MILEAGE_ALERT, NotificationType.BUDGET_ALERT):
+            if ntype in (
+                NotificationType.MAINTENANCE_REMINDER,
+                NotificationType.MILEAGE_ALERT,
+                NotificationType.BUDGET_ALERT,
+            ):
                 entity_type_str = "vehicle"
                 entity_id_val = random.choice(vehicle_ids)
             elif ntype == NotificationType.CONTRACT_EXPIRY:
@@ -792,7 +943,7 @@ async def seed():
                 entity_id_val = random.choice([d.id for d in drivers])
 
             notif = Notification(
-                user_id=random.choice(all_user_ids),
+                user_id=recipient.id,
                 title=title,
                 message=message,
                 type=ntype,
@@ -840,25 +991,44 @@ async def seed():
             changes = None
             if action == AuditAction.CREATE:
                 if entity_type == "vehicle":
-                    changes = {"license_plate": gen_plate(), "brand": random.choice(["Toyota", "Hyundai", "Kia"]), "status": "active"}
+                    changes = {
+                        "license_plate": gen_plate(),
+                        "brand": random.choice(["Toyota", "Hyundai", "Kia"]),
+                        "status": "active",
+                    }
                 elif entity_type == "driver":
-                    changes = {"full_name": f"{random.choice(KZ_FIRST_NAMES)} {random.choice(KZ_LAST_NAMES)}", "status": "active"}
+                    changes = {
+                        "full_name": f"{random.choice(KZ_FIRST_NAMES)} {random.choice(KZ_LAST_NAMES)}",
+                        "status": "active",
+                    }
                 elif entity_type == "expense":
-                    changes = {"amount": str(random.randint(5000, 300000)), "category": random.choice(["fuel", "parts", "service"])}
+                    changes = {
+                        "amount": str(random.randint(5000, 300000)),
+                        "category": random.choice(["fuel", "parts", "service"]),
+                    }
                 else:
                     changes = {"action": "created"}
             elif action == AuditAction.UPDATE:
                 if entity_type == "vehicle":
                     field = random.choice(["status", "current_mileage", "assigned_driver_id", "department", "notes"])
                     if field == "status":
-                        changes = {"old": {"status": "active"}, "new": {"status": random.choice(["in_maintenance", "reserved", "active"])}}
+                        changes = {
+                            "old": {"status": "active"},
+                            "new": {"status": random.choice(["in_maintenance", "reserved", "active"])},
+                        }
                     elif field == "current_mileage":
                         old_km = random.randint(10000, 200000)
-                        changes = {"old": {"current_mileage": old_km}, "new": {"current_mileage": old_km + random.randint(500, 5000)}}
+                        changes = {
+                            "old": {"current_mileage": old_km},
+                            "new": {"current_mileage": old_km + random.randint(500, 5000)},
+                        }
                     else:
                         changes = {"old": {field: "old_value"}, "new": {field: "new_value"}}
                 elif entity_type == "maintenance":
-                    changes = {"old": {"status": "scheduled"}, "new": {"status": random.choice(["in_progress", "completed"])}}
+                    changes = {
+                        "old": {"status": "scheduled"},
+                        "new": {"status": random.choice(["in_progress", "completed"])},
+                    }
                 elif entity_type == "driver":
                     changes = {"old": {"status": "active"}, "new": {"status": random.choice(["on_leave", "active"])}}
                 else:
@@ -866,7 +1036,7 @@ async def seed():
             elif action == AuditAction.DELETE:
                 changes = {"deleted_entity": entity_type, "id": str(uuid4())}
             elif action == AuditAction.EXPORT:
-                changes = {"format": random.choice(["xlsx", "pdf", "csv"]), "records": random.randint(10, 5000)}
+                changes = {"format": random.choice(["xlsx", "csv"]), "records": random.randint(10, 5000)}
             # LOGIN/LOGOUT have no changes
 
             audit = AuditLog(
@@ -883,7 +1053,7 @@ async def seed():
 
         # ---- Commit all ----
         await db.commit()
-        print(f"\nSeed data created successfully!")
+        print("\nSeed data created successfully!")
         print(f"  Users:              {len(users)} new (+ existing)")
         print(f"  Drivers:            {NUM_DRIVERS}")
         print(f"  Vehicles:           {NUM_VEHICLES}")
@@ -894,10 +1064,20 @@ async def seed():
         print(f"  Documents:          {NUM_DOCUMENTS}")
         print(f"  Notifications:      {NUM_NOTIFICATIONS}")
         print(f"  Audit logs:         {NUM_AUDIT_LOGS}")
-        total = (len(users) + NUM_DRIVERS + NUM_VEHICLES + NUM_MILEAGE_LOGS +
-                 NUM_MAINTENANCE + NUM_EXPENSES + NUM_CONTRACTS + NUM_DOCUMENTS +
-                 NUM_NOTIFICATIONS + NUM_AUDIT_LOGS + len(all_user_ids))  # notif prefs
-        print(f"  ─────────────────────────────")
+        total = (
+            len(users)
+            + NUM_DRIVERS
+            + NUM_VEHICLES
+            + NUM_MILEAGE_LOGS
+            + NUM_MAINTENANCE
+            + NUM_EXPENSES
+            + NUM_CONTRACTS
+            + NUM_DOCUMENTS
+            + NUM_NOTIFICATIONS
+            + NUM_AUDIT_LOGS
+            + len(all_user_ids)
+        )  # notif prefs
+        print("  ─────────────────────────────")
         print(f"  TOTAL records:      ~{total}")
 
 

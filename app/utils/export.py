@@ -1,7 +1,8 @@
-"""Export utilities for Excel and PDF generation."""
+"""Export utilities for Excel and CSV generation."""
 
 import io
-from datetime import date, datetime
+from datetime import date
+from decimal import Decimal
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -11,10 +12,11 @@ from openpyxl.utils import get_column_letter
 class ExcelExporter:
     """Generate Excel (.xlsx) files from tabular data."""
 
-    def __init__(self, title: str = "Report"):
+    def __init__(self, title: str = "Report", monetary_columns: tuple[int, ...] = ()):
+        self.monetary_columns = monetary_columns
         self.wb = Workbook()
         self.ws = self.wb.active
-        self.ws.title = title
+        self.ws.title = title[:31]
         self._row = 1
         self._header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
         self._header_font = Font(bold=True, color="FFFFFF", size=11)
@@ -41,12 +43,18 @@ class ExcelExporter:
     def add_row(self, values: list):
         """Add a data row."""
         for col, value in enumerate(values, 1):
-            cell = self.ws.cell(row=self._row, column=col, value=value)
-            if isinstance(value, (int, float)):
-                cell.number_format = "#,##0.00"
+            cell = self.ws.cell(row=self._row, column=col, value=self._excel_value(value))
+            if col in self.monetary_columns and isinstance(value, (int, float, Decimal)):
+                cell.number_format = '#,##0.00 "EUR"'
             elif isinstance(value, date):
                 cell.number_format = "YYYY-MM-DD"
         self._row += 1
+
+    @staticmethod
+    def _excel_value(value):
+        if isinstance(value, Decimal) and len(value.as_tuple().digits) > 15:
+            return format(value, "f")
+        return value
 
     def add_rows(self, rows: list[list]):
         """Add multiple data rows."""
@@ -56,10 +64,10 @@ class ExcelExporter:
     def add_summary_row(self, values: list):
         """Add a bold summary row."""
         for col, value in enumerate(values, 1):
-            cell = self.ws.cell(row=self._row, column=col, value=value)
+            cell = self.ws.cell(row=self._row, column=col, value=self._excel_value(value))
             cell.font = Font(bold=True)
-            if isinstance(value, (int, float)):
-                cell.number_format = "#,##0.00"
+            if col in self.monetary_columns and isinstance(value, (int, float, Decimal)):
+                cell.number_format = '#,##0.00 "EUR"'
         self._row += 1
 
     def auto_width(self):

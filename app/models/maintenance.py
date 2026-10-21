@@ -1,5 +1,6 @@
 import enum
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import Date, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -41,7 +42,7 @@ class MaintenanceRecord(Base, UUIDPrimaryKey, TimestampMixin):
     mileage_at_service: Mapped[int | None] = mapped_column(Integer, nullable=True)
     next_service_mileage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     next_service_date: Mapped[str | None] = mapped_column(Date, nullable=True)
-    cost: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     service_provider: Mapped[str | None] = mapped_column(String(300), nullable=True)
     performed_by: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
