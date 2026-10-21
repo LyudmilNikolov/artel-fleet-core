@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_fleet_manager
 from app.database import get_db
 from app.models.user import User
-from app.models.vehicle import BodyType, FuelType, VehicleStatus
+from app.models.vehicle import FuelType, VehicleStatus, VehicleType
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
@@ -22,7 +22,7 @@ async def list_vehicles(
     status: VehicleStatus | None = None,
     brand: str | None = None,
     fuel_type: FuelType | None = None,
-    body_type: BodyType | None = None,
+    vehicle_type: VehicleType | None = None,
     department: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
@@ -35,7 +35,7 @@ async def list_vehicles(
         status=status,
         brand=brand,
         fuel_type=fuel_type,
-        body_type=body_type,
+        vehicle_type=vehicle_type,
         department=department,
         page=page,
         size=size,
@@ -47,6 +47,11 @@ async def list_vehicles(
         size=size,
         pages=BaseRepository.calc_pages(total, size),
     )
+
+
+@router.get("/departments", response_model=list[str])
+async def vehicle_departments(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
+    return await VehicleService(db).departments()
 
 
 @router.get("/{vehicle_id}", response_model=VehicleRead)
@@ -70,7 +75,7 @@ async def create_vehicle(
 ):
     service = VehicleService(db)
     try:
-        return await service.create(data)
+        return await service.create(data, user_id=_.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=error_detail(e))
 
@@ -84,7 +89,7 @@ async def update_vehicle(
 ):
     service = VehicleService(db)
     try:
-        return await service.update(vehicle_id, data)
+        return await service.update(vehicle_id, data, user_id=_.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=error_detail(e))
 

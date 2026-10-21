@@ -88,6 +88,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      VEHICLE_DEPARTMENTS: '${VEHICLE_DEPARTMENTS:-[]}'
       APP_ENV: development
       APP_DEBUG: "true"
       MINIO_EXTERNAL_ENDPOINT: localhost:9002
@@ -117,6 +118,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      VEHICLE_DEPARTMENTS: '${VEHICLE_DEPARTMENTS:-[]}'
     volumes:
       - ./app:/app/app
 
@@ -133,6 +135,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      VEHICLE_DEPARTMENTS: '${VEHICLE_DEPARTMENTS:-[]}'
     volumes:
       - ./app:/app/app
 

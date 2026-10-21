@@ -12,7 +12,7 @@ class EntityType(str, enum.Enum):
     VEHICLE = "vehicle"
     DRIVER = "driver"
     MAINTENANCE = "maintenance"
-    CONTRACT = "contract"
+    COMPLIANCE_DOCUMENT = "compliance_document"
     EXPENSE = "expense"
 
 

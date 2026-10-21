@@ -44,10 +44,12 @@ def test_dashboard_money_remains_exact(templates):
     assert "valuesDisplay[context.dataIndex]" in rendered
 
 
-def test_expense_currency_control_is_fixed_eur(templates):
+def test_expense_form_has_no_currency_control_only_eur(templates):
+    """Only EUR is supported: no currency input or choices, the amount label names the currency."""
     text = Path("app/templates/expenses/form.html").read_text()
-    assert 'name="currency" value="EUR" readonly' in text
+    assert 'name="currency"' not in text
     assert "for c in currencies" not in text
+    assert "(EUR)" in text
 
 
 def test_report_templates_render_decimal_and_missing_purchase_price(templates):
@@ -64,6 +66,8 @@ def test_report_templates_render_decimal_and_missing_purchase_price(templates):
             {
                 "vehicle_id": "test",
                 "license_plate": "123 ABC 01",
+                "vehicle_type": "passenger_car",
+                "year": None,
                 "brand": "Brand",
                 "model": "Model",
                 "purchase_price": None,
@@ -80,6 +84,8 @@ def test_report_templates_render_decimal_and_missing_purchase_price(templates):
             {
                 "vehicle_id": "test",
                 "license_plate": "123 ABC 01",
+                "vehicle_type": "passenger_car",
+                "year": None,
                 "brand": "Brand",
                 "model": "Model",
                 "total_liters": 2.0,

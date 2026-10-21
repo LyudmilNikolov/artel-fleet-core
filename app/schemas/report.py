@@ -8,9 +8,10 @@ from pydantic import BaseModel
 class TCOReportRow(BaseModel):
     id: str
     license_plate: str
+    vehicle_type: str
     brand: str
     model: str
-    year: int
+    year: int | None
     purchase_price: Decimal | None
     total_expenses: Decimal
     tco: Decimal
@@ -19,6 +20,7 @@ class TCOReportRow(BaseModel):
 class FuelReportRow(BaseModel):
     id: str
     license_plate: str
+    vehicle_type: str
     brand: str
     model: str
     total_liters: float
@@ -49,6 +51,7 @@ class ExpenseAnalysis(BaseModel):
 class MaintenanceReportRow(BaseModel):
     id: str
     license_plate: str
+    vehicle_type: str
     brand: str
     model: str
     type: str

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% if mode == 'renew' %}{% set heading = _('compliance.renew_title', type=_('compliance_type.' + source.document_type), plate=source.vehicle.license_plate) %}
+{% elif mode == 'edit' %}{% set heading = _('compliance.edit') %}
+{% else %}{% set heading = _('compliance.add') %}{% endif %}
+{% block title %}{{ heading }} — {{ _('nav.compliance') }}{% endblock %}
+{% block page_title %}{{ heading }}{% endblock %}
+{% macro field_error(name) %}{% if field_errors.get(name) %}<p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
+{% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
+{% block content %}
+<div class="max-w-3xl">
+    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
+    {% if mode == 'renew' %}
+    <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">{{ _('compliance.renew_hint', start=source.start_date, end=source.end_date) }}</p>
+    {% endif %}
+    <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
+          x-data='{
+              ...{{ picker | tojson }},
+              open: false,
+              choose(el) {
+                  this.vehicleId = el.dataset.id;
+                  this.label = el.dataset.label;
+                  this.types = JSON.parse(el.dataset.types);
+                  if (!this.types.some(t => t.code === this.selectedType)) {
+                      this.selectedType = this.types.length ? this.types[0].code : "";
+                  }
+                  this.open = false;
+              }
+          }'>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+                <label class="fc-label" for="vehicle-search">{{ _('compliance.vehicle') }}</label>
+                {% if mode == 'create' %}
+                <input type="hidden" name="vehicle_id" :value="vehicleId" value="{{ picker.vehicleId }}">
+                <div class="relative" @click.outside="open = false">
+                    <div x-show="vehicleId" class="mb-2 flex items-center gap-2 text-sm">
+                        <span class="font-medium text-gray-900 dark:text-white" x-text="label">{{ picker.label }}</span>
+                        <button type="button" class="text-primary-600 hover:underline text-xs" @click="vehicleId = ''; label = ''; types = []; selectedType = ''; $nextTick(() => $refs.search.focus())">{{ _('compliance.change_vehicle') }}</button>
+                    </div>
+                    <input id="vehicle-search" x-ref="search" x-show="!vehicleId" type="search" name="q" autocomplete="off"
+                           placeholder="{{ _('compliance.vehicle_search_placeholder') }}" class="fc-input"
+                           hx-get="/compliance/vehicle-options" hx-trigger="input changed delay:300ms, focus once"
+                           hx-target="#vehicle-options" hx-swap="innerHTML"
+                           @focus="open = true" @input="open = true" @keydown.escape="open = false">
+                    <div id="vehicle-options" x-show="open && !vehicleId" style="display: none"
+                         class="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"></div>
+                </div>
+                {% else %}
+                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ picker.label }}</p>
+                {% endif %}
+                {{ field_error('vehicle_id') }}
+            </div>
+            <div class="md:col-span-2">
+                <label class="fc-label" for="document_type">{{ _('compliance.type') }}</label>
+                {% if mode == 'create' %}
+                <select id="document_type" name="document_type" class="fc-select" required x-model="selectedType" :disabled="!types.length">
+                    <option value="" x-show="!types.length">{{ _('compliance.choose_vehicle_first') }}</option>
+                    <template x-for="t in types" :key="t.code">
+                        <option :value="t.code" x-text="t.label" :selected="t.code === selectedType"></option>
+                    </template>
+                </select>
+                {% else %}
+                <p class="text-sm text-gray-900 dark:text-white">{{ _('compliance_type.' + source.document_type) }}</p>
+                {% endif %}
+                {{ field_error('document_type') }}
+            </div>
+            <div>
+                <label class="fc-label" for="start_date">{{ _('compliance.start_date') }}</label>
+                <input id="start_date" type="date" name="start_date" required value="{{ value('start_date') }}" class="fc-input-date">
+                {{ field_error('start_date') }}
+            </div>
+            <div>
+                <label class="fc-label" for="end_date">{{ _('compliance.end_date') }}</label>
+                <input id="end_date" type="date" name="end_date" required value="{{ value('end_date') }}" class="fc-input-date">
+                {{ field_error('end_date') }}
+            </div>
+            <div>
+                <label class="fc-label" for="amount">{{ _('compliance.amount') }} (EUR)</label>
+                <input id="amount" type="text" inputmode="decimal" name="amount" value="{{ value('amount') }}" class="fc-input">
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('compliance.amount_hint') }}</p>
+                {{ field_error('amount') }}
+            </div>
+            <div>
+                <label class="fc-label" for="provider">{{ _('compliance.provider') }}</label>
+                <input id="provider" type="text" name="provider" maxlength="300" value="{{ value('provider') }}" class="fc-input">
+                {{ field_error('provider') }}
+            </div>
+            <div>
+                <label class="fc-label" for="policy_number">{{ _('compliance.policy_number') }}</label>
+                <input id="policy_number" type="text" name="policy_number" maxlength="100" value="{{ value('policy_number') }}" class="fc-input">
+                {{ field_error('policy_number') }}
+            </div>
+        </div>
+        <div>
+            <label class="fc-label" for="notes">{{ _('compliance.notes') }}</label>
+            <textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ value('notes') }}</textarea>
+        </div>
+        {% if mode != 'edit' %}
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ _('compliance.attachment_after_save') }}</p>
+        {% endif %}
+        <div class="flex items-center gap-3">
+            <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
+            <a href="{{ '/compliance/' ~ source.id if source else '/compliance' }}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

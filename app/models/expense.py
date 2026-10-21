@@ -20,6 +20,11 @@ class ExpenseCategory(str, enum.Enum):
     TOLL = "toll"
     WASHING = "washing"
     OTHER = "other"
+    # Categories that mirror a Documents & Deadlines type (values equal ComplianceType values).
+    CIVIL_LIABILITY = "civil_liability"
+    CASCO = "casco"
+    TECHNICAL_INSPECTION = "technical_inspection"
+    TACHOGRAPH = "tachograph"
 
 
 class Currency(str, enum.Enum):
@@ -53,9 +58,15 @@ class Expense(Base, UUIDPrimaryKey, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id], lazy="joined")
     driver = relationship("Driver", foreign_keys=[driver_id])
     creator = relationship("User", foreign_keys=[created_by])
+    # The Documents & Deadlines entry this cost belongs to, if any (the document holds the link).
+    compliance_document = relationship("ComplianceDocument", back_populates="expense", uselist=False, lazy="selectin")
+
+    @property
+    def compliance_document_id(self) -> uuid.UUID | None:
+        return self.compliance_document.id if self.compliance_document else None
 
     @validates("currency")
     def validate_currency(self, key, value):

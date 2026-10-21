@@ -1,0 +1,19 @@
+{# Vehicle picker results; each option carries the document types valid for that vehicle. #}
+<ul class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700" role="listbox">
+    {% for o in options %}
+    <li>
+        <button type="button" role="option"
+                class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                data-id="{{ o.vehicle.id }}"
+                data-label="{{ o.label }}"
+                data-types='{{ o.types | tojson }}'
+                @click="choose($el)">
+            <span class="font-medium text-gray-900 dark:text-white">{{ o.vehicle.license_plate }}</span>
+            <span class="text-gray-600 dark:text-gray-300">{{ o.vehicle.brand }} {{ o.vehicle.model }}</span>
+            <span class="text-xs text-gray-400">· {{ _('vehicle_type.' + o.vehicle.vehicle_type.value) }}</span>
+        </button>
+    </li>
+    {% else %}
+    <li class="px-3 py-2 text-sm text-gray-400">{{ _('compliance.vehicle_no_matches') }}</li>
+    {% endfor %}
+</ul>

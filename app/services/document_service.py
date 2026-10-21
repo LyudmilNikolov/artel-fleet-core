@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.compliance import ComplianceDocument
 from app.models.document import Document, DocumentType, EntityType
 from app.services.errors import DomainError
 from app.utils.s3 import ALLOWED_MIME_TYPES, MAX_FILE_SIZE, get_s3_client
@@ -23,6 +24,8 @@ class DocumentService:
         doc_type: DocumentType = DocumentType.OTHER,
         uploaded_by: UUID | None = None,
     ) -> Document:
+        if entity_type == EntityType.COMPLIANCE_DOCUMENT and not await self.session.get(ComplianceDocument, entity_id):
+            raise DomainError("error.compliance_not_found")
         if mime_type not in ALLOWED_MIME_TYPES:
             raise DomainError("error.file_type", mime_type=mime_type)
         if len(file_data) > MAX_FILE_SIZE:

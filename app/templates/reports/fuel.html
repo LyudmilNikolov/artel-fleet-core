@@ -78,7 +78,7 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                    <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{{ _('reports.license_plate') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{{ _('vehicle.registration') }}</th>
                     <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{{ _('reports.brand_model') }}</th>
                     <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">{{ _('reports.total_liters') }}</th>
                     <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">{{ _('reports.total_cost') }} (EUR)</th>
@@ -90,7 +90,7 @@
                 {% for row in data %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/vehicles/{{ row.id }}'">
                     <td class="px-4 py-3">
-                        <span class="font-mono text-sm font-medium text-gray-900 dark:text-white">{{ row.license_plate }}</span>
+                        <span class="font-mono text-sm font-medium text-gray-900 dark:text-white">{{ row.license_plate }}</span><span class="block text-xs text-gray-500">{{ _("vehicle_type." + row.vehicle_type) }}</span>
                     </td>
                     <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ row.brand }} {{ row.model }}</td>
                     <td class="px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">{{ "{:,.1f}".format(row.total_liters) }}</td>

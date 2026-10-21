@@ -1,9 +1,14 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
+from sqlalchemy import func, select
+
+from app.config import settings
 from app.database import get_sync_db
-from app.models.contract import Contract, ContractStatus
+from app.models.compliance import ComplianceDocument
 from app.models.driver import Driver, DriverStatus
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
+from app.models.vehicle import Vehicle, VehicleStatus
+from app.repositories.compliance_repo import applicable_clause, current_ids, status_clause
 from app.tasks.celery_app import celery_app
 
 
@@ -31,17 +36,26 @@ def check_maintenance_reminders():
 
 
 @celery_app.task
-def check_contract_expiry():
-    """Check for expiring contracts."""
+def check_compliance_expiry():
+    """Count current vehicle compliance documents expiring soon or expired (no notifications yet)."""
     db = get_sync_db()
     try:
-        today = date.today()
-        expiring = db.query(Contract).filter(
-            Contract.status == ContractStatus.ACTIVE,
-            Contract.end_date <= today + timedelta(days=30),
-            Contract.end_date >= today,
-        ).all()
-        return {"expiring_contracts": len(expiring)}
+        today = datetime.now(UTC).date()
+        window = settings.COMPLIANCE_EXPIRING_SOON_DAYS
+        counts = {}
+        for status in ("expiring_soon", "expired"):
+            counts[status] = db.execute(
+                select(func.count())
+                .select_from(ComplianceDocument)
+                .join(Vehicle, Vehicle.id == ComplianceDocument.vehicle_id)
+                .where(
+                    ComplianceDocument.id.in_(current_ids().scalar_subquery()),
+                    applicable_clause(),
+                    Vehicle.status != VehicleStatus.DECOMMISSIONED,
+                    status_clause(status, today, window),
+                )
+            ).scalar_one()
+        return {"expiring_compliance": counts["expiring_soon"], "expired_compliance": counts["expired"]}
     finally:
         db.close()
 
@@ -67,23 +81,5 @@ def check_driver_document_expiry():
         ).all()
 
         return {"expiring_licenses": len(expiring_licenses), "expiring_medicals": len(expiring_medicals)}
-    finally:
-        db.close()
-
-
-@celery_app.task
-def expire_overdue_contracts():
-    """Auto-expire contracts past their end date."""
-    db = get_sync_db()
-    try:
-        today = date.today()
-        overdue = db.query(Contract).filter(
-            Contract.status == ContractStatus.ACTIVE,
-            Contract.end_date < today,
-        ).all()
-        for contract in overdue:
-            contract.status = ContractStatus.EXPIRED
-        db.commit()
-        return {"expired": len(overdue)}
     finally:
         db.close()

@@ -31,3 +31,12 @@ def render_error(error: Any, lang: str = "bg") -> str:
     if key.startswith(("error.", "errors.", "auth.")):
         return _(key, lang)
     return _("errors.invalid_input", lang)
+
+
+class MileageBelowCurrentError(DomainError):
+    """A reading is lower than the vehicle's current baseline and was not confirmed as an overwrite."""
+
+    def __init__(self, value: int, previous: int):
+        self.value = value
+        self.previous = previous
+        super().__init__("error.mileage_below_current", value=value, previous=previous)

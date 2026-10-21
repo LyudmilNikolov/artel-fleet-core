@@ -40,6 +40,6 @@ from app.models.mileage import MileageLog  # noqa: E402, F401
 from app.models.document import Document  # noqa: E402, F401
 from app.models.maintenance import MaintenanceRecord  # noqa: E402, F401
 from app.models.expense import Expense  # noqa: E402, F401
-from app.models.contract import Contract  # noqa: E402, F401
+from app.models.compliance import ComplianceDocument  # noqa: E402, F401
 from app.models.audit_log import AuditLog  # noqa: E402, F401
 from app.models.notification import Notification, NotificationPreference  # noqa: E402, F401

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.web.deps import get_web_user
 
@@ -21,6 +22,7 @@ async def help_page(request: Request, db: AsyncSession = Depends(get_db)):
             "request": request,
             "user": user,
             "active_page": "help",
+            "settings_expiring_days": settings.COMPLIANCE_EXPIRING_SOON_DAYS,
             **request.app.state.template_globals(request),
         },
     )

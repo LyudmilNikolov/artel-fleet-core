@@ -1,103 +1,75 @@
 {% extends "base.html" %}
-
-{% block title %}{% if vehicle %}{{ _('btn.edit') }}{% else %}{{ _('btn.create') }}{% endif %} — {{ _('nav.vehicles') }}{% endblock %}
-{% block page_title %}{% if vehicle %}{{ _('btn.edit') }}: {{ vehicle.license_plate }}{% else %}{{ _('btn.create') }}{% endif %}{% endblock %}
-
+{% block title %}{{ _('btn.edit') if vehicle else _('btn.create') }} — {{ _('nav.vehicles') }}{% endblock %}
+{% block page_title %}{{ _('btn.edit') ~ ': ' ~ vehicle.license_plate if vehicle else _('btn.create') }}{% endblock %}
 {% block content %}
+{% macro errors(name) %}{% if field_errors.get(name) %}<p class="text-sm text-red-600">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
 <div class="max-w-3xl">
-    {% if error %}
-    <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
-        {{ error }}
-    </div>
-    {% endif %}
-
-    <form method="POST" class="fc-card p-6 space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="fc-label">{{ _('vehicle.license_plate') }}</label>
-                <input type="text" name="license_plate" value="{{ vehicle.license_plate if vehicle else '' }}" required placeholder="123 ABC 01" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.vin') }}</label>
-                <input type="text" name="vin" value="{{ vehicle.vin if vehicle else '' }}" required placeholder="17 characters" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.brand') }}</label>
-                <input type="text" name="brand" value="{{ vehicle.brand if vehicle else '' }}" required placeholder="Toyota" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.model') }}</label>
-                <input type="text" name="model" value="{{ vehicle.model if vehicle else '' }}" required placeholder="Camry" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.year') }}</label>
-                <input type="number" name="year" value="{{ vehicle.year if vehicle else '2024' }}" required class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.color') }}</label>
-                <input type="text" name="color" value="{{ vehicle.color if vehicle else '' }}" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.body_type') }}</label>
-                <select name="body_type" class="fc-select">
-                    {% for opt in body_types %}
-                    <option value="{{ opt.value }}" {% if vehicle and opt.value == vehicle.body_type.value %}selected{% endif %}>{{ _('body_type.' + opt.value) }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.fuel_type') }}</label>
-                <select name="fuel_type" class="fc-select">
-                    {% for opt in fuel_types %}
-                    <option value="{{ opt.value }}" {% if vehicle and opt.value == vehicle.fuel_type.value %}selected{% endif %}>{{ _('fuel_type.' + opt.value) }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.engine_volume') }} (L)</label>
-                <input type="number" name="engine_volume" value="{{ vehicle.engine_volume if vehicle and vehicle.engine_volume else '' }}" step="0.1" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.transmission') }}</label>
-                <select name="transmission" class="fc-select">
-                    {% for opt in transmission_types %}
-                    <option value="{{ opt.value }}" {% if vehicle and opt.value == vehicle.transmission.value %}selected{% endif %}>{{ _('transmission.' + opt.value) }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.seats') }}</label>
-                <input type="number" name="seats" value="{{ vehicle.seats if vehicle and vehicle.seats else '' }}" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.purchase_price') }} (EUR)</label>
-                <input type="number" name="purchase_price" value="{{ vehicle.purchase_price if vehicle and vehicle.purchase_price is not none else '' }}" step="0.01" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('vehicle.department') }}</label>
-                <input type="text" name="department" value="{{ vehicle.department if vehicle and vehicle.department else '' }}" class="fc-input">
-            </div>
-            {% if vehicle %}
-            <div>
-                <label class="fc-label">{{ _('common.status') }}</label>
-                <select name="status" class="fc-select">
-                    {% for opt in statuses %}
-                    <option value="{{ opt.value }}" {% if opt.value == vehicle.status.value %}selected{% endif %}>{{ _('status.' + opt.value) }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-        </div>
-
-        <div>
-            <label class="fc-label">{{ _('common.notes') }}</label>
-            <textarea name="notes" rows="3" class="fc-textarea">{{ vehicle.notes if vehicle and vehicle.notes else "" }}</textarea>
-        </div>
-
-        <div class="flex items-center gap-3">
-            <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
-            <a href="/vehicles{% if vehicle %}/{{ vehicle.id }}{% endif %}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
-        </div>
-    </form>
+{% if error %}<div role="alert" class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">{{ error }}</div>{% endif %}
+{% if not departments %}<p role="alert" class="mb-4">{{ _('vehicle.configure_departments') }}</p>{% endif %}
+<form method="POST" class="fc-card p-6 space-y-6" x-data='{
+    kind: {{ form_data.get("vehicle_type", "tractor_unit") | tojson }},
+    trailers: {{ trailer_types | map(attribute="value") | list | tojson }},
+    group: "",
+    trailerKind: "",
+    syncGroup() {
+        const trailer = this.trailers.includes(this.kind);
+        this.group = trailer ? "trailer" : this.kind;
+        this.trailerKind = trailer ? this.kind : this.trailers[0];
+    },
+    setGroup() {
+        this.kind = this.group === "trailer" ? this.trailerKind : this.group;
+        this.initType();
+    },
+    setTrailer() {
+        this.kind = this.trailerKind;
+        this.initType();
+    },
+    rules: {{ rules | tojson }},
+    drafts: {{ form_data | tojson }},
+    dirty: {},
+    defaultsEnabled: {{ apply_defaults | tojson }},
+    initType() {
+        if (!this.defaultsEnabled) return;
+        const defaults = this.rules.defaults[this.kind] || {};
+        for (const field of new Set(Object.values(this.rules.applicable).flat())) {
+            if (!this.dirty[field]) this.drafts[field] = defaults[field] ?? null;
+        }
+    },
+    applies(field) { return (this.rules.applicable[this.kind] || []).includes(field); }
+}' x-init="syncGroup(); initType()">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label for="vehicle_group" class="fc-label">{{ _('vehicle.vehicle_type') }}</label>
+<select id="vehicle_group" x-model="group" @change="setGroup()" required class="fc-select">
+{% for group in vehicle_groups %}<option value="{{ group }}">{{ _('vehicle_type.' ~ group) }}</option>{% endfor %}
+</select><input type="hidden" id="vehicle_type" name="vehicle_type" :value="kind">{{ errors('vehicle_type') }}</div>
+<div x-show="group === 'trailer'"><label for="trailer_kind" class="fc-label">{{ _('vehicle.trailer_kind') }}</label>
+<select id="trailer_kind" x-model="trailerKind" @change="setTrailer()" :required="group === 'trailer'" class="fc-select">
+{% for opt in trailer_types %}<option value="{{ opt.value }}">{{ _('vehicle_type.' ~ opt.value) }}</option>{% endfor %}
+</select></div>
+<div x-show="kind !== 'forklift'"><label for="license_plate" class="fc-label">{{ _('vehicle.license_plate') }}</label><input id="license_plate" name="license_plate" value="{{ form_data.get('license_plate') or '' }}" :disabled="kind === 'forklift'" :required="kind !== 'forklift'" maxlength="20" class="fc-input">{{ errors('license_plate') }}</div>
+<div x-show="kind === 'forklift'"><label class="fc-label">{{ _('vehicle.internal_id') }}</label><p>{{ vehicle.license_plate if vehicle and vehicle.vehicle_type.value == 'forklift' else _('vehicle.identifier_generated') }}</p></div>
+{% for name in ['brand', 'model', 'vin', 'year', 'color', 'purchase_date', 'purchase_price'] %}
+<div><label for="{{ name }}" class="fc-label">{{ _('vehicle.' ~ name) }}{% if name == 'purchase_price' %} (EUR){% endif %}</label>
+<input id="{{ name }}" name="{{ name }}" value="{{ form_data.get(name) if form_data.get(name) is not none else '' }}" type="{{ 'text' if field_errors.get(name) else 'number' if name in ['year','purchase_price'] else 'date' if name == 'purchase_date' else 'text' }}" {% if name in ['brand','model'] %}required maxlength="100"{% endif %} {% if name == 'vin' %}minlength="17" maxlength="17"{% endif %} {% if name == 'color' %}maxlength="50"{% endif %} {% if name == 'purchase_price' %}step="0.01" min="0"{% endif %} {% if name == 'year' %}min="1900" max="2100" step="1"{% endif %} class="fc-input">{{ errors(name) }}</div>
+{% endfor %}
+<div><label for="department" class="fc-label">{{ _('vehicle.department') }}</label><select id="department" name="department" required class="fc-select"><option value="">—</option>{% for name in departments %}<option value="{{ name }}" {% if form_data.get('department') == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>{{ errors('department') }}</div>
+{% if vehicle %}<div><label class="fc-label">{{ _('common.status') }}</label><select name="status" class="fc-select">{% for opt in statuses %}<option value="{{ opt.value }}" {% if form_data.get('status') == opt.value %}selected{% endif %}>{{ _('status.' ~ opt.value) }}</option>{% endfor %}</select></div>{% endif %}
 </div>
+{% if vehicle %}<p class="text-sm text-amber-700">{{ _('vehicle.type_change_warning') }}</p>{% endif %}
+<fieldset class="grid grid-cols-1 md:grid-cols-2 gap-4" @input="dirty[$event.target.name] = true" @change="dirty[$event.target.name] = true"><legend class="fc-label">{{ _('vehicle.technical_details') }}</legend>
+{% for name in technical_fields %}
+<div x-show="applies('{{ name }}')">
+<label for="{{ name }}" class="fc-label">{{ _('vehicle.' ~ name) }}{% if name.endswith('_kg') %} (kg){% elif name.endswith('_m') %} (m){% elif name.endswith('_l') %} (L){% elif name == 'engine_displacement_cc' %} (cm³){% elif name == 'engine_power_hp' %} (hp){% elif name == 'current_mileage' %} (km){% endif %}</label>
+{% if name == 'supported_container_sizes' %}
+{% for size in container_sizes %}<label class="inline-flex gap-2 mr-4"><input type="checkbox" name="supported_container_sizes" value="{{ size }}" {% if size in (form_data.get(name) or []) %}checked{% endif %} :disabled="!applies('{{ name }}')">{{ size }}</label>{% endfor %}
+{% elif name in choices %}
+<select id="{{ name }}" name="{{ name }}" class="fc-select" x-model="drafts.{{ name }}" :disabled="!applies('{{ name }}')"><option value="">—</option>{% for value, key in choices[name] %}<option value="{{ value }}" {% if name == 'fuel_type' %}:disabled="!(rules.fuel[kind] || []).includes('{{ value }}')"{% endif %}>{{ _(key) }}</option>{% endfor %}</select>
+{% else %}
+{% if name == 'current_mileage' and vehicle %}<p class="text-sm">{{ _('vehicle.authoritative_mileage') }}: {{ vehicle.current_mileage if vehicle.current_mileage is not none else '—' }}</p>{% endif %}
+<input id="{{ name }}" name="{{ name }}" type="{{ 'text' if field_errors.get(name) else 'number' }}" inputmode="decimal" x-model="drafts.{{ name }}" :disabled="!applies('{{ name }}')" step="{{ '1' if name in integer_bounds else '0.001' if decimal_bounds[name][1] == 3 else '0.1' if decimal_bounds[name][1] == 1 else '0.01' }}" class="fc-input">
+{% endif %}{{ errors(name) }}
+</div>{% endfor %}</fieldset>
+<div><label for="notes" class="fc-label">{{ _('common.notes') }}</label><textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ form_data.get('notes') or '' }}</textarea></div>
+<div class="flex items-center gap-3"><button type="submit" class="fc-btn-primary" {% if not departments %}disabled{% endif %}>{{ _('btn.save') }}</button><a href="/vehicles{% if vehicle %}/{{ vehicle.id }}{% endif %}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a></div>
+</form></div>
 {% endblock %}

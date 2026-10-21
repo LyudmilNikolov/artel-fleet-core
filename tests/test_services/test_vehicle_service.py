@@ -14,9 +14,9 @@ VEHICLE_CREATE_DATA = {
     "model": "Camry",
     "year": 2023,
     "color": "White",
-    "body_type": "sedan",
+    "vehicle_type": "passenger_car",
+    "department": "Test department",
     "fuel_type": "gasoline",
-    "engine_volume": 2.5,
     "transmission": "automatic",
     "seats": 5,
     "status": "active",
@@ -50,5 +50,5 @@ async def test_duplicate_plate_raises(db_session: AsyncSession):
 
     # Attempt to create a second vehicle with the same plate but different VIN
     duplicate_data = VehicleCreate(**{**VEHICLE_CREATE_DATA, "vin": "WVWZZZ3CZWE999999"})
-    with pytest.raises(ValueError, match="error.plate_exists"):
+    with pytest.raises(ValueError, match="error.plate_in_use"):
         await service.create(duplicate_data)

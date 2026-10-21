@@ -1,4 +1,4 @@
-"""Generate seed data for FleetCore: 500+ vehicles, drivers, maintenance, expenses, contracts,
+"""Generate seed data for FleetCore: 500+ vehicles, drivers, maintenance, expenses, vehicle documents,
 mileage logs, documents, notifications, audit logs.
 
 WARNING: This script creates demo users with a shared password (SeedPass!2024).
@@ -16,12 +16,13 @@ from uuid import uuid4
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.database import AsyncSessionLocal
 from app.i18n import _
+from app.i18n import _ as translate
 from app.models.audit_log import AuditAction, AuditLog
-from app.models.contract import Contract, ContractStatus, ContractType, PaymentFrequency
+from app.models.compliance import ComplianceDocument
 from app.models.document import Document, DocumentType, EntityType
 from app.models.driver import Driver, DriverStatus
 from app.models.expense import Currency, Expense, ExpenseCategory
@@ -34,20 +35,22 @@ from app.models.mileage import MileageLog, MileageSource
 from app.models.notification import Notification, NotificationPreference, NotificationType
 from app.models.user import User, UserRole
 from app.models.vehicle import (
-    BodyType,
-    FuelType,
-    TransmissionType,
     Vehicle,
     VehicleStatus,
+    VehicleType,
 )
+from app.schemas.vehicle import VehicleCreate
+from app.services.document_expense_sync import sync_from_document
+from app.services.vehicle_service import VehicleService
 from app.utils.security import hash_password
+from app.vehicle_rules import MILEAGE_TYPES, ComplianceType, blocked_expense_categories, compliance_types_for
 
 # ---- Configuration ----
 NUM_VEHICLES = 520
 NUM_DRIVERS = 220
 NUM_MAINTENANCE = 1200
 NUM_EXPENSES = 5500
-NUM_CONTRACTS = 350
+HISTORY_SHARE = 0.3  # share of current compliance documents that also get one older, replaced entry
 NUM_MILEAGE_LOGS = 3000
 NUM_DOCUMENTS = 800
 NUM_NOTIFICATIONS = 600
@@ -77,55 +80,15 @@ KZ_REGIONS = [
 ]
 KZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-# Popular car brands/models in KZ
-VEHICLES_DATA = [
-    ("Toyota", "Camry", "sedan", "gasoline", 2.5),
-    ("Toyota", "Corolla", "sedan", "gasoline", 1.6),
-    ("Toyota", "Land Cruiser 200", "suv", "diesel", 4.5),
-    ("Toyota", "Land Cruiser 300", "suv", "diesel", 3.3),
-    ("Toyota", "RAV4", "suv", "gasoline", 2.0),
-    ("Toyota", "Hilux", "pickup", "diesel", 2.4),
-    ("Toyota", "Fortuner", "suv", "diesel", 2.8),
-    ("Hyundai", "Tucson", "suv", "gasoline", 2.0),
-    ("Hyundai", "Santa Fe", "suv", "diesel", 2.2),
-    ("Hyundai", "Sonata", "sedan", "gasoline", 2.0),
-    ("Hyundai", "Elantra", "sedan", "gasoline", 1.6),
-    ("Hyundai", "Accent", "sedan", "gasoline", 1.4),
-    ("Hyundai", "Creta", "suv", "gasoline", 1.6),
-    ("Kia", "Sportage", "suv", "gasoline", 2.0),
-    ("Kia", "K5", "sedan", "gasoline", 2.0),
-    ("Kia", "Cerato", "sedan", "gasoline", 1.6),
-    ("Kia", "Seltos", "suv", "gasoline", 1.6),
-    ("Kia", "Carnival", "minivan", "diesel", 2.2),
-    ("Chevrolet", "Cobalt", "sedan", "gasoline", 1.5),
-    ("Chevrolet", "Tracker", "suv", "gasoline", 1.0),
-    ("Chevrolet", "Monza", "sedan", "gasoline", 1.5),
-    ("Lada", "Vesta", "sedan", "gasoline", 1.6),
-    ("Lada", "Granta", "sedan", "gasoline", 1.6),
-    ("Lada", "Niva Travel", "suv", "gasoline", 1.7),
-    ("Skoda", "Octavia", "sedan", "gasoline", 1.4),
-    ("Skoda", "Rapid", "sedan", "gasoline", 1.6),
-    ("Volkswagen", "Polo", "sedan", "gasoline", 1.6),
-    ("Volkswagen", "Tiguan", "suv", "gasoline", 2.0),
-    ("Nissan", "Qashqai", "suv", "gasoline", 2.0),
-    ("Nissan", "X-Trail", "suv", "gasoline", 2.5),
-    ("Mitsubishi", "Outlander", "suv", "gasoline", 2.4),
-    ("Mitsubishi", "Pajero Sport", "suv", "diesel", 2.4),
-    ("Renault", "Duster", "suv", "gasoline", 2.0),
-    ("Renault", "Logan", "sedan", "gasoline", 1.6),
-    ("Mercedes-Benz", "E-Class", "sedan", "gasoline", 2.0),
-    ("Mercedes-Benz", "Sprinter", "van", "diesel", 2.1),
-    ("BMW", "5 Series", "sedan", "gasoline", 2.0),
-    ("Isuzu", "D-Max", "pickup", "diesel", 3.0),
-    ("GAZ", "Gazel Next", "van", "diesel", 2.8),
-    ("GAZ", "Gazel Business", "van", "diesel", 2.8),
-    ("Ford", "Transit", "van", "diesel", 2.2),
-    ("Hyundai", "HD78", "truck", "diesel", 3.9),
-    ("KAMAZ", "5490", "truck", "diesel", 11.9),
-    ("MAN", "TGS", "truck", "diesel", 10.5),
-    ("PAZ", "4234", "bus", "diesel", 4.4),
-    ("Yutong", "ZK6122H9", "bus", "diesel", 8.9),
-]
+# Explicit examples for each authoritative type; no legacy body classification.
+VEHICLES_DATA = {
+    "tractor_unit": [("Volvo", "FH"), ("MAN", "TGX"), ("Scania", "R450")],
+    "container_semi_trailer": [("Schmitz", "S.CF"), ("Krone", "Box Liner")],
+    "curtain_side_semi_trailer": [("Schmitz", "S.CS"), ("Krone", "Profi Liner")],
+    "van": [("Ford", "Transit"), ("Mercedes-Benz", "Sprinter")],
+    "passenger_car": [("Toyota", "Corolla"), ("Skoda", "Octavia")],
+    "forklift": [("Linde", "E20"), ("Toyota", "Traigo")],
+}
 
 COLORS = ["White", "Black", "Silver", "Gray", "Blue", "Red", "Green", "Brown", "Beige"]
 DEPARTMENTS = [
@@ -372,7 +335,7 @@ async def seed():
             MileageLog,
             Expense,
             MaintenanceRecord,
-            Contract,
+            ComplianceDocument,
             Vehicle,
             Driver,
         ]:
@@ -453,9 +416,13 @@ async def seed():
 
         # ---- Create vehicles ----
         print(f"Creating {NUM_VEHICLES} vehicles...")
+        departments = await VehicleService(db).departments()
+        if not departments:
+            raise RuntimeError("Configure VEHICLE_DEPARTMENTS before seeding vehicles")
         vehicles = []
         for i in range(NUM_VEHICLES):
-            brand, model, body, fuel, engine = random.choice(VEHICLES_DATA)
+            kind = list(VehicleType)[i % len(VehicleType)]
+            brand, model = random.choice(VEHICLES_DATA[kind])
             year = random.randint(2016, 2025)
             purchase = rand_date(date(year, 1, 1), min(date(year, 12, 31), date.today()))
             status = random.choices(
@@ -476,35 +443,34 @@ async def seed():
                 vin = gen_vin()
             used_vins.add(vin)
 
-            transmission = random.choice(list(TransmissionType))
             mileage = random.randint(5000, 350000) if year < 2025 else random.randint(0, 30000)
             price = Decimal(random.randint(6000, 90000))
             assigned_driver = (
                 random.choice(active_driver_ids) if status == VehicleStatus.ACTIVE and random.random() > 0.3 else None
             )
 
-            vehicle = Vehicle(
-                license_plate=plate,
+            values = VehicleCreate(
+                vehicle_type=kind,
+                license_plate=None if kind == VehicleType.FORKLIFT else plate,
                 vin=vin,
                 brand=brand,
                 model=model,
                 year=year,
                 color=random.choice(COLORS),
-                body_type=BodyType(body),
-                fuel_type=FuelType(fuel),
-                engine_volume=engine,
-                transmission=transmission,
-                seats=random.choice([2, 5, 7, 8, 15, 25, 45])
-                if body in ("bus", "minivan")
-                else random.choice([2, 5, 7]),
                 purchase_date=purchase,
                 purchase_price=price,
-                current_mileage=mileage,
                 status=status,
                 assigned_driver_id=assigned_driver,
-                department=random.choice(DEPARTMENTS),
-                notes=None,
-            )
+                department=random.choice(departments),
+                **({"current_mileage": mileage} if kind in MILEAGE_TYPES else {}),
+            ).model_dump()
+            if kind == VehicleType.FORKLIFT:
+                private = "PRIVATE-" + uuid4().hex[:8].upper()
+                while private in used_plates:
+                    private = "PRIVATE-" + uuid4().hex[:8].upper()
+                used_plates.add(private)
+                values["license_plate"] = private
+            vehicle = Vehicle(**values)
             db.add(vehicle)
             vehicles.append(vehicle)
         await db.flush()
@@ -512,6 +478,8 @@ async def seed():
         active_vehicle_ids = [
             v.id for v in vehicles if v.status in (VehicleStatus.ACTIVE, VehicleStatus.IN_MAINTENANCE)
         ]
+
+        vehicle_types = {v.id: v.vehicle_type for v in vehicles}
 
         # ---- Create maintenance records ----
         print(f"Creating {NUM_MAINTENANCE} maintenance records...")
@@ -605,9 +573,12 @@ async def seed():
         for _ in range(NUM_EXPENSES):
             category = random.choices(
                 list(ExpenseCategory),
-                weights=[40, 10, 15, 8, 5, 5, 5, 3, 5, 4],
+                # Document categories (last four) come from the linked Documents & Deadlines entries below.
+                weights=[40, 10, 15, 0, 5, 5, 5, 3, 5, 4, 0, 0, 0, 0],
             )[0]
             vid = random.choice(active_vehicle_ids)
+            if category.value in blocked_expense_categories(vehicle_types[vid]):
+                category = ExpenseCategory.SERVICE  # trailers have no fuel or toll
             exp_date = rand_date(today - timedelta(days=365), today)
 
             if category == ExpenseCategory.FUEL:
@@ -646,55 +617,50 @@ async def seed():
             )
             db.add(expense)
 
-        # ---- Create contracts ----
-        print(f"Creating {NUM_CONTRACTS} contracts...")
-        contractors = {
-            ContractType.LEASING: ["KazFinance Leasing", "Halyk Leasing", "BCC Leasing", "Freedom Finance Leasing"],
-            ContractType.RENTAL: ["AutoRent KZ", "Hertz Kazakhstan", "Europcar KZ", "Sixt Kazakhstan"],
-            ContractType.INSURANCE_CASCO: [
-                "Nomad Insurance",
-                "Eurasia Insurance",
-                "Halyk Insurance",
-                "Freedom Insurance",
-            ],
-            ContractType.INSURANCE_OSAGO: [
-                "Nomad Insurance",
-                "Eurasia Insurance",
-                "Halyk Insurance",
-                "KompetenzGarant",
-            ],
-            ContractType.WARRANTY: ["Toyota Kazakhstan", "Hyundai Kazakhstan", "Kia Kazakhstan", "Official Dealer"],
-            ContractType.SERVICE_CONTRACT: SERVICE_PROVIDERS[:8],
+        # ---- Create vehicle compliance documents (Документи и срокове) ----
+        print("Creating vehicle compliance documents...")
+        providers = {
+            ComplianceType.CIVIL_LIABILITY: ["ДЗИ", "Булстрад", "Армеец", "Алианц България", "Лев Инс"],
+            ComplianceType.CASCO: ["ДЗИ", "Булстрад", "Алианц България", "Generali", "Лев Инс"],
+            ComplianceType.TECHNICAL_INSPECTION: ["ГТП Автотест", "ГТП Пловдив Юг", "ГТП Тракия", "ГТП Сливница"],
+            ComplianceType.TACHOGRAPH: ["Тахосервиз", "Континентал Тахо Сервиз", "ТахоКонтрол"],
         }
-
-        contract_objs = []
-        for _ in range(NUM_CONTRACTS):
-            ctype = random.choice(list(ContractType))
-            start = rand_date(today - timedelta(days=365 * 2), today)
-            duration = random.choice([90, 180, 365, 365 * 2, 365 * 3])
-            end = start + timedelta(days=duration)
-            status = ContractStatus.ACTIVE if end >= today else ContractStatus.EXPIRED
-            if status == ContractStatus.ACTIVE and random.random() < 0.1:
-                status = ContractStatus.PENDING_RENEWAL
-
-            contract = Contract(
-                vehicle_id=random.choice(vehicle_ids),
-                type=ctype,
-                contractor=random.choice(contractors[ctype]),
-                contract_number=f"{ctype.value[:3].upper()}-{random.randint(10000, 99999)}",
-                start_date=start,
-                end_date=end,
-                amount=Decimal(random.randint(100, 10000)),
-                payment_frequency=random.choice(list(PaymentFrequency)),
-                status=status,
-                auto_renew=random.random() > 0.7,
-                notes=None,
-                created_by=random.choice(all_user_ids) if all_user_ids else None,
-            )
-            db.add(contract)
-            contract_objs.append(contract)
+        compliance_objs = []
+        for v in vehicles:
+            for code in compliance_types_for(v.vehicle_type):
+                if code == ComplianceType.CASCO and random.random() < 0.3:
+                    continue  # CASCO is optional cover
+                # Mix of valid, expiring soon and expired current entries.
+                end = today + timedelta(
+                    days=random.choice([random.randint(-60, -1), random.randint(0, 30)] + [random.randint(31, 360)] * 6)
+                )
+                months = 24 if code == ComplianceType.TACHOGRAPH else 12
+                start = end - timedelta(days=round(months * 30.44)) + timedelta(days=1)
+                periods = [(start, end)]
+                if random.random() < HISTORY_SHARE:
+                    periods.insert(0, (start - (end - start) - timedelta(days=1), start - timedelta(days=1)))
+                for period_start, period_end in periods:
+                    entry = ComplianceDocument(
+                        vehicle_id=v.id,
+                        document_type=code,
+                        start_date=period_start,
+                        end_date=period_end,
+                        amount=Decimal(random.randint(80, 4500))
+                        if code in ("civil_liability", "casco")
+                        else Decimal(random.randint(40, 180)),
+                        provider=random.choice(providers[code]),
+                        policy_number=f"{code[:3].upper()}-{random.randint(100000, 999999)}",
+                        created_by=random.choice(all_user_ids) if all_user_ids else None,
+                    )
+                    db.add(entry)
+                    compliance_objs.append(entry)
         await db.flush()
-        contract_ids = [c.id for c in contract_objs]
+        # A document's cost is also an expense (linked), exactly as when entered through the app.
+        for entry in compliance_objs:
+            await sync_from_document(db, entry, entry.created_by)
+        compliance_ids = [c.id for c in compliance_objs]
+        num_compliance = len(compliance_ids)
+        num_linked_expenses = sum(1 for c in compliance_objs if c.expense_id)
 
         # ---- Create mileage logs ----
         print(f"Creating {NUM_MILEAGE_LOGS} mileage log records...")
@@ -702,7 +668,7 @@ async def seed():
         mileage_per_vehicle = {}
         for v in vehicles:
             mileage_per_vehicle[v.id] = {
-                "purchase_date": v.purchase_date or date(v.year, 1, 1),
+                "purchase_date": v.purchase_date or date(v.year or today.year, 1, 1),
                 "current": v.current_mileage,
             }
 
@@ -715,8 +681,8 @@ async def seed():
             if logs_created + num_logs > NUM_MILEAGE_LOGS:
                 num_logs = max(1, NUM_MILEAGE_LOGS - logs_created)
 
-            purchase_d = v.purchase_date or date(v.year, 6, 1)
-            total_km = v.current_mileage
+            purchase_d = v.purchase_date or date(v.year or today.year, 6, 1)
+            total_km = v.current_mileage or 0
             if total_km <= 0:
                 continue
 
@@ -750,11 +716,11 @@ async def seed():
 
         # Fill remaining slots with random logs
         remaining_vehicles = [
-            v for v in vehicles if v.status != VehicleStatus.DECOMMISSIONED and v.current_mileage > 1000
+            v for v in vehicles if v.status != VehicleStatus.DECOMMISSIONED and (v.current_mileage or 0) > 1000
         ]
         while logs_created < NUM_MILEAGE_LOGS and remaining_vehicles:
             v = random.choice(remaining_vehicles)
-            purchase_d = v.purchase_date or date(v.year, 6, 1)
+            purchase_d = v.purchase_date or date(v.year or today.year, 6, 1)
             mlog = MileageLog(
                 vehicle_id=v.id,
                 recorded_by=random.choice(all_user_ids) if all_user_ids else None,
@@ -765,6 +731,33 @@ async def seed():
             )
             db.add(mlog)
             logs_created += 1
+
+        # Make every seeded current reading authoritative in the generated log history.
+        await db.flush()
+        maxima = dict(
+            (
+                await db.execute(
+                    select(MileageLog.vehicle_id, func.max(MileageLog.value)).group_by(MileageLog.vehicle_id)
+                )
+            ).all()
+        )
+        for vehicle in vehicles:
+            if vehicle.vehicle_type not in MILEAGE_TYPES:
+                continue
+            historical = maxima.get(vehicle.id)
+            current = vehicle.current_mileage
+            if historical is None or current > historical:
+                db.add(
+                    MileageLog(
+                        vehicle_id=vehicle.id,
+                        recorded_by=random.choice(all_user_ids) if all_user_ids else None,
+                        value=current,
+                        source=MileageSource.MANUAL,
+                    )
+                )
+                logs_created += 1
+            else:
+                vehicle.current_mileage = historical
 
         # ---- Create documents ----
         print(f"Creating {NUM_DOCUMENTS} document records...")
@@ -787,7 +780,7 @@ async def seed():
                     mime_type=tpl[1],
                     size_bytes=random.randint(tpl[2][0], tpl[2][1]),
                     uploaded_by=random.choice(all_user_ids) if all_user_ids else None,
-                    uploaded_at=rand_datetime(v.purchase_date or date(v.year, 1, 1), today),
+                    uploaded_at=rand_datetime(v.purchase_date or date(v.year or today.year, 1, 1), today),
                 )
                 db.add(doc)
                 doc_counter += 1
@@ -835,17 +828,17 @@ async def seed():
             db.add(doc)
             doc_counter += 1
 
-        # Contract scans (~100 docs)
-        for cid in random.sample(contract_ids, min(100, len(contract_ids))):
+        # Compliance document scans (~100 docs)
+        for cid in random.sample(compliance_ids, min(100, len(compliance_ids))):
             if doc_counter >= NUM_DOCUMENTS:
                 break
-            tpl = random.choice(DOC_TEMPLATES[DocumentType.CONTRACT])
+            tpl = random.choice(DOC_TEMPLATES[DocumentType.INSURANCE])
             doc = Document(
-                entity_type=EntityType.CONTRACT,
+                entity_type=EntityType.COMPLIANCE_DOCUMENT,
                 entity_id=cid,
-                type=DocumentType.CONTRACT,
+                type=DocumentType.INSURANCE,
                 filename=tpl[0].format(n=doc_counter),
-                s3_key=f"contracts/{cid}/{uuid4().hex[:12]}.pdf",
+                s3_key=f"compliance_document/{cid}/{uuid4().hex[:12]}.pdf",
                 mime_type=tpl[1],
                 size_bytes=random.randint(tpl[2][0], tpl[2][1]),
                 uploaded_by=random.choice(all_user_ids) if all_user_ids else None,
@@ -905,7 +898,7 @@ async def seed():
                 "plate": plate,
                 "date": future_date if random.random() > 0.3 else past_date,
                 "driver": driver_name,
-                "contract": f"INS-{random.randint(10000, 99999)}",
+                "document": translate("compliance_type." + random.choice(list(ComplianceType)), recipient.language),
                 "mileage": f"{random.randint(50, 300) * 1000:,}",
                 "delta": random.randint(1100, 3000),
                 "amount": f"{random.randint(50, 500) * 1000:,}",
@@ -936,8 +929,8 @@ async def seed():
                 entity_type_str = "vehicle"
                 entity_id_val = random.choice(vehicle_ids)
             elif ntype == NotificationType.CONTRACT_EXPIRY:
-                entity_type_str = "contract"
-                entity_id_val = random.choice(contract_ids)
+                entity_type_str = "compliance_document"
+                entity_id_val = random.choice(compliance_ids)
             elif ntype in (NotificationType.LICENSE_EXPIRY, NotificationType.MEDICAL_EXPIRY):
                 entity_type_str = "driver"
                 entity_id_val = random.choice([d.id for d in drivers])
@@ -976,8 +969,16 @@ async def seed():
 
         # ---- Create audit logs ----
         print(f"Creating {NUM_AUDIT_LOGS} audit log records...")
-        entity_types_for_audit = ["vehicle", "driver", "maintenance", "expense", "contract", "user", "document"]
-        entity_ids_pool = vehicle_ids + [d.id for d in drivers] + contract_ids
+        entity_types_for_audit = [
+            "vehicle",
+            "driver",
+            "maintenance",
+            "expense",
+            "compliance_document",
+            "user",
+            "document",
+        ]
+        entity_ids_pool = vehicle_ids + [d.id for d in drivers] + compliance_ids
 
         for i in range(NUM_AUDIT_LOGS):
             action = random.choices(
@@ -1059,8 +1060,8 @@ async def seed():
         print(f"  Vehicles:           {NUM_VEHICLES}")
         print(f"  Mileage logs:       {NUM_MILEAGE_LOGS}")
         print(f"  Maintenance:        {NUM_MAINTENANCE}")
-        print(f"  Expenses:           {NUM_EXPENSES}")
-        print(f"  Contracts:          {NUM_CONTRACTS}")
+        print(f"  Expenses:           {NUM_EXPENSES + num_linked_expenses}")
+        print(f"  Vehicle documents:  {num_compliance}")
         print(f"  Documents:          {NUM_DOCUMENTS}")
         print(f"  Notifications:      {NUM_NOTIFICATIONS}")
         print(f"  Audit logs:         {NUM_AUDIT_LOGS}")
@@ -1071,7 +1072,8 @@ async def seed():
             + NUM_MILEAGE_LOGS
             + NUM_MAINTENANCE
             + NUM_EXPENSES
-            + NUM_CONTRACTS
+            + num_linked_expenses
+            + num_compliance
             + NUM_DOCUMENTS
             + NUM_NOTIFICATIONS
             + NUM_AUDIT_LOGS

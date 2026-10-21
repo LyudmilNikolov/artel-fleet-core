@@ -47,3 +47,37 @@ document.addEventListener('htmx:afterRequest', function(event) {
         } catch (e) { /* not JSON */ }
     }
 });
+
+// Searchable vehicle picker shared by the maintenance and expense forms.
+// Usage: x-data="vehiclePicker({vehicleId, label, tracked, currentMileage}, {extra: 'state'})"
+document.addEventListener('alpine:init', function() {
+    Alpine.data('vehiclePicker', function(cfg, extra) {
+        return Object.assign({
+            vehicleId: cfg.vehicleId || '',
+            label: cfg.label || '',
+            tracked: !!cfg.tracked,
+            currentMileage: cfg.currentMileage === undefined ? null : cfg.currentMileage,
+            docTypes: cfg.docTypes || [],
+            blocked: cfg.blocked || [],
+            open: false,
+            choose: function(el) {
+                this.vehicleId = el.dataset.id;
+                this.label = el.dataset.label;
+                this.tracked = el.dataset.tracked === '1';
+                this.currentMileage = el.dataset.current === '' ? null : Number(el.dataset.current);
+                this.docTypes = JSON.parse(el.dataset.docTypes || '[]');
+                this.blocked = JSON.parse(el.dataset.blocked || '[]');
+                this.open = false;
+            },
+            clear: function() {
+                this.vehicleId = '';
+                this.label = '';
+                this.tracked = false;
+                this.currentMileage = null;
+                this.docTypes = [];
+                this.blocked = [];
+                this.$nextTick(() => this.$refs.search.focus());
+            },
+        }, extra || {});
+    });
+});

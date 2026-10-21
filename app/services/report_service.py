@@ -25,6 +25,7 @@ class ReportService:
             Vehicle.brand,
             Vehicle.model,
             Vehicle.year,
+            Vehicle.vehicle_type,
             Vehicle.purchase_price,
             func.coalesce(func.sum(Expense.amount), 0).label("total_expenses"),
         ).outerjoin(Expense, Expense.vehicle_id == Vehicle.id)
@@ -38,6 +39,7 @@ class ReportService:
             Vehicle.brand,
             Vehicle.model,
             Vehicle.year,
+            Vehicle.vehicle_type,
             Vehicle.purchase_price,
         ).order_by(func.coalesce(func.sum(Expense.amount), 0).desc())
 
@@ -49,9 +51,10 @@ class ReportService:
                 "brand": row[2],
                 "model": row[3],
                 "year": row[4],
-                "purchase_price": Decimal(row[5]) if row[5] is not None else None,
-                "total_expenses": Decimal(row[6]),
-                "tco": (Decimal(row[5]) if row[5] is not None else Decimal("0")) + Decimal(row[6]),
+                "vehicle_type": row[5].value,
+                "purchase_price": Decimal(row[6]) if row[6] is not None else None,
+                "total_expenses": Decimal(row[7]),
+                "tco": (Decimal(row[6]) if row[6] is not None else Decimal("0")) + Decimal(row[7]),
             }
             for row in result.all()
         ]
@@ -82,6 +85,7 @@ class ReportService:
                 func.sum(Expense.fuel_liters).label("total_liters"),
                 func.sum(Expense.amount).label("total_cost"),
                 func.count(Expense.id).label("refuel_count"),
+                Vehicle.vehicle_type,
             )
             .join(Expense, Expense.vehicle_id == Vehicle.id)
             .where(Expense.category == ExpenseCategory.FUEL)
@@ -91,9 +95,9 @@ class ReportService:
             query = query.where(Expense.date >= start_date)
         if end_date:
             query = query.where(Expense.date <= end_date)
-        query = query.group_by(Vehicle.id, Vehicle.license_plate, Vehicle.brand, Vehicle.model).order_by(
-            func.sum(Expense.fuel_liters).desc()
-        )
+        query = query.group_by(
+            Vehicle.id, Vehicle.license_plate, Vehicle.brand, Vehicle.model, Vehicle.vehicle_type
+        ).order_by(func.sum(Expense.fuel_liters).desc())
 
         result = await self.db.execute(query)
         return [
@@ -105,6 +109,7 @@ class ReportService:
                 "total_liters": round(float(row[4]), 1) if row[4] else 0,
                 "total_cost": Decimal(row[5]) if row[5] is not None else Decimal("0"),
                 "refuel_count": row[6],
+                "vehicle_type": row[7].value,
                 "avg_price": self.fuel_average(row[5], row[4]),
             }
             for row in result.all()
@@ -175,6 +180,7 @@ class ReportService:
             MaintenanceRecord.completed_date,
             MaintenanceRecord.cost,
             MaintenanceRecord.service_provider,
+            Vehicle.vehicle_type,
         ).join(Vehicle, Vehicle.id == MaintenanceRecord.vehicle_id)
 
         if start_date:
@@ -197,6 +203,7 @@ class ReportService:
                 "completed_date": str(r[8]) if r[8] else "",
                 "cost": Decimal(r[9]) if r[9] is not None else None,
                 "service_provider": r[10] or "",
+                "vehicle_type": r[11].value,
             }
             for r in result.all()
         ]
@@ -207,12 +214,13 @@ class ReportService:
         self, start_date: dt.date | None = None, end_date: dt.date | None = None, *, locale: str = "bg"
     ) -> bytes:
         data = await self.tco_report(start_date, end_date)
-        exp = ExcelExporter((_("report.tco", lang=locale) + " (EUR)"), monetary_columns=(5, 6, 7))
+        exp = ExcelExporter((_("report.tco", lang=locale) + " (EUR)"), monetary_columns=(6, 7, 8))
         period = self._period_label(start_date, end_date, locale)
         exp.add_title((_("report.tco", lang=locale) + " (EUR)"), period)
         exp.add_headers(
             [
-                _("vehicle.license_plate", lang=locale),
+                _("vehicle.registration", lang=locale),
+                _("vehicle.vehicle_type", lang=locale),
                 _("vehicle.brand", lang=locale),
                 _("vehicle.model", lang=locale),
                 _("vehicle.year", lang=locale),
@@ -225,6 +233,7 @@ class ReportService:
             exp.add_row(
                 [
                     r["license_plate"],
+                    _("vehicle_type." + r["vehicle_type"], lang=locale),
                     r["brand"],
                     r["model"],
                     r["year"],
@@ -236,6 +245,7 @@ class ReportService:
         if data:
             exp.add_summary_row(
                 [
+                    "",
                     "",
                     "",
                     "",
@@ -251,12 +261,13 @@ class ReportService:
         self, start_date: dt.date | None = None, end_date: dt.date | None = None, *, locale: str = "bg"
     ) -> bytes:
         data = await self.fuel_consumption(start_date, end_date)
-        exp = ExcelExporter(_("report.fuel", lang=locale), monetary_columns=(5,))
+        exp = ExcelExporter(_("report.fuel", lang=locale), monetary_columns=(6,))
         period = self._period_label(start_date, end_date, locale)
         exp.add_title(_("report.fuel", lang=locale), period)
         exp.add_headers(
             [
-                _("vehicle.license_plate", lang=locale),
+                _("vehicle.registration", lang=locale),
+                _("vehicle.vehicle_type", lang=locale),
                 _("vehicle.brand", lang=locale),
                 _("vehicle.model", lang=locale),
                 _("report.total_liters", lang=locale),
@@ -266,7 +277,15 @@ class ReportService:
         )
         for r in data:
             exp.add_row(
-                [r["license_plate"], r["brand"], r["model"], r["total_liters"], r["total_cost"], r["refuel_count"]]
+                [
+                    r["license_plate"],
+                    _("vehicle_type." + r["vehicle_type"], lang=locale),
+                    r["brand"],
+                    r["model"],
+                    r["total_liters"],
+                    r["total_cost"],
+                    r["refuel_count"],
+                ]
             )
         return exp.to_bytes()
 
@@ -274,12 +293,13 @@ class ReportService:
         self, start_date: dt.date | None = None, end_date: dt.date | None = None, *, locale: str = "bg"
     ) -> bytes:
         data = await self.maintenance_history(start_date, end_date)
-        exp = ExcelExporter(_("report.maintenance", lang=locale), monetary_columns=(8,))
+        exp = ExcelExporter(_("report.maintenance", lang=locale), monetary_columns=(9,))
         period = self._period_label(start_date, end_date, locale)
         exp.add_title(_("report.maintenance", lang=locale), period)
         exp.add_headers(
             [
-                _("vehicle.license_plate", lang=locale),
+                _("vehicle.registration", lang=locale),
+                _("vehicle.vehicle_type", lang=locale),
                 _("nav.vehicles", lang=locale),
                 _("common.type", lang=locale),
                 _("common.title", lang=locale),
@@ -294,6 +314,7 @@ class ReportService:
             exp.add_row(
                 [
                     r["license_plate"],
+                    _("vehicle_type." + r["vehicle_type"], lang=locale),
                     f"{r['brand']} {r['model']}",
                     _("maintenance_type." + r["type"], lang=locale),
                     r["title"],

@@ -23,8 +23,8 @@
                 <td class="px-4 py-3 text-right font-mono text-xs">
                     {% if not loop.last %}
                     {% set delta = log.value - logs[loop.index].value %}
-                    <span class="{% if delta > 0 %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %}">
-                        +{{ "{:,}".format(delta) }}
+                    <span class="{% if delta > 0 %}text-green-600 dark:text-green-400{% elif delta < 0 %}text-amber-600 dark:text-amber-400{% else %}text-gray-400{% endif %}">
+                        {{ '+' if delta > 0 else '' }}{{ "{:,}".format(delta) }}
                     </span>
                     {% endif %}
                 </td>
@@ -35,6 +35,7 @@
                         {% else %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% endif %}">
                         {{ log.source.value | upper }}
                     </span>
+                    {% if log.is_correction %}<span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">{{ _('vtab.mileage_correction') }}</span>{% endif %}
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{{ log.notes or '' }}</td>
             </tr>

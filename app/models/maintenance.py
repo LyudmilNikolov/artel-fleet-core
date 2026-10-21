@@ -49,5 +49,5 @@ class MaintenanceRecord(Base, UUIDPrimaryKey, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id], lazy="joined")
     creator = relationship("User", foreign_keys=[created_by])

@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     APP_DEBUG: bool = True
     DEFAULT_LANGUAGE: str = "bg"
 
+    VEHICLE_DEPARTMENTS: list[str] = []
+
+    # Compliance documents: days before end_date when a current entry counts as "expiring soon"
+    COMPLIANCE_EXPIRING_SOON_DAYS: int = 30
+
     # Database (no defaults — must come from Vault or env)
     DATABASE_URL: str = ""
     DATABASE_URL_SYNC: str = ""

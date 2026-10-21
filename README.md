@@ -49,7 +49,7 @@ You will be prompted for username, email, full name, and password (minimum 8 cha
 docker compose exec app python scripts/seed_data.py
 ```
 
-Generates 500+ vehicles, 200+ drivers, maintenance records, expenses, and contracts with realistic Kazakh data.
+Generates 500+ vehicles, 200+ drivers, maintenance records, expenses, and vehicle documents with deadlines.
 
 ### 5. Open the application
 
@@ -84,7 +84,7 @@ Open http://localhost:8000 in your browser.
 | **Mileage** | Mileage logging with anomaly detection |
 | **Maintenance** | Scheduled/unscheduled maintenance with Kanban view |
 | **Expenses** | Cost tracking by category, fuel consumption analysis |
-| **Contracts** | Leasing, insurance, service contracts with expiry alerts |
+| **Documents & Deadlines** | Civil liability, CASCO, technical inspection (ГТП) and tachograph validity per vehicle, with renewal and expiry alerts |
 | **Documents** | File upload/download via MinIO (S3) |
 | **Reports** | TCO, fleet utilization, fuel analysis with Excel/CSV export |
 | **Notifications** | In-app, email (SMTP), Telegram alerts |
@@ -93,7 +93,7 @@ Open http://localhost:8000 in your browser.
 ### Dashboard
 
 - Fleet overview with vehicle status distribution
-- Attention alerts (overdue maintenance, expiring contracts/licenses)
+- Attention alerts (overdue maintenance, expiring vehicle documents/licenses)
 - Expense chart with category breakdown
 - Top expensive vehicles
 - Maintenance statistics
@@ -103,7 +103,7 @@ Open http://localhost:8000 in your browser.
 | Role | Access |
 |------|--------|
 | `admin` | Full system access |
-| `fleet_manager` | Vehicle, driver, maintenance, expense, contract management |
+| `fleet_manager` | Vehicle, driver, maintenance, expense, vehicle document management |
 | `driver` | View assigned vehicles, submit mileage |
 | `viewer` | Read-only dashboards and reports |
 

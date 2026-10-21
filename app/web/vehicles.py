@@ -2,21 +2,40 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.vehicle import BodyType, FuelType, TransmissionType, VehicleStatus
+from app.models.vehicle import FuelType, TransmissionType, VehicleStatus, VehicleType
 from app.repositories.base import BaseRepository
-from app.schemas.vehicle import VehicleCreate, VehicleUpdate
-from app.services.contract_service import ContractService
-from app.services.errors import render_error
+from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
+from app.services.compliance_service import ComplianceService
+from app.services.errors import DomainError, render_error
 from app.services.expense_service import ExpenseService
 from app.services.maintenance_service import MaintenanceService
 from app.services.mileage_service import MileageService
 from app.services.vehicle_service import VehicleService
+from app.vehicle_rules import (
+    APPLICABLE,
+    CONTAINER_SIZES,
+    CREATE_DEFAULTS,
+    DECIMAL_BOUNDS,
+    EMISSION_STANDARDS,
+    FUEL_CHOICES,
+    INTEGER_BOUNDS,
+    PowerSource,
+)
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
+
+# Presentation only: trailers share one form choice, but each kind is still stored as its own vehicle type.
+TRAILER_TYPES = (VehicleType.CONTAINER_SEMI_TRAILER, VehicleType.CURTAIN_SIDE_SEMI_TRAILER)
+VEHICLE_GROUPS = list(dict.fromkeys("trailer" if t in TRAILER_TYPES else t.value for t in VehicleType))
+
+
+# The list filters by one of these; "trailer" covers both trailer kinds.
+LIST_TYPE_FILTERS = ("tractor_unit", "trailer", "van", "passenger_car", "forklift")
 
 
 @router.get("", response_class=HTMLResponse)
@@ -24,6 +43,9 @@ async def vehicle_list(
     request: Request,
     q: str | None = None,
     status: str | None = None,
+    vehicle_type: str | None = None,
+    fuel_type: str | None = None,
+    department: str | None = None,
     brand: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
@@ -33,14 +55,32 @@ async def vehicle_list(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
-    status_enum = VehicleStatus(status) if status else None
-    service = VehicleService(db)
-    vehicles, total = await service.list_vehicles(q=q, status=status_enum, brand=brand, page=page, size=size)
+    try:
+        status_enum = VehicleStatus(status) if status else None
+        fuel_type = FuelType(fuel_type) if fuel_type else None
+        if vehicle_type == "trailer":
+            types = [t.value for t in TRAILER_TYPES]
+        else:
+            types = VehicleType(vehicle_type) if vehicle_type else None
+    except ValueError:
+        return HTMLResponse(render_error("errors.invalid_input", request.state.locale), status_code=422)
+    # fuel type, department and brand are not offered in the filter bar but old links keep working.
+    vehicles, total = await VehicleService(db).list_vehicles(
+        q=q,
+        status=status_enum,
+        brand=brand or None,
+        vehicle_type=types,
+        fuel_type=fuel_type,
+        department=department or None,
+        page=page,
+        size=size,
+    )
     pages = BaseRepository.calc_pages(total, size)
+    partial = request.headers.get("HX-Request") == "true" and request.headers.get("HX-Target") == "vehicle-results"
 
     return request.app.state.templates.TemplateResponse(
         request=request,
-        name="vehicles/list.html",
+        name="vehicles/partials/list_results.html" if partial else "vehicles/list.html",
         context={
             "request": request,
             "user": user,
@@ -51,12 +91,97 @@ async def vehicle_list(
             "size": size,
             "pages": pages,
             "q": q,
-            "status_filter": status_enum,
-            "brand_filter": brand,
+            "status_filter": status_enum.value if status_enum else "",
+            "type_filter": vehicle_type or "",
             "statuses": VehicleStatus,
+            "type_filters": LIST_TYPE_FILTERS,
             **request.app.state.template_globals(request),
         },
     )
+
+
+async def render_form(request, db, user, vehicle=None, form_data=None, error=None, field_errors=None):
+    if form_data is None:
+        form_data = (
+            VehicleRead.model_validate(vehicle).model_dump(mode="json")
+            if vehicle
+            else {"vehicle_type": "tractor_unit", **CREATE_DEFAULTS["tractor_unit"]}
+        )
+        # An edit reading is deliberately blank; the authoritative value is separate.
+        if vehicle:
+            form_data["current_mileage"] = ""
+    choices = {
+        "fuel_type": [(v.value, "fuel_type." + v.value) for v in FuelType],
+        "transmission": [(v.value, "transmission." + v.value) for v in TransmissionType],
+        "power_source": [(v.value, "power_source." + v.value) for v in PowerSource],
+        "emission_standard": [(v, "emission_standard." + v.replace(" ", "_")) for v in EMISSION_STANDARDS],
+    }
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="vehicles/form.html",
+        status_code=422 if error else 200,
+        context={
+            "request": request,
+            "user": user,
+            "active_page": "vehicles",
+            "vehicle": vehicle,
+            "form_data": form_data,
+            "departments": await VehicleService(db).departments(),
+            "vehicle_types": VehicleType,
+            "vehicle_groups": VEHICLE_GROUPS,
+            "trailer_types": TRAILER_TYPES,
+            "statuses": VehicleStatus,
+            "error": error,
+            "field_errors": field_errors or {},
+            "choices": choices,
+            "container_sizes": CONTAINER_SIZES,
+            "technical_fields": sorted(set.union(*APPLICABLE.values())),
+            "integer_bounds": INTEGER_BOUNDS,
+            "decimal_bounds": DECIMAL_BOUNDS,
+            "rules": {
+                "applicable": {k: sorted(v) for k, v in APPLICABLE.items()},
+                "defaults": CREATE_DEFAULTS,
+                "fuel": FUEL_CHOICES,
+            },
+            "apply_defaults": vehicle is None and error is None,
+            **request.app.state.template_globals(request),
+        },
+    )
+
+
+def submitted_values(form, editing):
+    values = dict(form)
+    if form.get("vehicle_type") == "container_semi_trailer":
+        values["supported_container_sizes"] = form.getlist("supported_container_sizes")
+    for name, value in list(values.items()):
+        if value == "":
+            if editing and name == "current_mileage":
+                del values[name]
+            else:
+                values[name] = None
+    return values
+
+
+async def save_form(request, db, user, vehicle=None):
+    form = await request.form()
+    raw = dict(form)
+    raw["supported_container_sizes"] = form.getlist("supported_container_sizes")
+    try:
+        values = submitted_values(form, vehicle is not None)
+        if vehicle:
+            result = await VehicleService(db).update(vehicle.id, VehicleUpdate(**values), user_id=user.id)
+        else:
+            result = await VehicleService(db).create(VehicleCreate(**values), user_id=user.id)
+        return RedirectResponse(url=f"/vehicles/{result.id}", status_code=302)
+    except (ValidationError, DomainError) as exc:
+        errors = {}
+        if isinstance(exc, ValidationError):
+            for detail in exc.errors():
+                key = detail.get("ctx", {}).get("error")
+                errors[str(detail["loc"][0]) if detail["loc"] else "vehicle_type"] = render_error(
+                    key or "errors.invalid_input", request.state.locale
+                )
+        return await render_form(request, db, user, vehicle, raw, render_error(exc, request.state.locale), errors)
 
 
 @router.get("/new", response_class=HTMLResponse)
@@ -64,23 +189,7 @@ async def vehicle_form_new(request: Request, db: AsyncSession = Depends(get_db))
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-
-    return request.app.state.templates.TemplateResponse(
-        request=request,
-        name="vehicles/form.html",
-        context={
-            "request": request,
-            "user": user,
-            "active_page": "vehicles",
-            "vehicle": None,
-            "body_types": BodyType,
-            "fuel_types": FuelType,
-            "transmission_types": TransmissionType,
-            "statuses": VehicleStatus,
-            "error": None,
-            **request.app.state.template_globals(request),
-        },
-    )
+    return await render_form(request, db, user)
 
 
 @router.post("/new", response_class=HTMLResponse)
@@ -88,45 +197,7 @@ async def vehicle_create(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-
-    form = await request.form()
-    try:
-        data = VehicleCreate(
-            license_plate=form.get("license_plate", ""),
-            vin=form.get("vin", ""),
-            brand=form.get("brand", ""),
-            model=form.get("model", ""),
-            year=int(form.get("year", 2024)),
-            color=form.get("color") or None,
-            body_type=form.get("body_type", "sedan"),
-            fuel_type=form.get("fuel_type", "gasoline"),
-            engine_volume=float(form.get("engine_volume")) if form.get("engine_volume") else None,
-            transmission=form.get("transmission", "automatic"),
-            seats=int(form.get("seats")) if form.get("seats") else None,
-            purchase_price=form.get("purchase_price") or None,
-            department=form.get("department") or None,
-            notes=form.get("notes") or None,
-        )
-        service = VehicleService(db)
-        vehicle = await service.create(data)
-        return RedirectResponse(url=f"/vehicles/{vehicle.id}", status_code=302)
-    except (ValueError, Exception) as e:
-        return request.app.state.templates.TemplateResponse(
-            request=request,
-            name="vehicles/form.html",
-            context={
-                "request": request,
-                "user": user,
-                "active_page": "vehicles",
-                "vehicle": None,
-                "body_types": BodyType,
-                "fuel_types": FuelType,
-                "transmission_types": TransmissionType,
-                "statuses": VehicleStatus,
-                "error": render_error(e, request.state.locale),
-                **request.app.state.template_globals(request),
-            },
-        )
+    return await save_form(request, db, user)
 
 
 @router.get("/{vehicle_id}", response_class=HTMLResponse)
@@ -148,6 +219,7 @@ async def vehicle_detail(request: Request, vehicle_id: UUID, db: AsyncSession = 
             "user": user,
             "active_page": "vehicles",
             "vehicle": vehicle,
+            "applicable_fields": sorted(APPLICABLE[vehicle.vehicle_type]),
             **request.app.state.template_globals(request),
         },
     )
@@ -158,28 +230,10 @@ async def vehicle_form_edit(request: Request, vehicle_id: UUID, db: AsyncSession
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-
-    service = VehicleService(db)
-    vehicle = await service.get_by_id(vehicle_id)
+    vehicle = await VehicleService(db).get_by_id(vehicle_id)
     if not vehicle:
         return RedirectResponse(url="/vehicles", status_code=302)
-
-    return request.app.state.templates.TemplateResponse(
-        request=request,
-        name="vehicles/form.html",
-        context={
-            "request": request,
-            "user": user,
-            "active_page": "vehicles",
-            "vehicle": vehicle,
-            "body_types": BodyType,
-            "fuel_types": FuelType,
-            "transmission_types": TransmissionType,
-            "statuses": VehicleStatus,
-            "error": None,
-            **request.app.state.template_globals(request),
-        },
-    )
+    return await render_form(request, db, user, vehicle)
 
 
 @router.post("/{vehicle_id}/edit", response_class=HTMLResponse)
@@ -187,58 +241,24 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    vehicle = await VehicleService(db).get_by_id(vehicle_id)
+    if not vehicle:
+        return RedirectResponse(url="/vehicles", status_code=302)
+    return await save_form(request, db, user, vehicle)
 
-    form = await request.form()
-    update_data = {}
-    for field in [
-        "license_plate",
-        "vin",
-        "brand",
-        "model",
-        "color",
-        "body_type",
-        "fuel_type",
-        "transmission",
-        "department",
-        "notes",
-        "status",
-    ]:
-        val = form.get(field)
-        if val is not None and val != "":
-            update_data[field] = val
-    for field in ["year", "seats"]:
-        val = form.get(field)
-        if val:
-            update_data[field] = int(val)
-    if form.get("engine_volume"):
-        update_data["engine_volume"] = float(form["engine_volume"])
-    if form.get("purchase_price"):
-        update_data["purchase_price"] = form["purchase_price"]
 
+@router.post("/{vehicle_id}/delete")
+async def vehicle_delete(request: Request, vehicle_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if user.role.value not in ("admin", "fleet_manager"):
+        return RedirectResponse(url=f"/vehicles/{vehicle_id}", status_code=303)
     try:
-        data = VehicleUpdate(**update_data)
-        service = VehicleService(db)
-        await service.update(vehicle_id, data)
-        return RedirectResponse(url=f"/vehicles/{vehicle_id}", status_code=302)
-    except (ValueError, Exception) as e:
-        service = VehicleService(db)
-        vehicle = await service.get_by_id(vehicle_id)
-        return request.app.state.templates.TemplateResponse(
-            request=request,
-            name="vehicles/form.html",
-            context={
-                "request": request,
-                "user": user,
-                "active_page": "vehicles",
-                "vehicle": vehicle,
-                "body_types": BodyType,
-                "fuel_types": FuelType,
-                "transmission_types": TransmissionType,
-                "statuses": VehicleStatus,
-                "error": render_error(e, request.state.locale),
-                **request.app.state.template_globals(request),
-            },
-        )
+        await VehicleService(db).delete(vehicle_id)
+    except DomainError:
+        pass
+    return RedirectResponse(url="/vehicles", status_code=303)
 
 
 # ---- HTMX widget endpoints for vehicle detail tabs ----
@@ -304,8 +324,8 @@ async def vehicle_tab_expenses(
     )
 
 
-@router.get("/{vehicle_id}/tab/contracts", response_class=HTMLResponse)
-async def vehicle_tab_contracts(
+@router.get("/{vehicle_id}/tab/compliance", response_class=HTMLResponse)
+async def vehicle_tab_compliance(
     request: Request,
     vehicle_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -313,12 +333,20 @@ async def vehicle_tab_contracts(
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
-    service = ContractService(db)
-    records, total = await service.list_for_vehicle(vehicle_id, limit=30)
+    vehicle = await VehicleService(db).get_by_id(vehicle_id)
+    if not vehicle:
+        return HTMLResponse("", status_code=404)
+    summary = await ComplianceService(db).summary_for_vehicle(vehicle)
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
         request=request,
-        name="vehicles/partials/tab_contracts.html",
-        context={"request": request, "records": records, "total": total, "vehicle_id": str(vehicle_id), **ctx},
+        name="vehicles/partials/tab_compliance.html",
+        context={
+            "request": request,
+            "summary": summary,
+            "can_edit": user.role.value in ("admin", "fleet_manager"),
+            "vehicle_id": str(vehicle_id),
+            **ctx,
+        },
     )

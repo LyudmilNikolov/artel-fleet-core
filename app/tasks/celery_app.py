@@ -20,17 +20,13 @@ celery_app.conf.update(
             "task": "app.tasks.reminders.check_maintenance_reminders",
             "schedule": crontab(hour=8, minute=0),
         },
-        "check-contract-expiry": {
-            "task": "app.tasks.reminders.check_contract_expiry",
+        "check-compliance-expiry": {
+            "task": "app.tasks.reminders.check_compliance_expiry",
             "schedule": crontab(hour=8, minute=0),
         },
         "check-driver-document-expiry": {
             "task": "app.tasks.reminders.check_driver_document_expiry",
             "schedule": crontab(hour=8, minute=0),
-        },
-        "expire-overdue-contracts": {
-            "task": "app.tasks.reminders.expire_overdue_contracts",
-            "schedule": crontab(hour=0, minute=5),
         },
     },
 )

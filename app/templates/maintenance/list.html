@@ -10,30 +10,46 @@
         </select>
         <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
     </form>
-    {% if user.role.value in ['admin', 'fleet_manager'] %}
-    <a href="/maintenance/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('btn.create') }}</a>
+    {% if can_edit %}
+    <a href="/maintenance/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('maintenance.add') }}</a>
     {% endif %}
 </div>
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('maintenance.vehicle') }}</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.title') }}</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.type') }}</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.scheduled') }}</th>
                 <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('common.cost') }}</th>
+                {% if can_edit %}<th class="px-4 py-3"></th>{% endif %}
             </tr></thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for r in records %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/maintenance/{{ r.id }}'">
+                    <td class="px-4 py-3">
+                        <a href="/vehicles/{{ r.vehicle.id }}" class="font-medium text-primary-600 hover:underline" onclick="event.stopPropagation()">{{ r.vehicle.license_plate }}</a>
+                        <span class="block text-xs text-gray-500">{{ r.vehicle.brand }} {{ r.vehicle.model }}</span>
+                    </td>
                     <td class="px-4 py-3 font-medium">{{ r.title }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ _('maintenance_type.' + r.type.value) }}</td>
                     <td class="px-4 py-3"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if r.status.value == 'completed' %}bg-green-100 text-green-800{% elif r.status.value == 'in_progress' %}bg-blue-100 text-blue-800{% elif r.status.value == 'scheduled' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-800{% endif %}">{{ _('status.' + r.status.value) }}</span></td>
                     <td class="px-4 py-3 text-gray-500">{{ r.scheduled_date or '—' }}</td>
-                    <td class="px-4 py-3 text-right font-mono">{{ r.cost or '—' }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ money(r.cost) if r.cost is not none else '—' }}</td>
+                    {% if can_edit %}
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        {% if r.status.value in ['scheduled', 'in_progress'] %}
+                        <form method="POST" action="/maintenance/{{ r.id }}/complete" onclick="event.stopPropagation()">
+                            <input type="hidden" name="next" value="/maintenance">
+                            <button type="submit" class="text-green-700 hover:underline text-xs font-medium">{{ _('maintenance.mark_complete') }}</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
-                {% else %}<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
+                {% else %}<tr><td colspan="{{ 7 if can_edit else 6 }}" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

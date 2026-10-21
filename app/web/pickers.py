@@ -1,0 +1,34 @@
+"""Data for the searchable vehicle picker shared by the maintenance and expense forms."""
+
+from app.models.vehicle import Vehicle
+from app.vehicle_rules import MILEAGE_TYPES, blocked_expense_categories, compliance_types_for
+
+
+def vehicle_label(vehicle: Vehicle) -> str:
+    return f"{vehicle.license_plate} — {vehicle.brand} {vehicle.model}"
+
+
+def picker_state(vehicle: Vehicle | None) -> dict:
+    """Initial state of the ``vehiclePicker`` Alpine component for an optional selected vehicle."""
+    return {
+        "vehicleId": str(vehicle.id) if vehicle else "",
+        "label": vehicle_label(vehicle) if vehicle else "",
+        "tracked": bool(vehicle and vehicle.vehicle_type in MILEAGE_TYPES),
+        "currentMileage": vehicle.current_mileage if vehicle else None,
+        "docTypes": list(compliance_types_for(vehicle.vehicle_type)) if vehicle else [],
+        "blocked": list(blocked_expense_categories(vehicle.vehicle_type)) if vehicle else [],
+    }
+
+
+def option_rows(vehicles: list[Vehicle]) -> list[dict]:
+    """Rows for ``components/vehicle_picker_options.html``."""
+    return [
+        {
+            "vehicle": v,
+            "label": vehicle_label(v),
+            "tracked": v.vehicle_type in MILEAGE_TYPES,
+            "doc_types": list(compliance_types_for(v.vehicle_type)),
+            "blocked": list(blocked_expense_categories(v.vehicle_type)),
+        }
+        for v in vehicles
+    ]

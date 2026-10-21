@@ -1,6 +1,7 @@
-from typing import Any
+import re
+from collections.abc import Sequence
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.vehicle import Vehicle, VehicleStatus
@@ -18,7 +19,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         status: VehicleStatus | None = None,
         brand: str | None = None,
         fuel_type: str | None = None,
-        body_type: str | None = None,
+        vehicle_type: str | Sequence[str] | None = None,
         department: str | None = None,
         offset: int = 0,
         limit: int = 50,
@@ -27,10 +28,15 @@ class VehicleRepository(BaseRepository[Vehicle]):
         query = select(Vehicle)
         count_query = select(func.count()).select_from(Vehicle)
 
-        if q:
+        if q and q.strip():
+            q = q.strip()
             pattern = f"%{q}%"
+            # Plates are typed with or without spaces/dashes ("CA1234AB" finds "CA 1234 AB").
+            compact = re.sub(r"[\s-]", "", q)
+            plate = func.replace(func.replace(Vehicle.license_plate, " ", ""), "-", "")
             filt = or_(
                 Vehicle.license_plate.ilike(pattern),
+                plate.ilike(f"%{compact}%") if compact else false(),
                 Vehicle.vin.ilike(pattern),
                 Vehicle.brand.ilike(pattern),
                 Vehicle.model.ilike(pattern),
@@ -38,11 +44,18 @@ class VehicleRepository(BaseRepository[Vehicle]):
             query = query.where(filt)
             count_query = count_query.where(filt)
 
-        for attr, val in [("status", status), ("brand", brand), ("fuel_type", fuel_type), ("body_type", body_type), ("department", department)]:
+        for attr, val in [
+            ("status", status),
+            ("brand", brand),
+            ("fuel_type", fuel_type),
+            ("vehicle_type", vehicle_type),
+            ("department", department),
+        ]:
             if val is not None:
                 col = getattr(Vehicle, attr)
-                query = query.where(col == val)
-                count_query = count_query.where(col == val)
+                condition = col.in_(list(val)) if isinstance(val, (list, tuple, set, frozenset)) else col == val
+                query = query.where(condition)
+                count_query = count_query.where(condition)
 
         total = (await self.session.execute(count_query)).scalar() or 0
 
@@ -65,7 +78,5 @@ class VehicleRepository(BaseRepository[Vehicle]):
         return result.scalar_one_or_none()
 
     async def count_by_status(self) -> dict[str, int]:
-        result = await self.session.execute(
-            select(Vehicle.status, func.count()).group_by(Vehicle.status)
-        )
+        result = await self.session.execute(select(Vehicle.status, func.count()).group_by(Vehicle.status))
         return {row[0].value: row[1] for row in result.all()}

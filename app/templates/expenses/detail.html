@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% set title = _('expense_category.' ~ expense.category.value) ~ ' — ' ~ expense.vehicle.license_plate %}
+{% block title %}{{ title }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-3">
+    <a href="/expenses" class="text-gray-500 hover:text-gray-700" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + expense.category.value) }}</span>
+    {% if can_edit %}
+    <div class="ml-auto flex items-center gap-2">
+        <a href="/expenses/{{ expense.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
+        <form method="POST" action="/expenses/{{ expense.id }}/delete" onsubmit="return confirm({{ (_('expense.delete_confirm_linked') if expense.compliance_document else _('expense.delete_confirm')) | tojson | forceescape }})">
+            <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% macro field(label, value) %}<div><dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</dt><dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ value if value is not none and value != '' else '—' }}</dd></div>{% endmacro %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('picker.vehicle') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/vehicles/{{ expense.vehicle.id }}" class="text-primary-600 hover:underline">{{ expense.vehicle.license_plate }} — {{ expense.vehicle.brand }} {{ expense.vehicle.model }}</a></dd>
+        </div>
+        {{ field(_('common.category'), _('expense_category.' + expense.category.value)) }}
+        {{ field(_('common.amount'), money(expense.amount)) }}
+        {{ field(_('common.date'), expense.date) }}
+        {{ field(_('common.vendor'), expense.vendor) }}
+        {{ field(_('expense.mileage'), ('{:,}'.format(expense.mileage_at_refuel) ~ ' km') if expense.mileage_at_refuel is not none else none) }}
+        {% if expense.category.value == 'fuel' %}
+        {{ field(_('expense.fuel_liters'), expense.fuel_liters) }}
+        {{ field(_('expense.fuel_price_per_liter'), money(expense.fuel_price_per_liter) if expense.fuel_price_per_liter is not none else none) }}
+        {% endif %}
+        {% if expense.compliance_document %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('expense.linked_document') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/compliance/{{ expense.compliance_document.id }}" class="text-primary-600 hover:underline">{{ expense.compliance_document.start_date }} — {{ expense.compliance_document.end_date }}</a></dd>
+        </div>
+        {% endif %}
+    </div>
+    {% if expense.description %}
+    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('common.description') }}</dt>
+        <dd class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ expense.description }}</dd>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('docs.title') }}</h3>
+    <div hx-get="/documents/gallery/expense/{{ expense.id }}" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-4 text-gray-400">
+            <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </div>
+    </div>
+    {% if can_edit %}
+    {% with entity_type='expense', entity_id=expense.id|string, doc_type='invoice' %}
+    {% include 'components/upload.html' %}
+    {% endwith %}
+    {% endif %}
+</div>
+{% endblock %}

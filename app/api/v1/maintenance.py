@@ -10,10 +10,18 @@ from app.models.user import User
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.maintenance import MaintenanceCreate, MaintenanceRead, MaintenanceUpdate
-from app.services.errors import error_detail
+from app.services.errors import DomainError, MileageBelowCurrentError, error_detail
 from app.services.maintenance_service import MaintenanceService
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
+
+
+def _http_error(exc: DomainError) -> HTTPException:
+    """404 for unknown records/vehicles, 409 when a lower mileage needs confirmation, else 400."""
+    if isinstance(exc, MileageBelowCurrentError):
+        return HTTPException(status_code=409, detail=error_detail(exc))
+    not_found = exc.key in ("error.maintenance_not_found", "error.vehicle_not_found")
+    return HTTPException(status_code=404 if not_found else 400, detail=error_detail(exc))
 
 
 @router.get("", response_model=PaginatedResponse[MaintenanceRead])
@@ -49,7 +57,10 @@ async def create_maintenance(
     data: MaintenanceCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_fleet_manager)
 ):
     service = MaintenanceService(db)
-    return await service.create(data, user.id)
+    try:
+        return await service.create(data, user.id)
+    except DomainError as e:
+        raise _http_error(e) from e
 
 
 @router.patch("/{record_id}", response_model=MaintenanceRead)
@@ -62,8 +73,8 @@ async def update_maintenance(
     service = MaintenanceService(db)
     try:
         return await service.update(record_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=error_detail(e))
+    except DomainError as e:
+        raise _http_error(e) from e
 
 
 @router.patch("/{record_id}/complete", response_model=MaintenanceRead)

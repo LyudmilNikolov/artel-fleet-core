@@ -20,7 +20,7 @@ ENTITY_RETURN_URLS = {
     "vehicle": "/vehicles/{id}",
     "driver": "/drivers/{id}",
     "maintenance": "/maintenance/{id}",
-    "contract": "/contracts/{id}",
+    "compliance_document": "/compliance/{id}",
     "expense": "/expenses/{id}",
 }
 
@@ -40,6 +40,8 @@ async def upload_document(
         return HTMLResponse(
             escape(render_error(ValueError("errors.unauthorized"), request.state.locale)), status_code=401
         )
+    if user.role.value not in ("admin", "fleet_manager"):
+        return HTMLResponse(escape(render_error(ValueError("errors.forbidden"), request.state.locale)), status_code=403)
 
     try:
         etype = EntityType(entity_type)

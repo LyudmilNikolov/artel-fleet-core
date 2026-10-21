@@ -13,7 +13,7 @@
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
             {% for e in records %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/expenses/{{ e.id }}'">
                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ e.date }}</td>
                 <td class="px-4 py-3">
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium

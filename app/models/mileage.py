@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Identity, Index, Integer, Text, false, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,7 @@ class MileageSource(str, enum.Enum):
 
 class MileageLog(Base, UUIDPrimaryKey):
     __tablename__ = "mileage_logs"
+    __table_args__ = (Index("ix_mileage_logs_vehicle_seq", "vehicle_id", "seq"),)
 
     vehicle_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False, index=True
@@ -29,10 +30,12 @@ class MileageLog(Base, UUIDPrimaryKey):
         default=MileageSource.MANUAL,
         nullable=False,
     )
-    recorded_at: Mapped[str] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    recorded_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Insertion order independent of timestamps (many rows can share one transaction time).
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(always=True), nullable=False)
+    # A deliberate lower reading: it starts a new baseline; earlier readings stay as history.
+    is_correction: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
     # Relationships
     vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])

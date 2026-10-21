@@ -92,23 +92,23 @@ def test_template_translation_keys_exist():
 
 def test_dynamic_enum_translation_keys():
     from app.models.audit_log import AuditAction
-    from app.models.contract import ContractStatus, ContractType, PaymentFrequency
     from app.models.document import DocumentType, EntityType
     from app.models.driver import DriverStatus
     from app.models.expense import ExpenseCategory
     from app.models.maintenance import MaintenanceStatus, MaintenanceType
     from app.models.user import UserRole
-    from app.models.vehicle import BodyType, FuelType, TransmissionType, VehicleStatus
+    from app.models.vehicle import FuelType, TransmissionType, VehicleStatus, VehicleType
+    from app.repositories.compliance_repo import STATUSES as COMPLIANCE_STATUSES
+    from app.vehicle_rules import ComplianceType
 
     groups = {
         "audit_action": AuditAction,
-        "contract_type": ContractType,
-        "payment_frequency": PaymentFrequency,
+        "compliance_type": ComplianceType,
         "doc_type": DocumentType,
         "expense_category": ExpenseCategory,
         "maintenance_type": MaintenanceType,
         "role": UserRole,
-        "body_type": BodyType,
+        "vehicle_type": VehicleType,
         "fuel_type": FuelType,
         "transmission": TransmissionType,
     }
@@ -118,7 +118,9 @@ def test_dynamic_enum_translation_keys():
     for prefix, choices in groups.items():
         for choice in choices:
             assert f"{prefix}.{choice.value}" in keys
-    for choices in (ContractStatus, DriverStatus, MaintenanceStatus, VehicleStatus):
+    for status in (*COMPLIANCE_STATUSES, "replaced", "missing"):
+        assert f"compliance_status.{status}" in keys
+    for choices in (DriverStatus, MaintenanceStatus, VehicleStatus):
         for choice in choices:
             assert f"status.{choice.value}" in keys
 

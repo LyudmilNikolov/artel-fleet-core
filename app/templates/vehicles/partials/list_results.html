@@ -1,0 +1,65 @@
+{# Vehicle table and pagination; swapped into #vehicle-results when the filters change. #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('vehicle.registration') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('vehicle.vin') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                    <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('vehicle.current_mileage') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.actions') }}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for v in vehicles %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/vehicles/{{ v.id }}'">
+                    <td class="px-4 py-3">
+                        <div class="font-medium">{{ v.brand }} {{ v.model }} ({{ v.year if v.year is not none else '—' }})</div>
+                        <div class="text-xs text-gray-500">{{ v.license_plate }} · {{ _("vehicle_type." + v.vehicle_type.value) }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ v.vin or '—' }}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if v.status.value == 'active' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                            {% elif v.status.value == 'in_maintenance' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400
+                            {% elif v.status.value == 'decommissioned' %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400
+                            {% else %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+                            {{ _('status.' + v.status.value) }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">{{ "{:,}".format(v.current_mileage) if v.current_mileage is not none else "—" }}</td>
+                    <td class="px-4 py-3">
+                        <a href="/vehicles/{{ v.id }}" class="text-primary-600 hover:text-primary-800 text-sm">{{ _('btn.edit') }}</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pages > 1 %}
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <p class="text-sm text-gray-500">{{ _('common.showing', start=((page-1)*size+1), end=([page*size, total]|min), total=total) }}</p>
+        <div class="flex gap-1">
+            {% if page > 1 %}
+            <a href="{{ request.url.include_query_params(page=page-1, size=size) }}" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">&laquo;</a>
+            {% endif %}
+            {% for p in range(1, pages+1) %}
+            {% if p == page %}
+            <span class="px-3 py-1.5 text-sm rounded-lg bg-primary-600 text-white">{{ p }}</span>
+            {% elif p <= 2 or p >= pages-1 or (p >= page-1 and p <= page+1) %}
+            <a href="{{ request.url.include_query_params(page=p, size=size) }}" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">{{ p }}</a>
+            {% endif %}
+            {% endfor %}
+            {% if page < pages %}
+            <a href="{{ request.url.include_query_params(page=page+1, size=size) }}" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">&raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>

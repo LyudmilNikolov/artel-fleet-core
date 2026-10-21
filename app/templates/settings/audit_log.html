@@ -18,7 +18,7 @@
             <option value="driver" {% if entity_type_filter == 'driver' %}selected{% endif %}>{{ _('audit_entity.driver') }}</option>
             <option value="maintenance" {% if entity_type_filter == 'maintenance' %}selected{% endif %}>{{ _('audit_entity.maintenance') }}</option>
             <option value="expense" {% if entity_type_filter == 'expense' %}selected{% endif %}>{{ _('audit_entity.expense') }}</option>
-            <option value="contract" {% if entity_type_filter == 'contract' %}selected{% endif %}>{{ _('audit_entity.contract') }}</option>
+            <option value="compliance_document" {% if entity_type_filter == 'compliance_document' %}selected{% endif %}>{{ _('audit_entity.compliance_document') }}</option>
             <option value="user" {% if entity_type_filter == 'user' %}selected{% endif %}>{{ _('audit_entity.user') }}</option>
         </select>
         <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>

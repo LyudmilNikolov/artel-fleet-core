@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_fleet_manager
 from app.database import get_db
 from app.models.document import DocumentType, EntityType
 from app.models.user import User
@@ -21,7 +21,7 @@ async def upload_document(
     entity_id: UUID = Form(...),
     doc_type: DocumentType = Form(DocumentType.OTHER),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_fleet_manager),
 ):
     service = DocumentService(db)
     file_data = await file.read()
@@ -84,7 +84,7 @@ async def list_entity_documents(
 async def delete_document(
     doc_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_fleet_manager),
 ):
     service = DocumentService(db)
     try:

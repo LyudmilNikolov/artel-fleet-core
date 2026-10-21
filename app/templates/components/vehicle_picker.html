@@ -1,0 +1,21 @@
+{# Searchable vehicle picker. Needs `picker`, `options_url`; `locked` shows the vehicle read-only.
+   The enclosing element must use x-data="vehiclePicker(...)" (static/js/app.js). #}
+<label class="fc-label" for="vehicle-search">{{ _('picker.vehicle') }}</label>
+{% if locked %}
+<p class="text-sm font-medium text-gray-900 dark:text-white">{{ picker.label }}</p>
+{% else %}
+<input type="hidden" name="vehicle_id" :value="vehicleId" value="{{ picker.vehicleId }}">
+<div class="relative" @click.outside="open = false">
+    <div x-show="vehicleId" {% if not picker.vehicleId %}style="display: none"{% endif %} class="mb-2 flex items-center gap-2 text-sm">
+        <span class="font-medium text-gray-900 dark:text-white" x-text="label">{{ picker.label }}</span>
+        <button type="button" class="text-primary-600 hover:underline text-xs" @click="clear()">{{ _('picker.change') }}</button>
+    </div>
+    <input id="vehicle-search" x-ref="search" x-show="!vehicleId" {% if picker.vehicleId %}style="display: none"{% endif %} type="search" name="q" autocomplete="off"
+           placeholder="{{ _('picker.search_placeholder') }}" class="fc-input"
+           hx-get="{{ options_url }}" hx-trigger="input changed delay:300ms, focus once"
+           hx-target="#vehicle-options" hx-swap="innerHTML"
+           @focus="open = true" @input="open = true" @keydown.escape="open = false">
+    <div id="vehicle-options" x-show="open && !vehicleId" style="display: none"
+         class="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"></div>
+</div>
+{% endif %}
