@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models.document import DocumentType, EntityType
 from app.models.user import User
 from app.services.document_service import DocumentService
+from app.services.errors import error_detail
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -41,7 +42,7 @@ async def upload_document(
             "size_bytes": doc.size_bytes,
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail(e))
 
 
 @router.get("/{doc_id}/download")
@@ -53,7 +54,7 @@ async def download_document(
     service = DocumentService(db)
     url = await service.get_download_url(doc_id)
     if not url:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=404, detail="error.document_not_found")
     return RedirectResponse(url=url)
 
 
@@ -89,4 +90,4 @@ async def delete_document(
     try:
         await service.delete(doc_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=error_detail(e))

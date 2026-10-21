@@ -9,6 +9,7 @@ from app.models.contract import ContractStatus, ContractType, PaymentFrequency
 from app.repositories.base import BaseRepository
 from app.schemas.contract import ContractCreate
 from app.services.contract_service import ContractService
+from app.services.errors import render_error
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/contracts", tags=["web-contracts"])
@@ -30,11 +31,21 @@ async def contract_list(
     items, total = await service.list_all(status=status_enum, page=page, size=size)
     pages = BaseRepository.calc_pages(total, size)
     return request.app.state.templates.TemplateResponse(
-        "contracts/list.html",
-        {"request": request, "user": user, "active_page": "contracts",
-         "contracts": items, "total": total, "page": page, "size": size, "pages": pages,
-         "status_filter": status_enum, "statuses": ContractStatus,
-         **request.app.state.template_globals(request)},
+        request=request,
+        name="contracts/list.html",
+        context={
+            "request": request,
+            "user": user,
+            "active_page": "contracts",
+            "contracts": items,
+            "total": total,
+            "page": page,
+            "size": size,
+            "pages": pages,
+            "status_filter": status_enum,
+            "statuses": ContractStatus,
+            **request.app.state.template_globals(request),
+        },
     )
 
 
@@ -44,10 +55,19 @@ async def contract_form_new(request: Request, db: AsyncSession = Depends(get_db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     return request.app.state.templates.TemplateResponse(
-        "contracts/form.html",
-        {"request": request, "user": user, "active_page": "contracts", "contract": None,
-         "types": ContractType, "statuses": ContractStatus, "frequencies": PaymentFrequency,
-         "error": None, **request.app.state.template_globals(request)},
+        request=request,
+        name="contracts/form.html",
+        context={
+            "request": request,
+            "user": user,
+            "active_page": "contracts",
+            "contract": None,
+            "types": ContractType,
+            "statuses": ContractStatus,
+            "frequencies": PaymentFrequency,
+            "error": None,
+            **request.app.state.template_globals(request),
+        },
     )
 
 
@@ -71,14 +91,23 @@ async def contract_create(request: Request, db: AsyncSession = Depends(get_db)):
             notes=form.get("notes") or None,
         )
         service = ContractService(db)
-        contract = await service.create(data, user.id)
+        await service.create(data, user.id)
         return RedirectResponse(url="/contracts", status_code=302)
     except (ValueError, Exception) as e:
         return request.app.state.templates.TemplateResponse(
-            "contracts/form.html",
-            {"request": request, "user": user, "active_page": "contracts", "contract": None,
-             "types": ContractType, "statuses": ContractStatus, "frequencies": PaymentFrequency,
-             "error": str(e), **request.app.state.template_globals(request)},
+            request=request,
+            name="contracts/form.html",
+            context={
+                "request": request,
+                "user": user,
+                "active_page": "contracts",
+                "contract": None,
+                "types": ContractType,
+                "statuses": ContractStatus,
+                "frequencies": PaymentFrequency,
+                "error": render_error(e, request.state.locale),
+                **request.app.state.template_globals(request),
+            },
         )
 
 
@@ -92,7 +121,13 @@ async def contract_detail(request: Request, contract_id: UUID, db: AsyncSession 
     if not contract:
         return RedirectResponse(url="/contracts", status_code=302)
     return request.app.state.templates.TemplateResponse(
-        "contracts/detail.html",
-        {"request": request, "user": user, "active_page": "contracts", "contract": contract,
-         **request.app.state.template_globals(request)},
+        request=request,
+        name="contracts/detail.html",
+        context={
+            "request": request,
+            "user": user,
+            "active_page": "contracts",
+            "contract": contract,
+            **request.app.state.template_globals(request),
+        },
     )

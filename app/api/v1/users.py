@@ -10,6 +10,7 @@ from app.repositories.user_repo import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.services.auth_service import AuthService
+from app.services.errors import error_detail
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -41,7 +42,7 @@ async def get_user(
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="error.user_not_found")
     return user
 
 
@@ -63,7 +64,7 @@ async def create_user(
         )
         return user
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail(e))
 
 
 @router.patch("/{user_id}", response_model=UserRead)
@@ -76,7 +77,7 @@ async def update_user(
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="error.user_not_found")
 
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
@@ -93,11 +94,11 @@ async def delete_user(
     current_user: User = Depends(require_admin),
 ):
     if user_id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.cannot_delete_self")
 
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="error.user_not_found")
 
     await repo.delete(user)

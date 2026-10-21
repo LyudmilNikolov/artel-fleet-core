@@ -1,15 +1,20 @@
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
-
-from fastapi.responses import RedirectResponse
 
 from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
+from app.i18n.locales import resolve_locale
+from app.services.errors import render_error
+from app.utils.formatting import money
 from app.web.deps import WebRedirectException
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -43,7 +48,7 @@ def create_app() -> FastAPI:
     application.state.templates = templates
 
     def get_lang(request: Request) -> str:
-        return request.session.get("lang", settings.DEFAULT_LANGUAGE)
+        return getattr(request.state, "locale", None) or resolve_locale(request)
 
     def get_translation(key: str, request: Request, **kwargs) -> str:
         return _(key, lang=get_lang(request), **kwargs)
@@ -54,6 +59,8 @@ def create_app() -> FastAPI:
         lang = get_lang(request)
         return {
             "lang": lang,
+            "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
+            "money": lambda value: money(value, lang),
             "languages": get_available_languages(),
             "_": lambda key, **kw: _(key, lang=lang, **kw),
         }
@@ -64,6 +71,32 @@ def create_app() -> FastAPI:
     @application.exception_handler(WebRedirectException)
     async def redirect_exception_handler(request: Request, exc: WebRedirectException):
         return RedirectResponse(url=exc.headers["Location"], status_code=302)
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_handler(request: Request, exc: RequestValidationError):
+        lang = get_lang(request)
+        errors = []
+        for error in exc.errors():
+            errors.append(
+                {
+                    "type": error["type"],
+                    "loc": error["loc"],
+                    "msg": _("validation.required" if error["type"] == "missing" else "validation.invalid", lang=lang),
+                }
+            )
+        return JSONResponse(status_code=422, content={"detail": errors})
+
+    @application.exception_handler(HTTPException)
+    async def http_error_handler(request: Request, exc: HTTPException):
+        detail = render_error(
+            {401: "errors.unauthorized", 403: "errors.forbidden", 404: "errors.not_found"}.get(
+                exc.status_code, exc.detail
+            )
+            if not isinstance(exc.detail, dict) and not str(exc.detail).startswith(("error.", "errors.", "auth."))
+            else exc.detail,
+            get_lang(request),
+        )
+        return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=exc.headers)
 
     # Static files
     application.mount("/static", StaticFiles(directory="static"), name="static")

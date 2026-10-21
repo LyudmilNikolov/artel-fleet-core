@@ -70,8 +70,8 @@
                 <input type="number" name="seats" value="{{ vehicle.seats if vehicle and vehicle.seats else '' }}" class="fc-input">
             </div>
             <div>
-                <label class="fc-label">{{ _('vehicle.purchase_price') }}</label>
-                <input type="number" name="purchase_price" value="{{ vehicle.purchase_price if vehicle and vehicle.purchase_price else '' }}" step="0.01" class="fc-input">
+                <label class="fc-label">{{ _('vehicle.purchase_price') }} (EUR)</label>
+                <input type="number" name="purchase_price" value="{{ vehicle.purchase_price if vehicle and vehicle.purchase_price is not none else '' }}" step="0.01" class="fc-input">
             </div>
             <div>
                 <label class="fc-label">{{ _('vehicle.department') }}</label>

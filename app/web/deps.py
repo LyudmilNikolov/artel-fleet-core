@@ -1,10 +1,11 @@
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
-from starlette.status import HTTP_303_SEE_OTHER
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.status import HTTP_303_SEE_OTHER
 
 from app.database import get_db
+from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 
@@ -20,12 +21,18 @@ async def get_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> 
     """Get current user from session cookie. Returns None if not authenticated."""
     user_id = request.session.get("user_id")
     if not user_id:
+        resolve_locale(request)
         return None
     repo = UserRepository(db)
     user = await repo.get_by_id(UUID(user_id))
     if not user or not user.is_active:
+        language = request.session.get("lang")
         request.session.clear()
+        if language in ("bg", "en"):
+            request.session["lang"] = language
+        resolve_locale(request)
         return None
+    resolve_locale(request, user)
     return user
 
 

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.contract import Contract, ContractStatus
 from app.repositories.base import BaseRepository
 from app.schemas.contract import ContractCreate, ContractUpdate
+from app.services.errors import DomainError
 
 
 class ContractService:
@@ -19,7 +20,7 @@ class ContractService:
     async def update(self, contract_id: UUID, data: ContractUpdate) -> Contract:
         contract = await self.repo.get_by_id(contract_id)
         if not contract:
-            raise ValueError("Contract not found")
+            raise DomainError("error.contract_not_found")
         return await self.repo.update(contract, **data.model_dump(exclude_unset=True))
 
     async def get_by_id(self, contract_id: UUID) -> Contract | None:
@@ -32,7 +33,9 @@ class ContractService:
         result = await self.session.execute(query.order_by(Contract.end_date.desc()).offset(offset).limit(limit))
         return list(result.scalars().all()), total
 
-    async def list_all(self, *, status: ContractStatus | None = None, page: int = 1, size: int = 50) -> tuple[list[Contract], int]:
+    async def list_all(
+        self, *, status: ContractStatus | None = None, page: int = 1, size: int = 50
+    ) -> tuple[list[Contract], int]:
         filters = {}
         if status:
             filters["status"] = status
@@ -41,5 +44,5 @@ class ContractService:
     async def delete(self, contract_id: UUID) -> None:
         contract = await self.repo.get_by_id(contract_id)
         if not contract:
-            raise ValueError("Contract not found")
+            raise DomainError("error.contract_not_found")
         await self.repo.delete(contract)

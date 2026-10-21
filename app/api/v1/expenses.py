@@ -10,6 +10,7 @@ from app.models.user import User
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
+from app.services.errors import error_detail
 from app.services.expense_service import ExpenseService
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -27,7 +28,9 @@ async def list_expenses(
     items, total = await service.list_all(category=category, page=page, size=size)
     return PaginatedResponse(
         items=[ExpenseRead.model_validate(i) for i in items],
-        total=total, page=page, size=size,
+        total=total,
+        page=page,
+        size=size,
         pages=BaseRepository.calc_pages(total, size),
     )
 
@@ -37,29 +40,35 @@ async def get_expense(expense_id: UUID, db: AsyncSession = Depends(get_db), _: U
     service = ExpenseService(db)
     expense = await service.get_by_id(expense_id)
     if not expense:
-        raise HTTPException(status_code=404, detail="Expense not found")
+        raise HTTPException(status_code=404, detail="error.expense_not_found")
     return expense
 
 
 @router.post("", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)
-async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_fleet_manager)):
+async def create_expense(
+    data: ExpenseCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_fleet_manager)
+):
     service = ExpenseService(db)
     return await service.create(data, user.id)
 
 
 @router.patch("/{expense_id}", response_model=ExpenseRead)
-async def update_expense(expense_id: UUID, data: ExpenseUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)):
+async def update_expense(
+    expense_id: UUID, data: ExpenseUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)
+):
     service = ExpenseService(db)
     try:
         return await service.update(expense_id, data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail(e))
 
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_expense(expense_id: UUID, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)):
+async def delete_expense(
+    expense_id: UUID, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)
+):
     service = ExpenseService(db)
     try:
         await service.delete(expense_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=error_detail(e))

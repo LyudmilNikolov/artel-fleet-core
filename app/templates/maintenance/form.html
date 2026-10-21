@@ -8,7 +8,12 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="fc-label">{{ _('expense.vehicle') }}</label>
-                <input type="text" name="vehicle_id" required class="fc-input">
+                <select name="vehicle_id" required class="fc-select">
+                    <option value="">{{ _('expense.vehicle') }}</option>
+                    {% for vehicle in vehicles %}
+                    <option value="{{ vehicle.id }}">{{ vehicle.license_plate }} — {{ vehicle.brand }} {{ vehicle.model }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label class="fc-label">{{ _('common.type') }}</label>
@@ -25,7 +30,7 @@
                 <input type="date" name="scheduled_date" class="fc-input-date">
             </div>
             <div>
-                <label class="fc-label">{{ _('maintenance.cost') }}</label>
+                <label class="fc-label">{{ _('maintenance.cost') }} (EUR)</label>
                 <input type="number" name="cost" step="0.01" class="fc-input">
             </div>
             <div>

@@ -1,14 +1,16 @@
 """Web routes for document upload, download, and management."""
 
+from html import escape
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.document import DocumentType, EntityType
 from app.services.document_service import DocumentService
+from app.services.errors import render_error
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/documents", tags=["web-documents"])
@@ -35,14 +37,18 @@ async def upload_document(
     """Upload a document and return updated gallery partial via HTMX."""
     user = await get_web_user(request, db)
     if not user:
-        return HTMLResponse('<div class="text-red-500 text-sm">Unauthorized</div>', status_code=401)
+        return HTMLResponse(
+            escape(render_error(ValueError("errors.unauthorized"), request.state.locale)), status_code=401
+        )
 
     try:
         etype = EntityType(entity_type)
         dtype = DocumentType(doc_type)
         eid = UUID(entity_id)
-    except (ValueError, KeyError) as e:
-        return HTMLResponse(f'<div class="text-red-500 text-sm">Invalid parameters: {e}</div>', status_code=400)
+    except (ValueError, KeyError):
+        return HTMLResponse(
+            escape(render_error(ValueError("errors.invalid_input"), request.state.locale)), status_code=400
+        )
 
     file_data = await file.read()
     service = DocumentService(db)
@@ -58,15 +64,19 @@ async def upload_document(
         )
         await db.commit()
     except ValueError as e:
-        return HTMLResponse(f'<div class="text-red-500 text-sm p-2">{e}</div>', status_code=400)
+        return HTMLResponse(escape(render_error(e, request.state.locale)), status_code=400)
 
     # Return updated document gallery via HTMX
     documents = await service.list_for_entity(etype, eid)
+    for doc in documents:
+        doc._download_url = await service.get_download_url(doc.id)
+        doc._preview_url = doc._download_url if doc.mime_type and doc.mime_type.startswith("image/") else None
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
-        "components/document_gallery.html",
-        {
+        request=request,
+        name="components/document_gallery.html",
+        context={
             "request": request,
             "documents": documents,
             "entity_type": entity_type,
@@ -108,8 +118,9 @@ async def document_gallery(
     templates = request.app.state.templates
     ctx = request.app.state.template_globals(request)
     return templates.TemplateResponse(
-        "components/document_gallery.html",
-        {
+        request=request,
+        name="components/document_gallery.html",
+        context={
             "request": request,
             "documents": documents,
             "entity_type": entity_type,

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.repositories.vehicle_repo import VehicleRepository
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
+from app.services.errors import DomainError
 
 
 class VehicleService:
@@ -16,11 +17,11 @@ class VehicleService:
         """Create a new vehicle with uniqueness checks."""
         existing = await self.repo.get_by_plate(data.license_plate)
         if existing:
-            raise ValueError(f"Vehicle with plate {data.license_plate} already exists")
+            raise DomainError("error.plate_exists", plate=data.license_plate)
 
         existing = await self.repo.get_by_vin(data.vin)
         if existing:
-            raise ValueError(f"Vehicle with VIN {data.vin} already exists")
+            raise DomainError("error.vin_exists", vin=data.vin)
 
         return await self.repo.create(**data.model_dump())
 
@@ -28,19 +29,19 @@ class VehicleService:
         """Update vehicle fields."""
         vehicle = await self.repo.get_by_id(vehicle_id)
         if not vehicle:
-            raise ValueError("Vehicle not found")
+            raise DomainError("error.vehicle_not_found")
 
         update_data = data.model_dump(exclude_unset=True)
 
         if "license_plate" in update_data and update_data["license_plate"] != vehicle.license_plate:
             existing = await self.repo.get_by_plate(update_data["license_plate"])
             if existing:
-                raise ValueError("License plate already in use")
+                raise DomainError("error.plate_in_use")
 
         if "vin" in update_data and update_data["vin"] != vehicle.vin:
             existing = await self.repo.get_by_vin(update_data["vin"])
             if existing:
-                raise ValueError("VIN already in use")
+                raise DomainError("error.vin_in_use")
 
         return await self.repo.update(vehicle, **update_data)
 
@@ -75,7 +76,7 @@ class VehicleService:
     async def delete(self, vehicle_id: UUID) -> None:
         vehicle = await self.repo.get_by_id(vehicle_id)
         if not vehicle:
-            raise ValueError("Vehicle not found")
+            raise DomainError("error.vehicle_not_found")
         await self.repo.delete(vehicle)
 
     async def count_by_status(self) -> dict[str, int]:

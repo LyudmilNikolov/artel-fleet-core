@@ -8,7 +8,12 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="fc-label">{{ _('expense.vehicle') }}</label>
-                <input type="text" name="vehicle_id" required class="fc-input">
+                <select name="vehicle_id" required class="fc-select">
+                    <option value="">{{ _('expense.vehicle') }}</option>
+                    {% for vehicle in vehicles %}
+                    <option value="{{ vehicle.id }}">{{ vehicle.license_plate }} — {{ vehicle.brand }} {{ vehicle.model }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label class="fc-label">{{ _('common.category') }}</label>
@@ -22,9 +27,7 @@
             </div>
             <div>
                 <label class="fc-label">{{ _('expense.currency') }}</label>
-                <select name="currency" class="fc-select">
-                    {% for c in currencies %}<option value="{{ c.value }}">{{ c.value }}</option>{% endfor %}
-                </select>
+                <input name="currency" value="EUR" readonly class="fc-input">
             </div>
             <div>
                 <label class="fc-label">{{ _('common.date') }}</label>

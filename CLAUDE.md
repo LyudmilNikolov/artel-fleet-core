@@ -133,7 +133,7 @@ fleetcore/
 │   │   ├── __init__.py
 │   │   ├── security.py          # Password hashing, JWT
 │   │   ├── s3.py                # MinIO/S3 client wrapper
-│   │   ├── export.py            # Excel (openpyxl) + PDF (weasyprint) export
+│   │   ├── export.py            # Excel (openpyxl) + CSV export
 │   │   ├── telegram.py          # Telegram Bot API notifications
 │   │   └── email.py             # SMTP email sender
 │   │
@@ -298,7 +298,7 @@ fleetcore/
 - `driver_id` (FK, nullable)
 - `category` (enum: fuel, parts, service, insurance, tax, fine, parking, toll, washing, other)
 - `amount` (decimal)
-- `currency` (enum: KZT, RUB, USD, TRY — default KZT)
+- `currency` (enum: EUR only — default EUR)
 - `date` (date)
 - `description` (text)
 - `receipt_document` (FK to Document, nullable)
@@ -392,7 +392,7 @@ fleetcore/
 
 **Export:**
 - All reports exportable to Excel (.xlsx) using `openpyxl`
-- PDF export using `weasyprint` with branded template
+- PDF report export is not implemented; do not advertise it
 - CSV export for raw data
 
 ### 9. 📄 Document Management
@@ -460,13 +460,13 @@ fleetcore/
 
 ## 🌐 Internationalization (i18n)
 
-**Supported languages:** Kazakh (kz), Russian (ru), English (en), Turkish (tr)
+**Supported languages:** Bulgarian (bg, default), English (en)
 
 **Implementation:**
 - JSON-based translation files per language
 - Jinja2 `_()` function for template translations
 - Language switcher in the top navigation bar
-- User preference stored in profile (default language)
+- User preference stored in profile (default Bulgarian)
 - API responses: error messages localized based on `Accept-Language` header
 - Date/number formatting per locale
 
@@ -574,12 +574,12 @@ volumes:
 
 ### Phase 4 — Intelligence
 15. Dashboard with charts and widgets
-16. Reports with Excel/PDF export
+16. Reports with Excel/CSV export
 17. Notification system (email + Telegram + in-app)
 18. Celery Beat scheduled reminders
 
 ### Phase 5 — Polish
-19. i18n (all 4 languages)
+19. i18n (Bulgarian and English)
 20. Seed data script (500+ realistic vehicles)
 21. Tests
 22. README + deployment docs
@@ -596,7 +596,7 @@ volumes:
 - Docstrings on all service methods
 - Constants in UPPER_SNAKE_CASE in config
 - All dates in UTC, convert to user timezone on display
-- Money fields as `Decimal` (not float), stored as `NUMERIC(12,2)` in DB
+- Money fields as `Decimal` (not float), EUR only, stored as `NUMERIC(12,2)` in DB (`NUMERIC(8,2)` for fuel unit prices). Reject excess precision; report JSON money is serialized as exact decimal strings.
 
 ---
 
@@ -608,3 +608,16 @@ volumes:
 - All UI text must go through i18n — no hardcoded strings in templates
 - The seed script should generate realistic Kazakh/Russian vehicle data (local license plate formats, local brands popular in KZ like Toyota, Hyundai, Kia, Chevrolet, Lada)
 - License plate format for Kazakhstan: `123 ABC 01` (3 digits, 3 letters, 2-digit region code)
+
+## EUR and locale deployment constraints
+
+Only `bg` and `en` catalogs may load. Browser language precedence is valid query,
+signed session, authenticated user, Bulgarian; browsers ignore Accept-Language.
+API precedence is valid query, supported Accept-Language quality preference,
+authenticated user, Bulgarian. Locale state is request-local.
+
+Never relabel or convert existing financial data implicitly. Run the read-only
+`scripts/check_eur_readiness.py` before deployment; any populated financial value
+(including zero) blocks the guarded migration. See `docs/eur-deployment.md`.
+Tests require explicit disposable PostgreSQL URLs and must never inherit the
+development database. Preserve historical migrations and user-entered content.

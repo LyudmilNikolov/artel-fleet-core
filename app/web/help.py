@@ -15,8 +15,9 @@ async def help_page(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
-        "help/index.html",
-        {
+        request=request,
+        name="help/index.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "help",

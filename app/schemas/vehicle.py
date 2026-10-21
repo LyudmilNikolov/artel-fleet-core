@@ -20,7 +20,7 @@ class VehicleCreate(BaseModel):
     transmission: TransmissionType
     seats: int | None = Field(None, ge=1, le=100)
     purchase_date: date | None = None
-    purchase_price: Decimal | None = Field(None, ge=0)
+    purchase_price: Decimal | None = Field(None, ge=0, max_digits=12, decimal_places=2)
     status: VehicleStatus = VehicleStatus.ACTIVE
     department: str | None = None
     notes: str | None = None
@@ -49,7 +49,7 @@ class VehicleUpdate(BaseModel):
     transmission: TransmissionType | None = None
     seats: int | None = None
     purchase_date: date | None = None
-    purchase_price: Decimal | None = None
+    purchase_price: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     status: VehicleStatus | None = None
     assigned_driver_id: UUID | None = None
     department: str | None = None

@@ -1,6 +1,6 @@
 import datetime as dt
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,8 +24,9 @@ async def reports_index(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
-        "reports/index.html",
-        {
+        request=request,
+        name="reports/index.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "reports",
@@ -50,8 +51,9 @@ async def report_tco(
     svc = ReportService(db)
     data = await svc.tco_report(sd, ed)
     return request.app.state.templates.TemplateResponse(
-        "reports/tco.html",
-        {
+        request=request,
+        name="reports/tco.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "reports",
@@ -79,8 +81,9 @@ async def report_fuel(
     svc = ReportService(db)
     data = await svc.fuel_consumption(sd, ed)
     return request.app.state.templates.TemplateResponse(
-        "reports/fuel.html",
-        {
+        request=request,
+        name="reports/fuel.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "reports",
@@ -108,8 +111,9 @@ async def report_expenses(
     svc = ReportService(db)
     data = await svc.expense_analysis(sd, ed)
     return request.app.state.templates.TemplateResponse(
-        "reports/expenses.html",
-        {
+        request=request,
+        name="reports/expenses.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "reports",
@@ -123,6 +127,7 @@ async def report_expenses(
 
 # Excel/CSV exports from web UI
 
+
 @router.get("/export/tco.xlsx")
 async def web_export_tco(
     start_date: str | None = None,
@@ -134,7 +139,7 @@ async def web_export_tco(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     svc = ReportService(db)
-    content = await svc.export_tco_excel(_parse_date(start_date), _parse_date(end_date))
+    content = await svc.export_tco_excel(_parse_date(start_date), _parse_date(end_date), locale=request.state.locale)
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -153,7 +158,7 @@ async def web_export_fuel(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     svc = ReportService(db)
-    content = await svc.export_fuel_excel(_parse_date(start_date), _parse_date(end_date))
+    content = await svc.export_fuel_excel(_parse_date(start_date), _parse_date(end_date), locale=request.state.locale)
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -172,7 +177,7 @@ async def web_export_expenses(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     svc = ReportService(db)
-    content = await svc.export_expense_csv(_parse_date(start_date), _parse_date(end_date))
+    content = await svc.export_expense_csv(_parse_date(start_date), _parse_date(end_date), locale=request.state.locale)
     return Response(
         content=content,
         media_type="text/csv",

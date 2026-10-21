@@ -28,7 +28,7 @@
                 <td class="px-4 py-3 text-gray-500">{{ _('maintenance_type.' + r.type.value) }}</td>
                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ r.scheduled_date or '—' }}</td>
                 <td class="px-4 py-3 text-right font-mono text-gray-900 dark:text-white">
-                    {% if r.cost %}{{ "{:,.0f}".format(r.cost) }} ₸{% else %}—{% endif %}
+                    {{ money(r.cost) }}
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{{ r.service_provider or '' }}</td>
             </tr>

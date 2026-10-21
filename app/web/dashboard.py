@@ -16,8 +16,9 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
-        "dashboard/index.html",
-        {
+        request=request,
+        name="dashboard/index.html",
+        context={
             "request": request,
             "user": user,
             "active_page": "dashboard",
@@ -34,8 +35,9 @@ async def widget_fleet_overview(request: Request, db: AsyncSession = Depends(get
     svc = DashboardService(db)
     data = await svc.fleet_overview()
     return request.app.state.templates.TemplateResponse(
-        "dashboard/partials/fleet_overview.html",
-        {"request": request, "data": data, **request.app.state.template_globals(request)},
+        request=request,
+        name="dashboard/partials/fleet_overview.html",
+        context={"request": request, "data": data, **request.app.state.template_globals(request)},
     )
 
 
@@ -47,8 +49,9 @@ async def widget_attention_needed(request: Request, db: AsyncSession = Depends(g
     svc = DashboardService(db)
     data = await svc.attention_needed()
     return request.app.state.templates.TemplateResponse(
-        "dashboard/partials/attention_needed.html",
-        {"request": request, "data": data, **request.app.state.template_globals(request)},
+        request=request,
+        name="dashboard/partials/attention_needed.html",
+        context={"request": request, "data": data, **request.app.state.template_globals(request)},
     )
 
 
@@ -60,8 +63,9 @@ async def widget_expense_chart(request: Request, db: AsyncSession = Depends(get_
     svc = DashboardService(db)
     data = await svc.expense_summary()
     return request.app.state.templates.TemplateResponse(
-        "dashboard/partials/expense_chart.html",
-        {"request": request, "data": data, **request.app.state.template_globals(request)},
+        request=request,
+        name="dashboard/partials/expense_chart.html",
+        context={"request": request, "data": data, **request.app.state.template_globals(request)},
     )
 
 
@@ -74,8 +78,9 @@ async def widget_maintenance_stats(request: Request, db: AsyncSession = Depends(
     stats = await svc.maintenance_stats()
     recent = await svc.recent_maintenance()
     return request.app.state.templates.TemplateResponse(
-        "dashboard/partials/maintenance_stats.html",
-        {
+        request=request,
+        name="dashboard/partials/maintenance_stats.html",
+        context={
             "request": request,
             "stats": stats,
             "recent": recent,
@@ -92,8 +97,9 @@ async def widget_top_vehicles(request: Request, db: AsyncSession = Depends(get_d
     svc = DashboardService(db)
     vehicles = await svc.top_expensive_vehicles()
     return request.app.state.templates.TemplateResponse(
-        "dashboard/partials/top_vehicles.html",
-        {
+        request=request,
+        name="dashboard/partials/top_vehicles.html",
+        context={
             "request": request,
             "vehicles": vehicles,
             **request.app.state.template_globals(request),

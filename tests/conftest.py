@@ -1,28 +1,42 @@
 """Test fixtures for FleetCore."""
 
+# ruff: noqa: E402 -- isolate environment before application settings are imported.
+
+import os
 from uuid import uuid4
+
+# Never inherit development database or Vault configuration in tests.
+os.environ["VAULT_ADDR"] = ""
+os.environ["VAULT_TOKEN"] = ""
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
+if TEST_DATABASE_URL and "test" not in TEST_DATABASE_URL.rsplit("/", 1)[-1]:
+    raise RuntimeError("TEST_DATABASE_URL must name a disposable test database")
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL or "postgresql+asyncpg://test:test@localhost/fleetcore_test_unconfigured"
+os.environ["DATABASE_URL_SYNC"] = os.environ.get("TEST_DATABASE_URL_SYNC") or os.environ["DATABASE_URL"].replace(
+    "+asyncpg", "+psycopg2"
+)
+os.environ.setdefault("SECRET_KEY", "test-only-session-key")
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.config import settings
 from app.database import get_db
 from app.main import create_app
 from app.models.user import User, UserRole
 from app.utils.security import create_access_token, hash_password
 
-TEST_DATABASE_URL = settings.DATABASE_URL
-
 
 @pytest_asyncio.fixture
 async def db_session():
     """Create a test DB session with transaction rollback."""
+    if not TEST_DATABASE_URL:
+        pytest.skip("Set TEST_DATABASE_URL to an explicitly disposable PostgreSQL database")
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     connection = await engine.connect()
     transaction = await connection.begin()
-    session = AsyncSession(bind=connection, expire_on_commit=False)
+    session = AsyncSession(bind=connection, expire_on_commit=False, join_transaction_mode="create_savepoint")
 
     yield session
 

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.mileage import MileageLog
 from app.models.vehicle import Vehicle
 from app.schemas.mileage import MileageCreate
+from app.services.errors import DomainError
 
 
 class MileageService:
@@ -16,12 +17,12 @@ class MileageService:
         """Add mileage reading with validation."""
         vehicle = await self.session.get(Vehicle, data.vehicle_id)
         if not vehicle:
-            raise ValueError("Vehicle not found")
+            raise DomainError("error.vehicle_not_found")
 
         # Validate >= previous reading
         latest = await self._get_latest(data.vehicle_id)
         if latest and data.value < latest.value:
-            raise ValueError(f"New mileage ({data.value}) cannot be less than previous ({latest.value})")
+            raise DomainError("error.mileage_decreased", value=data.value, previous=latest.value)
 
         # Check for abnormal jump (> 1000 km/day)
         if latest and data.value - latest.value > 1000:

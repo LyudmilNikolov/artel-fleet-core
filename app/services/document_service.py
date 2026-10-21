@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document, DocumentType, EntityType
+from app.services.errors import DomainError
 from app.utils.s3 import ALLOWED_MIME_TYPES, MAX_FILE_SIZE, get_s3_client
 
 
@@ -23,9 +24,9 @@ class DocumentService:
         uploaded_by: UUID | None = None,
     ) -> Document:
         if mime_type not in ALLOWED_MIME_TYPES:
-            raise ValueError(f"File type {mime_type} not allowed")
+            raise DomainError("error.file_type", mime_type=mime_type)
         if len(file_data) > MAX_FILE_SIZE:
-            raise ValueError("File too large (max 10 MB)")
+            raise DomainError("error.file_too_large")
 
         s3 = get_s3_client()
         folder = f"{entity_type.value}/{entity_id}"
@@ -64,7 +65,7 @@ class DocumentService:
     async def delete(self, doc_id: UUID) -> None:
         doc = await self.session.get(Document, doc_id)
         if not doc:
-            raise ValueError("Document not found")
+            raise DomainError("error.document_not_found")
         s3 = get_s3_client()
         s3.delete_file(doc.s3_key)
         await self.session.delete(doc)

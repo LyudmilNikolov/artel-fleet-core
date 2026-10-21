@@ -6,20 +6,20 @@
     <form method="GET" class="flex flex-wrap items-center gap-3">
         <select name="action" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
             <option value="">{{ _('settings.all_actions') }}</option>
-            <option value="create" {% if action_filter == 'create' %}selected{% endif %}>Create</option>
-            <option value="update" {% if action_filter == 'update' %}selected{% endif %}>Update</option>
-            <option value="delete" {% if action_filter == 'delete' %}selected{% endif %}>Delete</option>
-            <option value="login" {% if action_filter == 'login' %}selected{% endif %}>Login</option>
-            <option value="export" {% if action_filter == 'export' %}selected{% endif %}>Export</option>
+            <option value="create" {% if action_filter == 'create' %}selected{% endif %}>{{ _('audit_action.create') }}</option>
+            <option value="update" {% if action_filter == 'update' %}selected{% endif %}>{{ _('audit_action.update') }}</option>
+            <option value="delete" {% if action_filter == 'delete' %}selected{% endif %}>{{ _('audit_action.delete') }}</option>
+            <option value="login" {% if action_filter == 'login' %}selected{% endif %}>{{ _('audit_action.login') }}</option>
+            <option value="export" {% if action_filter == 'export' %}selected{% endif %}>{{ _('audit_action.export') }}</option>
         </select>
         <select name="entity_type" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
             <option value="">{{ _('settings.all_entities') }}</option>
-            <option value="vehicle" {% if entity_type_filter == 'vehicle' %}selected{% endif %}>Vehicle</option>
-            <option value="driver" {% if entity_type_filter == 'driver' %}selected{% endif %}>Driver</option>
-            <option value="maintenance" {% if entity_type_filter == 'maintenance' %}selected{% endif %}>Maintenance</option>
-            <option value="expense" {% if entity_type_filter == 'expense' %}selected{% endif %}>Expense</option>
-            <option value="contract" {% if entity_type_filter == 'contract' %}selected{% endif %}>Contract</option>
-            <option value="user" {% if entity_type_filter == 'user' %}selected{% endif %}>User</option>
+            <option value="vehicle" {% if entity_type_filter == 'vehicle' %}selected{% endif %}>{{ _('audit_entity.vehicle') }}</option>
+            <option value="driver" {% if entity_type_filter == 'driver' %}selected{% endif %}>{{ _('audit_entity.driver') }}</option>
+            <option value="maintenance" {% if entity_type_filter == 'maintenance' %}selected{% endif %}>{{ _('audit_entity.maintenance') }}</option>
+            <option value="expense" {% if entity_type_filter == 'expense' %}selected{% endif %}>{{ _('audit_entity.expense') }}</option>
+            <option value="contract" {% if entity_type_filter == 'contract' %}selected{% endif %}>{{ _('audit_entity.contract') }}</option>
+            <option value="user" {% if entity_type_filter == 'user' %}selected{% endif %}>{{ _('audit_entity.user') }}</option>
         </select>
         <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
     </form>
@@ -54,11 +54,11 @@
                             {% elif log.action.value == 'delete' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
                             {% elif log.action.value == 'login' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400
                             {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
-                            {{ log.action.value }}
+                            {{ _('audit_action.' + log.action.value) }}
                         </span>
                     </td>
                     <td class="px-4 py-3">
-                        <span class="text-gray-500">{{ log.entity_type }}</span>
+                        <span class="text-gray-500">{{ _('audit_entity.' + log.entity_type) }}</span>
                         {% if log.entity_id %}
                         <span class="text-xs text-gray-400 font-mono ml-1">{{ log.entity_id|string|truncate(8, True, '') }}</span>
                         {% endif %}

@@ -1,6 +1,7 @@
 """Dashboard service providing fleet overview and widget data."""
 
 from datetime import date, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from app.models.contract import Contract, ContractStatus
 from app.models.driver import Driver, DriverStatus
 from app.models.expense import Expense
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
-from app.models.vehicle import Vehicle, VehicleStatus
+from app.models.vehicle import Vehicle
 
 
 class DashboardService:
@@ -18,9 +19,7 @@ class DashboardService:
 
     async def fleet_overview(self) -> dict:
         """Get vehicle counts by status."""
-        result = await self.db.execute(
-            select(Vehicle.status, func.count(Vehicle.id)).group_by(Vehicle.status)
-        )
+        result = await self.db.execute(select(Vehicle.status, func.count(Vehicle.id)).group_by(Vehicle.status))
         counts = {str(row[0].value): row[1] for row in result.all()}
         total = sum(counts.values())
         return {
@@ -110,9 +109,7 @@ class DashboardService:
             .group_by("month")
             .order_by("month")
         )
-        monthly = [
-            {"month": str(row[0].date()), "total": float(row[1])} for row in result.all()
-        ]
+        monthly = [{"month": str(row[0].date()), "total": Decimal(row[1])} for row in result.all()]
 
         # Category breakdown
         cat_result = await self.db.execute(
@@ -124,16 +121,11 @@ class DashboardService:
             .group_by(Expense.category)
             .order_by(func.sum(Expense.amount).desc())
         )
-        categories = [
-            {"category": str(row[0].value), "total": float(row[1])}
-            for row in cat_result.all()
-        ]
+        categories = [{"category": str(row[0].value), "total": Decimal(row[1])} for row in cat_result.all()]
 
         # Total
-        total_result = await self.db.execute(
-            select(func.sum(Expense.amount)).where(Expense.date >= start_date)
-        )
-        total = float(total_result.scalar() or 0)
+        total_result = await self.db.execute(select(func.sum(Expense.amount)).where(Expense.date >= start_date))
+        total = Decimal(total_result.scalar() or 0)
 
         return {
             "monthly": monthly,
@@ -145,9 +137,7 @@ class DashboardService:
     async def maintenance_stats(self) -> dict:
         """Get maintenance statistics for kanban-style overview."""
         result = await self.db.execute(
-            select(MaintenanceRecord.status, func.count(MaintenanceRecord.id)).group_by(
-                MaintenanceRecord.status
-            )
+            select(MaintenanceRecord.status, func.count(MaintenanceRecord.id)).group_by(MaintenanceRecord.status)
         )
         counts = {str(row[0].value): row[1] for row in result.all()}
         return {
@@ -160,9 +150,7 @@ class DashboardService:
     async def recent_maintenance(self, limit: int = 5) -> list[dict]:
         """Get recent maintenance records."""
         result = await self.db.execute(
-            select(MaintenanceRecord)
-            .order_by(MaintenanceRecord.created_at.desc())
-            .limit(limit)
+            select(MaintenanceRecord).order_by(MaintenanceRecord.created_at.desc()).limit(limit)
         )
         records = result.scalars().all()
         return [
@@ -179,9 +167,7 @@ class DashboardService:
 
     async def driver_stats(self) -> dict:
         """Get driver statistics."""
-        result = await self.db.execute(
-            select(Driver.status, func.count(Driver.id)).group_by(Driver.status)
-        )
+        result = await self.db.execute(select(Driver.status, func.count(Driver.id)).group_by(Driver.status))
         counts = {str(row[0].value): row[1] for row in result.all()}
         total = sum(counts.values())
         return {
@@ -212,7 +198,7 @@ class DashboardService:
                 "license_plate": row[1],
                 "brand": row[2],
                 "model": row[3],
-                "total_cost": float(row[4]),
+                "total_cost": Decimal(row[4]),
             }
             for row in result.all()
         ]
