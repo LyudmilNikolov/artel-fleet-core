@@ -6,12 +6,19 @@
     <form method="GET" class="flex flex-wrap items-center gap-3 flex-1">
         <input type="search" name="q" value="{{ q or '' }}" placeholder="{{ _('btn.search') }}..." class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-primary-500 w-64">
         <select name="status" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
-            <option value="">{{ _('common.status') }}</option>
+            <option value="">{{ _('driver.filter_default') }}</option>
             {% for s in statuses %}<option value="{{ s.value }}" {% if status_filter and status_filter.value == s.value %}selected{% endif %}>{{ _('status.' + s.value) }}</option>{% endfor %}
+            <option value="all" {% if show_all %}selected{% endif %}>{{ _('driver.filter_all') }}</option>
         </select>
+        {% if show_docs %}
+        <select name="doc_status" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm" aria-label="{{ _('driver_doc.doc_status_filter') }}">
+            <option value="">{{ _('driver_doc.doc_status_filter') }}</option>
+            {% for ds in ['expired', 'expiring_soon'] %}<option value="{{ ds }}" {% if doc_status == ds %}selected{% endif %}>{{ _('compliance_status.' + ds) }}</option>{% endfor %}
+        </select>
+        {% endif %}
         <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
     </form>
-    {% if user.role.value in ['admin', 'fleet_manager'] %}
+    {% if can_edit %}
     <a href="/drivers/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('btn.create') }}</a>
     {% endif %}
 </div>
@@ -21,20 +28,27 @@
             <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('nav.drivers') }}</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.phone') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.license') }}</th>
+                {% if show_docs %}<th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.documents') }}</th>{% endif %}
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.actions') }}</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for d in drivers %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/drivers/{{ d.id }}'">
-                    <td class="px-4 py-3"><div class="font-medium">{{ d.full_name }}</div><div class="text-xs text-gray-500">{{ d.employee_id or '' }}</div></td>
+                    <td class="px-4 py-3"><div class="font-medium">{{ d.full_name }}</div><div class="text-xs text-gray-500">{{ d.department or '' }}</div></td>
                     <td class="px-4 py-3 text-gray-500">{{ d.phone or '—' }}</td>
-                    <td class="px-4 py-3 text-gray-500">{{ d.license_number or '—' }} {% if d.license_expiry %}<span class="text-xs">({{ d.license_expiry }})</span>{% endif %}</td>
+                    {% if show_docs %}
+                    {% set a = alerts.get(d.id, {}) %}
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        {% if a.get('expired') %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">{{ _('driver_doc.summary_expired', count=a.get('expired')) }}</span>{% endif %}
+                        {% if a.get('expiring_soon') %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">{{ _('driver_doc.summary_expiring', count=a.get('expiring_soon')) }}</span>{% endif %}
+                        {% if not a.get('expired') and not a.get('expiring_soon') %}<span class="text-gray-400">—</span>{% endif %}
+                    </td>
+                    {% endif %}
                     <td class="px-4 py-3"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if d.status.value == 'active' %}bg-green-100 text-green-800{% elif d.status.value == 'on_leave' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-800{% endif %}">{{ _('status.' + d.status.value) }}</span></td>
-                    <td class="px-4 py-3"><a href="/drivers/{{ d.id }}" class="text-primary-600 hover:text-primary-800 text-sm">{{ _('btn.edit') }}</a></td>
+                    <td class="px-4 py-3"><a href="/drivers/{{ d.id }}" class="text-primary-600 hover:text-primary-800 text-sm">{{ _('btn.view') }}</a></td>
                 </tr>
-                {% else %}<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
+                {% else %}<tr><td colspan="{{ 5 if show_docs else 4 }}" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

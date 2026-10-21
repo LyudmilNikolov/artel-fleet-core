@@ -1,52 +1,48 @@
 {% extends "base.html" %}
 {% block title %}{% if driver %}{{ _('btn.edit') }}{% else %}{{ _('btn.create') }}{% endif %} — {{ _('nav.drivers') }}{% endblock %}
 {% block page_title %}{% if driver %}{{ _('btn.edit') }}: {{ driver.full_name }}{% else %}{{ _('btn.create') }}{% endif %}{% endblock %}
+{% macro value(name) %}{% if form_data and name in form_data %}{{ form_data[name] if form_data[name] is not none else '' }}{% elif driver %}{{ driver[name] if driver[name] is not none else '' }}{% endif %}{% endmacro %}
 {% block content %}
 <div class="max-w-3xl">
     {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
     <form method="POST" class="fc-card p-6 space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="fc-label">{{ _('driver.full_name') }}</label>
-                <input type="text" name="full_name" value="{{ driver.full_name if driver else '' }}" required class="fc-input">
+                <label class="fc-label" for="full_name">{{ _('driver.full_name') }}</label>
+                <input id="full_name" type="text" name="full_name" value="{{ value('full_name') }}" required maxlength="255" class="fc-input">
             </div>
             <div>
-                <label class="fc-label">{{ _('driver.employee_id') }}</label>
-                <input type="text" name="employee_id" value="{{ driver.employee_id if driver and driver.employee_id else '' }}" class="fc-input">
+                <label class="fc-label" for="phone">{{ _('driver.phone') }}</label>
+                <input id="phone" type="text" name="phone" value="{{ value('phone') }}" maxlength="30" class="fc-input">
             </div>
             <div>
-                <label class="fc-label">{{ _('driver.phone') }}</label>
-                <input type="text" name="phone" value="{{ driver.phone if driver and driver.phone else '' }}" class="fc-input">
+                <label class="fc-label" for="email">{{ _('driver.email') }}</label>
+                <input id="email" type="email" name="email" value="{{ value('email') }}" maxlength="255" class="fc-input">
             </div>
             <div>
-                <label class="fc-label">{{ _('driver.email') }}</label>
-                <input type="email" name="email" value="{{ driver.email if driver and driver.email else '' }}" class="fc-input">
+                <label class="fc-label" for="hire_date">{{ _('driver.hire_date') }}</label>
+                <input id="hire_date" type="date" name="hire_date" value="{{ value('hire_date') }}" class="fc-input-date">
             </div>
             <div>
-                <label class="fc-label">{{ _('driver.license_number') }}</label>
-                <input type="text" name="license_number" value="{{ driver.license_number if driver and driver.license_number else '' }}" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('driver.license_category') }}</label>
-                <input type="text" name="license_category" value="{{ driver.license_category if driver and driver.license_category else '' }}" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('driver.department') }}</label>
-                <input type="text" name="department" value="{{ driver.department if driver and driver.department else '' }}" class="fc-input">
+                <label class="fc-label" for="department">{{ _('driver.department') }}</label>
+                <input id="department" type="text" name="department" value="{{ value('department') }}" class="fc-input">
             </div>
             {% if driver %}
             <div>
-                <label class="fc-label">{{ _('common.status') }}</label>
-                <select name="status" class="fc-select">
+                <label class="fc-label" for="status">{{ _('common.status') }}</label>
+                <select id="status" name="status" class="fc-select">
                     {% for s in statuses %}<option value="{{ s.value }}" {% if s.value == driver.status.value %}selected{% endif %}>{{ _('status.' + s.value) }}</option>{% endfor %}
                 </select>
             </div>
             {% endif %}
         </div>
         <div>
-            <label class="fc-label">{{ _('common.notes') }}</label>
-            <textarea name="notes" rows="3" class="fc-textarea">{{ driver.notes if driver and driver.notes else "" }}</textarea>
+            <label class="fc-label" for="notes">{{ _('common.notes') }}</label>
+            <textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ value('notes') }}</textarea>
         </div>
+        {% if not driver %}
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ _('driver_doc.add_after_save') }}</p>
+        {% endif %}
         <div class="flex items-center gap-3">
             <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
             <a href="/drivers{% if driver %}/{{ driver.id }}{% endif %}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>

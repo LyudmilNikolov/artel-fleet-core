@@ -91,6 +91,7 @@ def test_template_translation_keys_exist():
 
 
 def test_dynamic_enum_translation_keys():
+    from app.driver_document_rules import DriverDocumentType
     from app.models.audit_log import AuditAction
     from app.models.document import DocumentType, EntityType
     from app.models.driver import DriverStatus
@@ -104,6 +105,7 @@ def test_dynamic_enum_translation_keys():
     groups = {
         "audit_action": AuditAction,
         "compliance_type": ComplianceType,
+        "driver_document_type": DriverDocumentType,
         "doc_type": DocumentType,
         "expense_category": ExpenseCategory,
         "maintenance_type": MaintenanceType,
@@ -118,7 +120,7 @@ def test_dynamic_enum_translation_keys():
     for prefix, choices in groups.items():
         for choice in choices:
             assert f"{prefix}.{choice.value}" in keys
-    for status in (*COMPLIANCE_STATUSES, "replaced", "missing"):
+    for status in (*COMPLIANCE_STATUSES, "replaced", "missing", "no_expiry"):
         assert f"compliance_status.{status}" in keys
     for choices in (DriverStatus, MaintenanceStatus, VehicleStatus):
         for choice in choices:

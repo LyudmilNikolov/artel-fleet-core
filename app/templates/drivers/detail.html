@@ -3,46 +3,97 @@
 {% block page_title %}{{ driver.full_name }}{% endblock %}
 {% block content %}
 <div class="mb-4 flex items-center gap-3">
-    <a href="/drivers" class="text-gray-500 hover:text-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+    <a href="/drivers" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if driver.status.value == 'active' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% elif driver.status.value == 'on_leave' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-gray-100 text-gray-800{% endif %}">{{ _('status.' + driver.status.value) }}</span>
-    {% if user.role.value in ['admin', 'fleet_manager'] %}
+    {% if can_edit %}
     <a href="/drivers/{{ driver.id }}/edit" class="ml-auto px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.edit') }}</a>
+    <form method="POST" action="/drivers/{{ driver.id }}/delete" onsubmit="return confirm({{ _('driver.confirm_delete') | tojson | forceescape }})">
+        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+    </form>
     {% endif %}
 </div>
 
-{# Info card #}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% macro field(label, value) %}<div><dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</dt><dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ value or '—' }}</dd></div>{% endmacro %}
-        {{ field(_('driver.full_name'), driver.full_name) }}
-        {{ field(_('driver.employee_id'), driver.employee_id) }}
-        {{ field(_('driver.phone'), driver.phone) }}
-        {{ field(_('driver.email'), driver.email) }}
-        {{ field(_('driver.license_number'), driver.license_number) }}
-        {{ field(_('driver.license_category'), driver.license_category) }}
-        {{ field(_('driver.license_expiry'), driver.license_expiry) }}
-        {{ field(_('driver.medical_expiry'), driver.medical_expiry) }}
-        {{ field(_('driver.department'), driver.department) }}
-        {{ field(_('driver.hire_date'), driver.hire_date) }}
+{% set tabs = [('info', 'driver_doc.tab_info')] %}
+{% if can_scans %}{% set tabs = tabs + [('files', 'driver_doc.tab_files')] %}{% endif %}
+{% if can_docs %}{% set tabs = tabs + [('licences', 'driver_doc.tab_licences')] %}{% endif %}
+
+<!-- Tabs -->
+<div x-data="{ tab: ['{{ tabs | map(attribute=0) | join("','") }}'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'info' }"
+     @hashchange.window="if (['{{ tabs | map(attribute=0) | join("','") }}'].includes(location.hash.slice(1))) tab = location.hash.slice(1)"
+     class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="border-b border-gray-200 dark:border-gray-700">
+        <nav class="flex gap-0 overflow-x-auto">
+            {% for t, label_key in tabs %}
+            <button @click="tab = '{{ t }}'"
+                    :class="tab === '{{ t }}' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                    class="px-6 py-3 text-sm font-medium border-b-2 transition whitespace-nowrap">
+                {{ _(label_key) }}
+                {% if t == 'licences' and (alerts.get('expired') or alerts.get('expiring_soon')) %}
+<span class="ml-1 text-xs font-semibold {% if alerts.get('expired') %}text-red-600 dark:text-red-400{% else %}text-amber-600 dark:text-amber-400{% endif %}">{{ (alerts.get('expired') or 0) + (alerts.get('expiring_soon') or 0) }}</span>
+                {% endif %}
+            </button>
+            {% endfor %}
+        </nav>
     </div>
-</div>
 
-{# Documents section #}
-<div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('docs.title') }}</h3>
+    <!-- General data tab -->
+    <div x-show="tab === 'info'" class="p-6">
+        {% if can_docs and (alerts.get('expired') or alerts.get('expiring_soon')) %}
+        <a href="#licences" class="mb-6 flex flex-wrap items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/20 text-sm">
+            <span class="font-medium text-gray-800 dark:text-gray-200">{{ _('driver_doc.attention') }}:</span>
+            {% if alerts.get('expired') %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">{{ _('driver_doc.summary_expired', count=alerts.get('expired')) }}</span>{% endif %}
+            {% if alerts.get('expiring_soon') %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">{{ _('driver_doc.summary_expiring', count=alerts.get('expiring_soon')) }}</span>{% endif %}
+        </a>
+        {% endif %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% macro field(label, value) %}<div><dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</dt><dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ value if value is not none and value != '' else '—' }}</dd></div>{% endmacro %}
+            {{ field(_('driver.full_name'), driver.full_name) }}
+            {{ field(_('driver.phone'), driver.phone) }}
+            {{ field(_('driver.email'), driver.email) }}
+            {{ field(_('driver.department'), driver.department) }}
+            {{ field(_('driver.hire_date'), driver.hire_date) }}
+            {{ field(_('common.status'), _('status.' + driver.status.value)) }}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('driver.assigned_vehicles') }}</dt>
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {% for v in vehicles %}<a href="/vehicles/{{ v.id }}" class="inline-block mr-3 text-primary-600 hover:underline">{{ v.license_plate }} — {{ v.brand }} {{ v.model }}</a>{% else %}—{% endfor %}
+                </dd>
+            </div>
+        </div>
+        {% if driver.notes %}
+        <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <dt class="text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('common.notes') }}</dt>
+            <dd class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ driver.notes }}</dd>
+        </div>
+        {% endif %}
+    </div>
 
-    <div hx-get="/documents/gallery/driver/{{ driver.id }}"
-         hx-trigger="load"
-         hx-swap="innerHTML">
-        <div class="text-center py-4 text-gray-400">
-            <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+    {% if can_scans %}
+    <!-- Uploaded documents tab -->
+    <div x-show="tab === 'files'" class="p-6" style="display: none">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('docs.title') }}</h3>
+        <div hx-get="/documents/gallery/driver/{{ driver.id }}" hx-trigger="intersect once" hx-swap="innerHTML">
+            <div class="text-center py-4 text-gray-400">
+                <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+        </div>
+        {% if can_edit %}
+        {% with entity_type='driver', entity_id=driver.id|string, doc_type='other' %}
+        {% include 'components/upload.html' %}
+        {% endwith %}
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if can_docs %}
+    <!-- Licences & Documents tab -->
+    <div x-show="tab === 'licences'" class="p-6" style="display: none">
+        <div hx-get="/drivers/{{ driver.id }}/tab/licences" hx-trigger="intersect once" hx-swap="innerHTML">
+            <div class="text-center py-6 text-gray-400">
+                <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
         </div>
     </div>
-
-    {% if user.role.value in ['admin', 'fleet_manager'] %}
-    {% with entity_type='driver', entity_id=driver.id|string, doc_type='license' %}
-    {% include 'components/upload.html' %}
-    {% endwith %}
     {% endif %}
 </div>
 {% endblock %}

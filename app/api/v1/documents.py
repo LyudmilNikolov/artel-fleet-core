@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models.document import DocumentType, EntityType
 from app.models.user import User
 from app.services.document_service import DocumentService
+from app.services.driver_access import can_view_scans
 from app.services.errors import error_detail
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -49,9 +50,12 @@ async def upload_document(
 async def download_document(
     doc_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     service = DocumentService(db)
+    doc = await service.get(doc_id)
+    if doc and not await can_view_scans(db, user, doc.entity_type, doc.entity_id):
+        raise HTTPException(status_code=403, detail="errors.forbidden")
     url = await service.get_download_url(doc_id)
     if not url:
         raise HTTPException(status_code=404, detail="error.document_not_found")
@@ -63,8 +67,10 @@ async def list_entity_documents(
     entity_type: EntityType,
     entity_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
+    if not await can_view_scans(db, user, entity_type, entity_id):
+        raise HTTPException(status_code=403, detail="errors.forbidden")
     service = DocumentService(db)
     docs = await service.list_for_entity(entity_type, entity_id)
     return [

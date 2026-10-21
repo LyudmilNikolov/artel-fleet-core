@@ -11,6 +11,7 @@ from app.models.expense import Expense
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle
 from app.services.compliance_service import ComplianceService
+from app.services.driver_document_service import DriverDocumentService
 
 
 class DashboardService:
@@ -33,7 +34,6 @@ class DashboardService:
     async def attention_needed(self) -> dict:
         """Get items needing attention: overdue maintenance, compliance deadlines, driver docs."""
         today = date.today()
-        deadline_30 = today + timedelta(days=30)
         deadline_14 = today + timedelta(days=14)
 
         # Overdue maintenance
@@ -60,38 +60,23 @@ class DashboardService:
         expiring_compliance = compliance["expiring_soon"]
         expired_compliance = compliance["expired"]
 
-        # Expiring driver licenses (next 30 days)
-        exp_licenses = await self.db.execute(
-            select(func.count(Driver.id)).where(
-                Driver.status == DriverStatus.ACTIVE,
-                Driver.license_expiry >= today,
-                Driver.license_expiry <= deadline_30,
-            )
-        )
-        expiring_licenses = exp_licenses.scalar() or 0
-
-        # Expiring medical certs (next 30 days)
-        exp_medical = await self.db.execute(
-            select(func.count(Driver.id)).where(
-                Driver.status == DriverStatus.ACTIVE,
-                Driver.medical_expiry >= today,
-                Driver.medical_expiry <= deadline_30,
-            )
-        )
-        expiring_medical = exp_medical.scalar() or 0
+        # Current driver documents (licence, ID card, ...) of active drivers, computed from end_date
+        drivers = await DriverDocumentService(self.db).attention_counts()
+        expiring_driver_documents = drivers["expiring_soon"]
+        expired_driver_documents = drivers["expired"]
 
         return {
             "overdue_maintenance": overdue_maintenance,
             "upcoming_maintenance": upcoming_maintenance,
             "expiring_compliance": expiring_compliance,
             "expired_compliance": expired_compliance,
-            "expiring_licenses": expiring_licenses,
-            "expiring_medical": expiring_medical,
+            "expiring_driver_documents": expiring_driver_documents,
+            "expired_driver_documents": expired_driver_documents,
             "total_alerts": overdue_maintenance
             + expiring_compliance
             + expired_compliance
-            + expiring_licenses
-            + expiring_medical,
+            + expiring_driver_documents
+            + expired_driver_documents,
         }
 
     async def expense_summary(self, months: int = 6) -> dict:

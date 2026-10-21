@@ -102,7 +102,8 @@ async def test_document_expense_creates_both_records(client, db_session, fleet_m
     assert f"/compliance/{document.id}" in detail.text and "Document with deadline" in detail.text
     page = await client.get(f"/compliance/{document.id}")
     assert f"/expenses/{document.expense_id}" in page.text and "Open the expense" in page.text
-    assert "🔗" in (await client.get("/expenses")).text or "&#128279;" in (await client.get("/expenses")).text
+    listing = (await client.get("/expenses")).text
+    assert "🔗" not in listing and "&#128279;" not in listing  # no link icon next to linked categories
 
     missing = await client.post("/expenses/new", data={**data, "valid_until": ""})
     assert missing.status_code == 400 and "start and end of validity" in missing.text

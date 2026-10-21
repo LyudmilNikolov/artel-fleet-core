@@ -325,26 +325,33 @@ fleetcore/
 - `id` (UUID)
 - `user_id` (FK to User, nullable — if driver has system access)
 - `full_name` (string)
-- `employee_id` (string — табельный номер)
 - `phone` (string)
 - `email` (string, nullable)
-- `license_number` (номер ВУ)
-- `license_category` (string — e.g., "B, C")
-- `license_expiry` (date)
-- `medical_expiry` (date — мед. справка)
 - `hire_date` (дата приёма)
 - `department` (отдел)
 - `status` (enum: active, on_leave, terminated)
 - `assigned_vehicles` (relation to Vehicle)
 - `photo` (FK to Document)
-- `documents` (relation — scans of license, medical cert, etc.)
+- `documents` (relation — generic scans, `entity_type=driver`)
+- Licence, ID card and similar data live in `driver_documents` (below), not on `drivers`
 
 **Features:**
 - Driver ↔ Vehicle assignment (one driver can have multiple vehicles, configurable)
-- License expiry reminders (30 / 14 / 7 days before)
-- Medical certificate expiry reminders
+- Driver document deadlines (computed status, 30-day window); reminders are not implemented yet
 - Driver history: which vehicles they drove and when
 - Violation / fine tracking linked to driver
+
+**Driver documents (`driver_documents`, "Лицензи и документи"):** see `docs/driver-documents.md`.
+- Types are defined only in `app/driver_document_rules.py` (`id_card`, `driving_licence`, `tachograph_card`,
+  `psycho_test`, `professional_competence`, `medical_certificate`); stored as strings, extend without a migration
+- Fields: `driver_id` (FK, cascade), `document_type`, `document_number` (required per type), `categories`
+  (driving licence only), optional `start_date`/`end_date` (no end date = no expiry), `notes`, `renewed_from_id`
+- Status (valid / expiring soon / expired / no expiry) is computed from `end_date` with
+  `DRIVER_DOCUMENT_EXPIRING_SOON_DAYS`, never stored; per driver and type the latest end date is current,
+  a renewed entry is never current; only current entries of active drivers warn
+- Shares status/renewal helpers with vehicle Documents & Deadlines (`app/services/validity.py`)
+- Admin and fleet_manager manage; viewers see masked numbers and no scans; a driver sees only their own record
+- Audit entries hold masked numbers only
 
 ### 7. 📅 Documents & Deadlines (Документи и срокове)
 

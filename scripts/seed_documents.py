@@ -20,6 +20,7 @@ from app.database import AsyncSessionLocal
 from app.i18n import _
 from app.models.document import Document, DocumentType, EntityType
 from app.models.driver import Driver
+from app.models.driver_document import DriverDocument
 from app.models.vehicle import Vehicle
 from app.utils.formatting import money
 from app.utils.s3 import get_s3_client
@@ -190,7 +191,7 @@ def generate_document_image(
     return buf.getvalue()
 
 
-def generate_driver_photo(name: str, employee_id: str, width: int = 400, height: int = 500) -> bytes:
+def generate_driver_photo(name: str, reference: str, width: int = 400, height: int = 500) -> bytes:
     """Generate a driver badge-style placeholder photo."""
     img = Image.new("RGB", (width, height), (240, 242, 245))
     draw = ImageDraw.Draw(img)
@@ -225,7 +226,7 @@ def generate_driver_photo(name: str, employee_id: str, width: int = 400, height:
     draw.text(((width - nw) // 2, cy + r + 20), name, fill=(33, 33, 33), font=font_name)
 
     # Employee ID
-    eid_text = f"ID: {employee_id}"
+    eid_text = f"ID: {reference}"
     ebbox = draw.textbbox((0, 0), eid_text, font=font_id)
     ew = ebbox[2] - ebbox[0]
     draw.text(((width - ew) // 2, cy + r + 55), eid_text, fill=(100, 100, 100), font=font_id)
@@ -256,6 +257,9 @@ async def seed_files():
         # Load drivers for context
         d_result = await db.execute(select(Driver))
         drivers = {d.id: d for d in d_result.scalars().all()}
+        # Driver document entries resolve to their driver for the placeholder image
+        entry_result = await db.execute(select(DriverDocument))
+        driver_entries = {e.id: e for e in entry_result.scalars().all()}
 
         uploaded = 0
         errors = 0
@@ -270,10 +274,15 @@ async def seed_files():
                         data = generate_vehicle_photo("Vehicle", "Photo", "000 XXX 00")
                     mime = "image/jpeg"
 
-                elif doc.type in (DocumentType.LICENSE, DocumentType.MEDICAL) and doc.entity_type == EntityType.DRIVER:
-                    d = drivers.get(doc.entity_id)
+                elif doc.type in (DocumentType.LICENSE, DocumentType.MEDICAL) and doc.entity_type in (
+                    EntityType.DRIVER,
+                    EntityType.DRIVER_DOCUMENT,
+                ):
+                    entry = driver_entries.get(doc.entity_id) if doc.entity_type == EntityType.DRIVER_DOCUMENT else None
+                    d = drivers.get(entry.driver_id if entry else doc.entity_id)
+                    reference = (entry.document_number if entry else None) or str(doc.entity_id)[:8].upper()
                     if d:
-                        data = generate_driver_photo(d.full_name, d.employee_id or "N/A")
+                        data = generate_driver_photo(d.full_name, reference)
                     else:
                         data = generate_driver_photo("Driver", "N/A")
                     mime = "image/jpeg"

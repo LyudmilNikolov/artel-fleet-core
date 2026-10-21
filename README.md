@@ -49,7 +49,7 @@ You will be prompted for username, email, full name, and password (minimum 8 cha
 docker compose exec app python scripts/seed_data.py
 ```
 
-Generates 500+ vehicles, 200+ drivers, maintenance records, expenses, and vehicle documents with deadlines.
+Generates 500+ vehicles, 200+ drivers with their documents, maintenance records, expenses, and vehicle documents with deadlines.
 
 ### 5. Open the application
 
@@ -80,7 +80,7 @@ Open http://localhost:8000 in your browser.
 | Module | Description |
 |--------|------------|
 | **Vehicles** | Registry of 500+ vehicles with full specs, photos, QR codes |
-| **Drivers** | Driver management with license/medical tracking |
+| **Drivers** | Driver profiles with tabs; ID card, driving licence, driver card, psycho, CPC and medical certificate tracked with validity, renewal and expiry alerts |
 | **Mileage** | Mileage logging with anomaly detection |
 | **Maintenance** | Scheduled/unscheduled maintenance with Kanban view |
 | **Expenses** | Cost tracking by category, fuel consumption analysis |

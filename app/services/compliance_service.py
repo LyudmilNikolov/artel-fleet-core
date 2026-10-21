@@ -4,9 +4,8 @@ Status is computed from end_date and never stored. Per (vehicle, type) the entry
 the latest end_date is current; older entries are history and never raise warnings.
 """
 
-from calendar import monthrange
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import select
@@ -20,42 +19,14 @@ from app.repositories.compliance_repo import STATUSES, ComplianceRepository
 from app.schemas.compliance import ComplianceCreate, ComplianceRenew, ComplianceUpdate
 from app.services import document_expense_sync as sync
 from app.services.errors import DomainError
+from app.services.validity import renewal_dates, utc_today, validity_status
 from app.utils.s3 import get_s3_client
 from app.vehicle_rules import compliance_types_for, validate_compliance_type
 
 
-def utc_today() -> date:
-    """Today's date in UTC (all dates are UTC by convention)."""
-    return datetime.now(UTC).date()
-
-
 def compliance_status(end_date: date, today: date, window: int) -> str:
     """valid / expiring_soon / expired from an inclusive end date and an expiring-soon window in days."""
-    if end_date < today:
-        return "expired"
-    if end_date <= today + timedelta(days=window):
-        return "expiring_soon"
-    return "valid"
-
-
-def _add_months(value: date, months: int) -> date:
-    year, month = divmod(value.month - 1 + months, 12)
-    year += value.year
-    month += 1
-    return date(year, month, min(value.day, monthrange(year, month)[1]))
-
-
-def renewal_dates(start: date, end: date) -> tuple[date, date]:
-    """Propose the next period: start the day after ``end`` and keep the same length.
-
-    Whole-month periods (e.g. one year ending the day before the anniversary) keep calendar
-    alignment across leap years; other periods keep their length in days.
-    """
-    new_start = end + timedelta(days=1)
-    months = (new_start.year - start.year) * 12 + new_start.month - start.month
-    if months > 0 and _add_months(start, months) == new_start:
-        return new_start, _add_months(new_start, months) - timedelta(days=1)
-    return new_start, new_start + (end - start)
+    return validity_status(end_date, today, window)
 
 
 @dataclass

@@ -32,7 +32,7 @@
                         <a href="/vehicles/{{ e.vehicle.id }}" class="font-medium text-primary-600 hover:underline" onclick="event.stopPropagation()">{{ e.vehicle.license_plate }}</a>
                         <span class="block text-xs text-gray-500">{{ e.vehicle.brand }} {{ e.vehicle.model }}</span>
                     </td>
-                    <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + e.category.value) }}</span>{% if e.compliance_document %}<span class="ml-1 text-xs text-purple-600" title="{{ _('expense.linked_document') }}">&#128279;</span>{% endif %}</td>
+                    <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + e.category.value) }}</span></td>
                     <td class="px-4 py-3 text-gray-500">{{ e.vendor or '—' }}</td>
                     <td class="px-4 py-3 text-right font-mono font-medium">{{ money(e.amount) }}</td>
                 </tr>

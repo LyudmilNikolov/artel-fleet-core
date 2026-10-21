@@ -1,35 +1,23 @@
 """Data access for per-vehicle compliance documents."""
 
-from datetime import date, timedelta
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import Select, and_, false, func, or_, select
-from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.compliance import ComplianceDocument
 from app.models.vehicle import Vehicle, VehicleStatus, VehicleType
 from app.repositories.base import BaseRepository
+from app.repositories.validity import STATUSES  # noqa: F401  (re-exported)
+from app.repositories.validity import current_ids as _current_ids
+from app.repositories.validity import status_clause as _status_clause
 from app.vehicle_rules import COMPLIANCE_TYPES, COMPLIANCE_VEHICLE_TYPES
-
-STATUSES = ("valid", "expiring_soon", "expired")
 
 
 def current_ids() -> Select:
     """IDs of the current entry per (vehicle, type): latest end_date, then start_date, created_at, id."""
-    doc = ComplianceDocument
-    return (
-        select(doc.id)
-        .ext(distinct_on(doc.vehicle_id, doc.document_type))
-        .order_by(
-            doc.vehicle_id,
-            doc.document_type,
-            doc.end_date.desc(),
-            doc.start_date.desc(),
-            doc.created_at.desc(),
-            doc.id.desc(),
-        )
-    )
+    return _current_ids(ComplianceDocument, ComplianceDocument.vehicle_id)
 
 
 def applicable_clause():
@@ -44,15 +32,7 @@ def applicable_clause():
 
 def status_clause(status: str, today: date, window: int):
     """SQL condition for a computed status on ComplianceDocument.end_date."""
-    end = ComplianceDocument.end_date
-    soon = today + timedelta(days=window)
-    if status == "expired":
-        return end < today
-    if status == "expiring_soon":
-        return and_(end >= today, end <= soon)
-    if status == "valid":
-        return end > soon
-    raise ValueError("errors.invalid_input")
+    return _status_clause(ComplianceDocument.end_date, status, today, window)
 
 
 class ComplianceRepository(BaseRepository[ComplianceDocument]):

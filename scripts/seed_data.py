@@ -24,7 +24,9 @@ from app.i18n import _ as translate
 from app.models.audit_log import AuditAction, AuditLog
 from app.models.compliance import ComplianceDocument
 from app.models.document import Document, DocumentType, EntityType
+from app.driver_document_rules import DRIVER_DOCUMENT_TYPES
 from app.models.driver import Driver, DriverStatus
+from app.models.driver_document import DriverDocument
 from app.models.expense import Currency, Expense, ExpenseCategory
 from app.models.maintenance import (
     MaintenanceRecord,
@@ -337,6 +339,7 @@ async def seed():
             MaintenanceRecord,
             ComplianceDocument,
             Vehicle,
+            DriverDocument,
             Driver,
         ]:
             await db.execute(delete(tbl))
@@ -387,8 +390,6 @@ async def seed():
         drivers = []
         for i in range(NUM_DRIVERS):
             today = date.today()
-            license_exp = rand_date(today - timedelta(days=30), today + timedelta(days=365 * 3))
-            medical_exp = rand_date(today - timedelta(days=30), today + timedelta(days=365 * 2))
             hire_d = rand_date(date(2015, 1, 1), today - timedelta(days=30))
             status = random.choices(
                 [DriverStatus.ACTIVE, DriverStatus.ON_LEAVE, DriverStatus.TERMINATED],
@@ -398,13 +399,8 @@ async def seed():
             lname = random.choice(KZ_LAST_NAMES)
             driver = Driver(
                 full_name=f"{fname} {lname}",
-                employee_id=f"EMP-{1000 + i}",
                 phone=f"+7 {random.randint(700, 778)} {random.randint(100, 999)} {random.randint(10, 99)} {random.randint(10, 99)}",
                 email=f"{fname.lower()}.{lname.lower()}@fleetcore.kz",
-                license_number=f"{random.randint(10, 99)}{random.randint(100000, 999999):06d}",
-                license_category=random.choice(["B", "B, C", "B, C, D", "B, C, CE", "D"]),
-                license_expiry=license_exp,
-                medical_expiry=medical_exp,
                 hire_date=hire_d,
                 department=random.choice(DEPARTMENTS),
                 status=status,
@@ -413,6 +409,81 @@ async def seed():
             drivers.append(driver)
         await db.flush()
         active_driver_ids = [d.id for d in drivers if d.status == DriverStatus.ACTIVE]
+
+        # ---- Create driver documents (Лицензи и документи) ----
+        print("Creating driver documents...")
+        driver_validity_years = {
+            "id_card": 10,
+            "driving_licence": 10,
+            "tachograph_card": 5,
+            "psycho_test": 2,
+            "professional_competence": 5,
+            "medical_certificate": 2,
+        }
+        driver_presence = {  # share of drivers that hold the document
+            "id_card": 1.0,
+            "driving_licence": 1.0,
+            "tachograph_card": 0.7,
+            "psycho_test": 0.8,
+            "professional_competence": 0.5,
+            "medical_certificate": 0.8,
+        }
+
+        def driver_document_number(code: str) -> str | None:
+            if code == "id_card" or code == "driving_licence":
+                return str(random.randint(100000000, 999999999))
+            if code == "tachograph_card":
+                return f"BG{random.randint(10**13, 10**14 - 1)}"
+            if code == "professional_competence":
+                return f"КПК-{random.randint(10000, 99999)}" if random.random() < 0.8 else None
+            return f"{random.randint(1000, 9999)}/{random.randint(2018, 2026)}" if random.random() < 0.5 else None
+
+        driver_doc_objs = []
+        for d in drivers:
+            for code in DRIVER_DOCUMENT_TYPES:
+                if random.random() > driver_presence[code]:
+                    continue
+                years = driver_validity_years[code]
+                no_expiry = code == "id_card" and random.random() < 0.15  # some ID cards are issued without expiry
+                # Mix of valid, expiring soon and expired current entries.
+                end = today + timedelta(
+                    days=random.choice([random.randint(-60, -1), random.randint(0, 30)] + [random.randint(31, 700)] * 6)
+                )
+                start = end - timedelta(days=365 * years) + timedelta(days=1)
+                categories = random.choice(["B", "B, C", "B, C, CE", "C, CE"]) if code == "driving_licence" else None
+                number = driver_document_number(code)
+                created_by = random.choice(all_user_ids) if all_user_ids else None
+                previous_id = None
+                if random.random() < HISTORY_SHARE and not no_expiry:
+                    older = DriverDocument(
+                        id=uuid4(),
+                        driver_id=d.id,
+                        document_type=code,
+                        document_number=number,
+                        categories=categories,
+                        start_date=start - timedelta(days=365 * years),
+                        end_date=start - timedelta(days=1),
+                        created_by=created_by,
+                    )
+                    db.add(older)
+                    driver_doc_objs.append(older)
+                    previous_id = older.id
+                entry = DriverDocument(
+                    id=uuid4(),
+                    driver_id=d.id,
+                    document_type=code,
+                    document_number=number,
+                    categories=categories,
+                    start_date=start,
+                    end_date=None if no_expiry else end,
+                    renewed_from_id=previous_id,
+                    created_by=created_by,
+                )
+                db.add(entry)
+                driver_doc_objs.append(entry)
+        await db.flush()
+        driver_doc_ids = [e.id for e in driver_doc_objs]
+        num_driver_docs = len(driver_doc_ids)
 
         # ---- Create vehicles ----
         print(f"Creating {NUM_VEHICLES} vehicles...")
@@ -807,6 +878,25 @@ async def seed():
             db.add(doc)
             doc_counter += 1
 
+        # Driver document scans (~100 docs, attached to licence & document entries)
+        for eid in random.sample(driver_doc_ids, min(100, len(driver_doc_ids))):
+            if doc_counter >= NUM_DOCUMENTS:
+                break
+            tpl = random.choice(DOC_TEMPLATES[DocumentType.LICENSE])
+            doc = Document(
+                entity_type=EntityType.DRIVER_DOCUMENT,
+                entity_id=eid,
+                type=DocumentType.LICENSE,
+                filename=tpl[0].format(n=doc_counter),
+                s3_key=f"driver_document/{eid}/{uuid4().hex[:12]}.{tpl[0].split('.')[-1]}",
+                mime_type=tpl[1],
+                size_bytes=random.randint(tpl[2][0], tpl[2][1]),
+                uploaded_by=random.choice(all_user_ids) if all_user_ids else None,
+                uploaded_at=rand_datetime(date(2022, 1, 1), today),
+            )
+            db.add(doc)
+            doc_counter += 1
+
         # Maintenance invoices/acts (~200 docs)
         completed_maint_ids = [m.id for m in maintenance_objs if m.status == MaintenanceStatus.COMPLETED]
         for mid in random.sample(completed_maint_ids, min(200, len(completed_maint_ids))):
@@ -1062,6 +1152,7 @@ async def seed():
         print(f"  Maintenance:        {NUM_MAINTENANCE}")
         print(f"  Expenses:           {NUM_EXPENSES + num_linked_expenses}")
         print(f"  Vehicle documents:  {num_compliance}")
+        print(f"  Driver documents:   {num_driver_docs}")
         print(f"  Documents:          {NUM_DOCUMENTS}")
         print(f"  Notifications:      {NUM_NOTIFICATIONS}")
         print(f"  Audit logs:         {NUM_AUDIT_LOGS}")
@@ -1074,6 +1165,7 @@ async def seed():
             + NUM_EXPENSES
             + num_linked_expenses
             + num_compliance
+            + num_driver_docs
             + NUM_DOCUMENTS
             + NUM_NOTIFICATIONS
             + NUM_AUDIT_LOGS

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Compliance documents: days before end_date when a current entry counts as "expiring soon"
     COMPLIANCE_EXPIRING_SOON_DAYS: int = 30
 
+    # Driver documents: days before end_date when a current entry counts as "expiring soon"
+    DRIVER_DOCUMENT_EXPIRING_SOON_DAYS: int = 30
+
     # Database (no defaults — must come from Vault or env)
     DATABASE_URL: str = ""
     DATABASE_URL_SYNC: str = ""

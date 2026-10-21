@@ -4,6 +4,7 @@ from app.web.auth import router as auth_router
 from app.web.compliance import router as compliance_router
 from app.web.dashboard import router as dashboard_router
 from app.web.documents import router as documents_router
+from app.web.driver_documents import router as driver_documents_router
 from app.web.drivers import router as drivers_router
 from app.web.expenses import router as expenses_router
 from app.web.maintenance import router as maintenance_router
@@ -19,6 +20,7 @@ web_router.include_router(auth_router)
 web_router.include_router(dashboard_router)
 web_router.include_router(vehicles_router)
 web_router.include_router(drivers_router)
+web_router.include_router(driver_documents_router)
 web_router.include_router(maintenance_router)
 web_router.include_router(expenses_router)
 web_router.include_router(compliance_router)

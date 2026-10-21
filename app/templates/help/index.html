@@ -201,9 +201,8 @@
                 <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200 mt-4">{{ _('help.drivers_fields_title') }}</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                     {% set driver_fields = [
-                        'driver.full_name', 'driver.employee_id', 'driver.phone', 'driver.email',
-                        'driver.license_number', 'driver.license_category', 'driver.license_expiry',
-                        'driver.medical_expiry', 'driver.hire_date', 'driver.department'
+                        'driver.full_name', 'driver.phone', 'driver.email',
+                        'driver.hire_date', 'driver.department'
                     ] %}
                     {% for fk in driver_fields %}
                     <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700/50 rounded text-xs">
@@ -212,6 +211,9 @@
                     </div>
                     {% endfor %}
                 </div>
+
+                <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200 mt-4">{{ _('help.drivers_docs_title') }}</h3>
+                <p>{{ _('help.drivers_docs_desc') }}</p>
 
                 <div class="mt-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/40 text-xs">
                     <p class="font-medium text-amber-800 dark:text-amber-300">{{ _('help.drivers_alert_title') }}</p>

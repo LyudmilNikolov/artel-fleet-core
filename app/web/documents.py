@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.document import DocumentType, EntityType
 from app.services.document_service import DocumentService
+from app.services.driver_access import can_view_scans
 from app.services.errors import render_error
 from app.web.deps import get_web_user
 
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/documents", tags=["web-documents"])
 ENTITY_RETURN_URLS = {
     "vehicle": "/vehicles/{id}",
     "driver": "/drivers/{id}",
+    "driver_document": "/driver-documents/{id}",
     "maintenance": "/maintenance/{id}",
     "compliance_document": "/compliance/{id}",
     "expense": "/expenses/{id}",
@@ -106,6 +108,9 @@ async def document_gallery(
     except ValueError:
         return HTMLResponse("", status_code=400)
 
+    if not await can_view_scans(db, user, etype, entity_id):
+        return HTMLResponse("", status_code=403)
+
     service = DocumentService(db)
     documents = await service.list_for_entity(etype, entity_id)
 
@@ -145,6 +150,9 @@ async def download_document(
         return RedirectResponse(url="/login", status_code=302)
 
     service = DocumentService(db)
+    doc = await service.get(doc_id)
+    if doc and not await can_view_scans(db, user, doc.entity_type, doc.entity_id):
+        return RedirectResponse(url="/", status_code=302)
     url = await service.get_download_url(doc_id)
     if not url:
         return RedirectResponse(url="/", status_code=302)

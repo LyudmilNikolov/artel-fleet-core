@@ -6,9 +6,12 @@ from app.config import settings
 from app.database import get_sync_db
 from app.models.compliance import ComplianceDocument
 from app.models.driver import Driver, DriverStatus
+from app.models.driver_document import DriverDocument
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.repositories.compliance_repo import applicable_clause, current_ids, status_clause
+from app.repositories.driver_document_repo import current_ids as driver_current_ids
+from app.repositories.driver_document_repo import status_clause as driver_status_clause
 from app.tasks.celery_app import celery_app
 
 
@@ -62,24 +65,35 @@ def check_compliance_expiry():
 
 @celery_app.task
 def check_driver_document_expiry():
-    """Check for expiring driver licenses and medical certificates."""
+    """Count current driver documents expiring soon or expired, per type, for active drivers.
+
+    Counting only: sending notifications belongs to the reminders feature. Documents without an
+    end date never warn, and history entries (older or renewed ones) are ignored.
+    """
     db = get_sync_db()
     try:
-        today = date.today()
-        deadline = today + timedelta(days=30)
-
-        expiring_licenses = db.query(Driver).filter(
-            Driver.status == DriverStatus.ACTIVE,
-            Driver.license_expiry <= deadline,
-            Driver.license_expiry >= today,
-        ).all()
-
-        expiring_medicals = db.query(Driver).filter(
-            Driver.status == DriverStatus.ACTIVE,
-            Driver.medical_expiry <= deadline,
-            Driver.medical_expiry >= today,
-        ).all()
-
-        return {"expiring_licenses": len(expiring_licenses), "expiring_medicals": len(expiring_medicals)}
+        today = datetime.now(UTC).date()
+        window = settings.DRIVER_DOCUMENT_EXPIRING_SOON_DAYS
+        by_type: dict[str, dict[str, int]] = {}
+        totals = {"expiring_soon": 0, "expired": 0}
+        for status in totals:
+            rows = db.execute(
+                select(DriverDocument.document_type, func.count())
+                .join(Driver, Driver.id == DriverDocument.driver_id)
+                .where(
+                    DriverDocument.id.in_(driver_current_ids().scalar_subquery()),
+                    Driver.status == DriverStatus.ACTIVE,
+                    driver_status_clause(status, today, window),
+                )
+                .group_by(DriverDocument.document_type)
+            ).all()
+            for document_type, count in rows:
+                by_type.setdefault(document_type, {"expiring_soon": 0, "expired": 0})[status] = count
+                totals[status] += count
+        return {
+            "expiring_driver_documents": totals["expiring_soon"],
+            "expired_driver_documents": totals["expired"],
+            "by_type": by_type,
+        }
     finally:
         db.close()
