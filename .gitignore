@@ -17,6 +17,11 @@ env/
 .env
 .env.*
 *.env
+!.env.production.example
+
+# Backups and deployment state (never commit)
+backups/
+.deploy-state/
 
 # IDE
 .idea/

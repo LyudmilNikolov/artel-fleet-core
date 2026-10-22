@@ -5,12 +5,13 @@ from app.api.v1.compliance import router as compliance_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.driver_documents import router as driver_documents_router
 from app.api.v1.drivers import router as drivers_router
-from app.api.v1.reports import router as reports_router
 from app.api.v1.expenses import router as expenses_router
 from app.api.v1.maintenance import router as maintenance_router
 from app.api.v1.mileage import router as mileage_router
+from app.api.v1.reports import router as reports_router
 from app.api.v1.users import router as users_router
 from app.api.v1.vehicles import router as vehicles_router
+from app.config import settings
 
 api_router = APIRouter()
 
@@ -29,4 +30,4 @@ api_router.include_router(reports_router)
 
 @api_router.get("/health", tags=["system"])
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": settings.APP_VERSION}

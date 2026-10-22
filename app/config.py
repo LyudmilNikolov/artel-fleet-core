@@ -18,6 +18,8 @@ inject_vault_secrets_to_env()
 class Settings(BaseSettings):
     # App (non-sensitive, safe defaults)
     APP_NAME: str = "FleetCore"
+    # Release version: set at image build time (--build-arg APP_VERSION=v1.2.0), "dev" otherwise
+    APP_VERSION: str = "dev"
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
     DEFAULT_LANGUAGE: str = "bg"
@@ -63,6 +65,9 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = ""
     MINIO_BUCKET: str = "fleetcore"
     MINIO_USE_SSL: bool = False
+    # https for the browser-facing download links when the public address uses TLS (inside Docker MinIO stays http);
+    # unset = same as MINIO_USE_SSL
+    MINIO_EXTERNAL_USE_SSL: bool | None = None
 
     # SMTP
     SMTP_HOST: str = ""

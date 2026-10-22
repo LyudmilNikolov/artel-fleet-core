@@ -1,0 +1,99 @@
+# ============================================================================
+# FleetCore — PRODUCTION compose file.
+#
+#   Secrets and settings come from .env.production (copy .env.production.example). There is no Vault in this
+#   setup: the same variables are passed straight to the containers.
+#   The release to run is FLEETCORE_VERSION in .env.production; scripts/update.sh changes it for you.
+#
+#   FLEET_ENV=production ./scripts/update.sh v1.0.0      # update (backup, build, migrate, start, health check)
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d      # first start
+#
+#   Nothing is published on the network except the app on 127.0.0.1:8000 (and MinIO on 127.0.0.1:9000 for file
+#   downloads): put a reverse proxy with HTTPS in front of both (see docs/deployment.md).
+# ============================================================================
+
+x-app: &app
+  image: fleetcore:${FLEETCORE_VERSION:?set FLEETCORE_VERSION in .env.production}
+  env_file: .env.production
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fleetcore
+      POSTGRES_USER: fleetcore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleetcore -d fleetcore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    # Community-maintained MinIO build; upstream Docker Hub image is unavailable.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?set MINIO_ACCESS_KEY in .env.production}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?set MINIO_SECRET_KEY in .env.production}
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - minio_data:/data
+
+  app:
+    <<: *app
+    build:
+      context: .
+      args:
+        APP_VERSION: ${FLEETCORE_VERSION}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  celery_worker:
+    <<: *app
+    command: celery -A app.tasks.celery_app worker -l info
+
+  celery_beat:
+    <<: *app
+    command: celery -A app.tasks.celery_app beat -l info
+
+volumes:
+  pgdata:
+  redisdata:
+  minio_data:
