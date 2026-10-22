@@ -27,12 +27,14 @@ from app.vehicle_rules import (
     LIST_TYPE_FILTERS,
     TRAILER_TYPES,
     PowerSource,
+    type_group_of,
+    vehicle_type_filter,
 )
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
 
-VEHICLE_GROUPS = list(dict.fromkeys("trailer" if t in TRAILER_TYPES else t.value for t in VehicleType))
+VEHICLE_GROUPS = list(dict.fromkeys(type_group_of(t) for t in VehicleType))
 
 
 
@@ -57,10 +59,7 @@ async def vehicle_list(
     try:
         status_enum = VehicleStatus(status) if status else None
         fuel_type = FuelType(fuel_type) if fuel_type else None
-        if vehicle_type == "trailer":
-            types = [t.value for t in TRAILER_TYPES]
-        else:
-            types = VehicleType(vehicle_type) if vehicle_type else None
+        types = vehicle_type_filter(vehicle_type)
     except ValueError:
         return HTMLResponse(render_error("errors.invalid_input", request.state.locale), status_code=422)
     # fuel type, department and brand are not offered in the filter bar but old links keep working.

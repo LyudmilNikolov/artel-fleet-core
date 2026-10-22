@@ -27,6 +27,7 @@ async def test_primary_pages_both_locales(client, admin_user, db_session):
         "/reports/tco",
         "/reports/fuel",
         "/reports/expenses",
+        "/reports/maintenance",
         "/help",
         "/settings/users",
         "/settings/audit",

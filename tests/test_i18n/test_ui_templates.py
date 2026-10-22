@@ -52,6 +52,23 @@ def test_expense_form_has_no_currency_control_only_eur(templates):
     assert "(EUR)" in text
 
 
+def report_filter_context():
+    """Variables the shared report filter bar needs (normally supplied by app/web/reports.py)."""
+    from app.schemas.report import ReportFilters
+    from app.vehicle_rules import LIST_TYPE_FILTERS
+    from app.web.pickers import picker_state
+
+    return {
+        "filters": ReportFilters(),
+        "picker": picker_state(None),
+        "type_filters": LIST_TYPE_FILTERS,
+        "filter_query": {},
+        "filter_error": None,
+        "vehicle_mismatch": False,
+        "statuses": [],
+    }
+
+
 def test_report_templates_render_decimal_and_missing_purchase_price(templates):
     from types import SimpleNamespace
 
@@ -59,6 +76,7 @@ def test_report_templates_render_decimal_and_missing_purchase_price(templates):
         "user": SimpleNamespace(full_name="Example", role=SimpleNamespace(value="admin")),
         "start_date": None,
         "end_date": None,
+        **report_filter_context(),
     }
     tco = templates.get_template("reports/tco.html").render(
         **context,
@@ -92,6 +110,7 @@ def test_report_templates_render_decimal_and_missing_purchase_price(templates):
                 "total_cost": Decimal("0.30"),
                 "avg_price": Decimal("0.15"),
                 "refuel_count": 1,
+                "l_per_100km": None,
             }
         ],
     )
@@ -121,6 +140,7 @@ def test_monthly_chart_accepts_full_iso_dates(templates):
         user=SimpleNamespace(full_name="Example", role=SimpleNamespace(value="admin")),
         start_date=None,
         end_date=None,
+        **report_filter_context(),
         data={
             "grand_total": Decimal("0.30"),
             "total_count": 1,

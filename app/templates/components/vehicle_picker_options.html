@@ -6,6 +6,7 @@
                 class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
                 data-id="{{ o.vehicle.id }}"
                 data-label="{{ o.label }}"
+                data-group="{{ o.group }}"
                 data-tracked="{{ 1 if o.tracked else 0 }}"
                 data-current="{{ o.vehicle.current_mileage if o.vehicle.current_mileage is not none else '' }}"
                 data-doc-types='{{ o.doc_types | tojson }}'

@@ -2,7 +2,7 @@ import secrets
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +11,7 @@ from app.models.document import Document, EntityType
 from app.models.expense import Expense
 from app.models.maintenance import MaintenanceRecord
 from app.models.vehicle import Vehicle, VehicleStatus
-from app.repositories.vehicle_repo import VehicleRepository
+from app.repositories.vehicle_repo import VehicleRepository, vehicle_search_condition
 from app.schemas.mileage import MileageCreate
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 from app.services.errors import DomainError
@@ -155,19 +155,14 @@ class VehicleService:
                 raise self._integrity_error(exc) from exc
         raise DomainError("error.vehicle_identifier_retry")
 
-    async def picker_options(self, q: str | None, limit: int = 20) -> list[Vehicle]:
-        """Vehicles for the searchable picker, matched by plate, VIN, brand or model."""
+    async def picker_options(self, q: str | None, limit: int = 20, vehicle_types=None) -> list[Vehicle]:
+        """Vehicles for the searchable picker, matched by plate, VIN, brand or model; optionally one type group."""
         query = select(Vehicle)
-        if q and q.strip():
-            pattern = f"%{q.strip()}%"
-            query = query.where(
-                or_(
-                    Vehicle.license_plate.ilike(pattern),
-                    Vehicle.vin.ilike(pattern),
-                    Vehicle.brand.ilike(pattern),
-                    Vehicle.model.ilike(pattern),
-                )
-            )
+        search = vehicle_search_condition(q)
+        if search is not None:
+            query = query.where(search)
+        if vehicle_types:
+            query = query.where(Vehicle.vehicle_type.in_(list(vehicle_types)))
         return list((await self.session.scalars(query.order_by(Vehicle.license_plate).limit(limit))).all())
 
     async def get_by_id(self, vehicle_id: UUID) -> Vehicle | None:

@@ -206,3 +206,16 @@ def vehicle_type_filter(value: str | None) -> list[VehicleType] | None:
     if value == "trailer":
         return list(TRAILER_TYPES)
     return [VehicleType(value)]
+
+
+def type_group_of(vehicle_type) -> str:
+    """List-filter group of a stored vehicle type (both trailer kinds -> ``trailer``)."""
+    value = str(getattr(vehicle_type, "value", vehicle_type))
+    return "trailer" if value in {t.value for t in TRAILER_TYPES} else value
+
+
+def vehicle_display_label(vehicle) -> str:
+    """Human label: ``PLATE — Brand Model``; forklifts put the generated PRIVATE- id last."""
+    if getattr(vehicle.vehicle_type, "value", vehicle.vehicle_type) == VehicleType.FORKLIFT:
+        return f"{vehicle.brand} {vehicle.model} · {vehicle.license_plate}"
+    return f"{vehicle.license_plate} — {vehicle.brand} {vehicle.model}"

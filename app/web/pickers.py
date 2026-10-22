@@ -2,11 +2,17 @@
 
 from app.maintenance_rules import SERVICE_ITEMS, service_items_for
 from app.models.vehicle import Vehicle
-from app.vehicle_rules import MILEAGE_TYPES, blocked_expense_categories, compliance_types_for
+from app.vehicle_rules import (
+    MILEAGE_TYPES,
+    blocked_expense_categories,
+    compliance_types_for,
+    type_group_of,
+    vehicle_display_label,
+)
 
 
 def vehicle_label(vehicle: Vehicle) -> str:
-    return f"{vehicle.license_plate} — {vehicle.brand} {vehicle.model}"
+    return vehicle_display_label(vehicle)
 
 
 def picker_state(vehicle: Vehicle | None) -> dict:
@@ -14,6 +20,7 @@ def picker_state(vehicle: Vehicle | None) -> dict:
     return {
         "vehicleId": str(vehicle.id) if vehicle else "",
         "label": vehicle_label(vehicle) if vehicle else "",
+        "group": type_group_of(vehicle.vehicle_type) if vehicle else "",
         "tracked": bool(vehicle and vehicle.vehicle_type in MILEAGE_TYPES),
         "currentMileage": vehicle.current_mileage if vehicle else None,
         "docTypes": list(compliance_types_for(vehicle.vehicle_type)) if vehicle else [],
@@ -30,6 +37,7 @@ def option_rows(vehicles: list[Vehicle]) -> list[dict]:
         {
             "vehicle": v,
             "label": vehicle_label(v),
+            "group": type_group_of(v.vehicle_type),
             "tracked": v.vehicle_type in MILEAGE_TYPES,
             "doc_types": list(compliance_types_for(v.vehicle_type)),
             "blocked": list(blocked_expense_categories(v.vehicle_type)),

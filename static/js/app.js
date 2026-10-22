@@ -55,6 +55,7 @@ document.addEventListener('alpine:init', function() {
         return Object.assign({
             vehicleId: cfg.vehicleId || '',
             label: cfg.label || '',
+            group: cfg.group || '',
             tracked: !!cfg.tracked,
             currentMileage: cfg.currentMileage === undefined ? null : cfg.currentMileage,
             docTypes: cfg.docTypes || [],
@@ -65,6 +66,7 @@ document.addEventListener('alpine:init', function() {
             choose: function(el) {
                 this.vehicleId = el.dataset.id;
                 this.label = el.dataset.label;
+                this.group = el.dataset.group || '';
                 this.tracked = el.dataset.tracked === '1';
                 this.currentMileage = el.dataset.current === '' ? null : Number(el.dataset.current);
                 this.docTypes = JSON.parse(el.dataset.docTypes || '[]');
@@ -77,6 +79,7 @@ document.addEventListener('alpine:init', function() {
             clear: function() {
                 this.vehicleId = '';
                 this.label = '';
+                this.group = '';
                 this.tracked = false;
                 this.currentMileage = null;
                 this.docTypes = [];

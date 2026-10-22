@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_303_SEE_OTHER
 
+from app.audit_context import set_audit_user
 from app.database import get_db
 from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
@@ -33,6 +34,7 @@ async def get_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> 
         resolve_locale(request)
         return None
     resolve_locale(request, user)
+    set_audit_user(user.id)
     return user
 
 

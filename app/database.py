@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.audit_events import register_audit_events
 from app.config import settings
 
 # Async engine for FastAPI
@@ -39,6 +40,10 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+# Every create / update / delete of an audited model is logged automatically (see app/audit_events.py).
+register_audit_events()
 
 
 def get_sync_db() -> Session:

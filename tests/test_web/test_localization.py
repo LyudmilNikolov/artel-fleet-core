@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.database import get_db
 from app.main import create_app
 from app.repositories.user_repo import UserRepository
+from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 
 
@@ -25,6 +26,7 @@ async def locale_client(monkeypatch):
     monkeypatch.setattr(AuthService, "authenticate", AsyncMock(return_value=(user, "access", "refresh")))
     monkeypatch.setattr(UserRepository, "get_by_id", AsyncMock(return_value=user))
     monkeypatch.setattr(UserRepository, "update", AsyncMock(side_effect=update))
+    monkeypatch.setattr(AuditService, "log", AsyncMock())  # no database in these tests
     app = create_app()
 
     async def no_db():

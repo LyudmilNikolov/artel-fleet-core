@@ -397,7 +397,7 @@ Replaces the former Contracts module. See `docs/compliance-documents.md`.
 - Custom date range filtering on all reports
 
 **Export:**
-- All reports exportable to Excel (.xlsx) using `openpyxl`
+- All reports exportable to Excel (.xlsx) using `openpyxl`; every report has vehicle / vehicle type / date filters shared by page, API and export (see `docs/reports.md`)
 - PDF report export is not implemented; do not advertise it
 - CSV export for raw data
 

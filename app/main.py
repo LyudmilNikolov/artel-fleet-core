@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.audit_context import AuditContextMiddleware
 from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
@@ -42,6 +43,8 @@ def create_app() -> FastAPI:
         session_cookie="fleetcore_session",
         max_age=86400 * 7,
     )
+
+    application.add_middleware(AuditContextMiddleware)
 
     # Templates
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))

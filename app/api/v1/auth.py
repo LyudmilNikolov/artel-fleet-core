@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.audit_context import set_audit_user
 from app.database import get_db
+from app.models.audit_log import AuditAction
 from app.models.user import User
 from app.schemas.user import (
     LoginRequest,
@@ -12,6 +14,7 @@ from app.schemas.user import (
     UserCreate,
     UserRead,
 )
+from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.errors import error_detail
 
@@ -40,6 +43,14 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     try:
         user, access_token, refresh_token = await service.authenticate(data.username, data.password)
+        set_audit_user(user.id)
+        await AuditService(db).log(
+            user_id=user.id,
+            action=AuditAction.LOGIN,
+            entity_type="session",
+            entity_id=user.id,
+            changes={"channel": "api"},
+        )
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail(e))

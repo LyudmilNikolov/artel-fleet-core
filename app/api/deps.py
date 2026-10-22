@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit_context import set_audit_user
 from app.database import get_db
 from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
@@ -30,6 +31,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="auth.user_disabled")
 
     resolve_locale(request, user)
+    set_audit_user(user.id)
     return user
 
 

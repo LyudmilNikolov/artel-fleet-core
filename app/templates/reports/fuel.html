@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'components/report_filters.html' import report_filter_bar with context %}
 
 {% block title %}{{ _('reports.fuel_consumption') }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('reports.fuel_consumption') }}{% endblock %}
@@ -13,39 +14,7 @@
     </ol>
 </nav>
 
-<!-- Date Filters -->
-<div class="fc-card p-4 mb-6">
-    <form method="GET" class="flex flex-wrap items-end gap-3">
-        <div>
-            <label for="start_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.start_date') }}</label>
-            <input type="date" id="start_date" name="start_date" value="{{ start_date or '' }}" class="fc-filter-date">
-        </div>
-        <div>
-            <label for="end_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.end_date') }}</label>
-            <input type="date" id="end_date" name="end_date" value="{{ end_date or '' }}" class="fc-filter-date">
-        </div>
-        <button type="submit" class="fc-btn-filter">{{ _('btn.filter') }}</button>
-        <a href="/reports/fuel" class="fc-btn-reset">{{ _('btn.reset') }}</a>
-        <div class="ml-auto flex items-center gap-2">
-            <a href="/reports/export/fuel.xlsx?start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="fc-btn-export">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                {{ _('reports.export_excel') }}
-            </a>
-        </div>
-    </form>
-</div>
-
-<!-- Date range indicator -->
-{% if start_date or end_date %}
-<div class="mb-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-    </svg>
-    <span>{{ _('reports.period') }}: {{ start_date or _('reports.all_time') }} — {{ end_date or _('reports.present') }}</span>
-</div>
-{% endif %}
+{{ report_filter_bar('/reports/fuel', '/reports/export/fuel.xlsx', _('reports.export_excel'), export_class='fc-btn-export') }}
 
 <!-- Summary Cards -->
 {% if data %}
@@ -84,6 +53,7 @@
                     <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">{{ _('reports.total_cost') }} (EUR)</th>
                     <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">{{ _('reports.avg_price_per_liter') }}</th>
                     <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400">{{ _('reports.refuel_count') }}</th>
+                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">{{ _('reports.l_per_100km') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -107,15 +77,22 @@
                             {{ row.refuel_count }}
                         </span>
                     </td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-700 dark:text-gray-300">
+                        {% if row.l_per_100km is not none %}{{ "{:,.1f}".format(row.l_per_100km) }}{% else %}<span title="{{ _('reports.no_mileage_tracking') }}">—</span>{% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="px-4 py-12 text-center text-gray-400 dark:text-gray-500">
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400 dark:text-gray-500">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                         </svg>
+                        {% if filters.vehicle_type == 'trailer' %}
+                        <p>{{ _('reports.fuel_not_applicable') }}</p>
+                        {% else %}
                         <p>{{ _('common.no_data') }}</p>
                         <p class="text-sm mt-1">{{ _('reports.adjust_filters') }}</p>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -136,6 +113,11 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-center font-mono font-semibold text-gray-900 dark:text-white">{{ data|sum(attribute='refuel_count') }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold text-gray-500 dark:text-gray-400">
+                        {% set eligible = data|rejectattr('l_per_100km', 'none')|list %}
+                        {% set eligible_km = eligible|sum(attribute='distance_km') %}
+                        {% if eligible_km > 0 %}{{ "{:,.1f}".format((eligible|sum(attribute='efficiency_liters')) * 100 / eligible_km) }}{% else %}—{% endif %}
+                    </td>
                 </tr>
             </tfoot>
             {% endif %}
