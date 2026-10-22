@@ -1,6 +1,6 @@
 """Web UI for drivers: simplified form, role protection, tabs, document pages, list badges, dashboard, locales."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -11,9 +11,10 @@ from app.models.driver_document import DriverDocument
 from app.models.user import UserRole
 from app.schemas.driver_document import DriverDocumentCreate
 from app.services.driver_document_service import DriverDocumentService
+from app.services.validity import local_today
 from tests.test_api.test_driver_documents import make_driver, make_user
 
-TODAY = datetime.now(UTC).date()
+TODAY = local_today()
 REMOVED = ("employee_id", "license_number", "license_category", "license_expiry", "medical_expiry")
 
 

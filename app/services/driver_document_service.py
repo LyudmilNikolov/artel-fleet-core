@@ -23,7 +23,7 @@ from app.repositories.driver_document_repo import ALERT_STATUSES, STATUSES, Driv
 from app.schemas.driver_document import DriverDocumentCreate, DriverDocumentRenew, DriverDocumentUpdate
 from app.services.audit_service import AuditService
 from app.services.errors import DomainError
-from app.services.validity import renewal_dates, utc_today, validity_status
+from app.services.validity import local_today, renewal_dates, validity_status
 from app.utils.s3 import get_s3_client
 
 AUDITED_FIELDS = ("document_type", "document_number", "categories", "start_date", "end_date", "notes")
@@ -64,7 +64,7 @@ class DriverDocumentService:
         self.session = session
         self.repo = DriverDocumentRepository(session)
         self.audit = AuditService(session)
-        self.today = today or utc_today()
+        self.today = today or local_today()
         self.window = settings.DRIVER_DOCUMENT_EXPIRING_SOON_DAYS if window is None else window
 
     def _view(self, row) -> DriverDocumentView:

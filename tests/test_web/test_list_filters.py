@@ -1,6 +1,6 @@
 """Vehicle filters on the expense and maintenance lists, maintenance status / when filters, dashboard links."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -11,9 +11,10 @@ from app.schemas.maintenance import MaintenanceCreate
 from app.schemas.vehicle import VehicleCreate
 from app.services.expense_service import ExpenseService
 from app.services.maintenance_service import MaintenanceService
+from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 
-TODAY = datetime.now(UTC).date()
+TODAY = local_today()
 HX = {"HX-Request": "true"}
 
 

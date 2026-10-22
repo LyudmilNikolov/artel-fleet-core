@@ -13,7 +13,7 @@ from app.models.vehicle import Vehicle
 from app.repositories.driver_repo import DriverRepository
 from app.schemas.driver import DriverCreate, DriverUpdate
 from app.services.errors import DomainError
-from app.services.validity import utc_today
+from app.services.validity import local_today
 from app.utils.s3 import get_s3_client
 from app.vehicle_rules import can_assign_to_driver
 
@@ -81,7 +81,7 @@ class DriverService:
             exclude_status=exclude_status,
             department=department,
             doc_status=doc_status,
-            today=utc_today(),
+            today=local_today(),
             window=settings.DRIVER_DOCUMENT_EXPIRING_SOON_DAYS,
             user_id=user_id,
             offset=(page - 1) * size,

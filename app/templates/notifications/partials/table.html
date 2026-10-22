@@ -1,0 +1,32 @@
+{% from 'components/attention.html' import days_text, status_badge with context %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('notifications.col_document') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('notifications.col_subject') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('notifications.col_end_date') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('notifications.col_days') }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for i in items %}
+                <tr data-attention-row class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                    onclick="window.location='{{ i.url }}{{ '?' ~ filter_query if filter_query }}'">
+                    <td class="px-4 py-3 whitespace-nowrap">{{ status_badge(i) }}{% if i.stopped %} <span data-stopped class="fc-badge fc-badge-neutral">{{ _('notifications.stopped_badge') }}</span>{% endif %}</td>
+                    <td class="px-4 py-3">
+                        {{ _('notification_source.' ~ i.source) }}
+                        <span class="block text-xs text-gray-400">{{ _('notifications.owner_' ~ i.owner) }}</span>
+                    </td>
+                    <td class="px-4 py-3 font-medium">{{ i.subject }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-500">{{ local_date(i.end_date) }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{{ days_text(i.days_left) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('notifications.all_good') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'components/list_pagination.html' %}
+</div>

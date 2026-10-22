@@ -8,7 +8,7 @@ Financial records are never deleted implicitly: deleting a document keeps its ex
 a document's amount only unlinks the expense. Deleting an expense clears the cost on its document.
 """
 
-from datetime import UTC, date, datetime
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from app.models.compliance import ComplianceDocument
 from app.models.expense import Currency, Expense, ExpenseCategory
 from app.repositories.compliance_repo import ComplianceRepository
 from app.services.errors import DomainError
+from app.services.validity import local_today
 from app.vehicle_rules import ComplianceType, validate_compliance_type
 
 DOCUMENT_CATEGORIES = frozenset(t.value for t in ComplianceType)
@@ -37,7 +38,7 @@ def expense_category_for(document_type: str) -> ExpenseCategory:
 
 def _payment_date(start_date: date) -> date:
     """Expense date for a document's cost: the start date, but never in the future (already paid)."""
-    return min(start_date, datetime.now(UTC).date())
+    return min(start_date, local_today())
 
 
 async def sync_from_document(session: AsyncSession, doc: ComplianceDocument, user_id: UUID | None) -> None:

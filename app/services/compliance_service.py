@@ -20,7 +20,7 @@ from app.repositories.compliance_repo import STATUSES, ComplianceRepository
 from app.schemas.compliance import ComplianceCreate, ComplianceRenew, ComplianceUpdate
 from app.services import document_expense_sync as sync
 from app.services.errors import DomainError
-from app.services.validity import renewal_dates, utc_today, validity_status
+from app.services.validity import local_today, renewal_dates, validity_status
 from app.utils.s3 import get_s3_client
 from app.vehicle_rules import compliance_types_for, validate_compliance_type
 
@@ -58,7 +58,7 @@ class ComplianceService:
     def __init__(self, session: AsyncSession, today: date | None = None, window: int | None = None):
         self.session = session
         self.repo = ComplianceRepository(session)
-        self.today = today or utc_today()
+        self.today = today or local_today()
         self.window = settings.COMPLIANCE_EXPIRING_SOON_DAYS if window is None else window
 
     def _view(self, row) -> ComplianceView:

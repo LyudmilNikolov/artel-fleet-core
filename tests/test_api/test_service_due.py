@@ -1,15 +1,16 @@
 """API: service item and next due values on maintenance records, and the service-due listing."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
 
 from app.schemas.vehicle import VehicleCreate
+from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 from tests.conftest import auth_header
 
-TODAY = datetime.now(UTC).date()
+TODAY = local_today()
 
 
 async def make_vehicle(db, mileage=100000):

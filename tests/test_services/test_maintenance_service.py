@@ -1,6 +1,6 @@
 """MaintenanceService rules: completion dates, unknown vehicles, attachments on delete."""
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from uuid import uuid4
 
 import pytest
@@ -12,6 +12,7 @@ from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 from app.schemas.vehicle import VehicleCreate
 from app.services.errors import DomainError
 from app.services.maintenance_service import MaintenanceService
+from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 
 
@@ -40,7 +41,7 @@ def payload(vehicle_id, **kw):
 
 
 def today():
-    return datetime.now(UTC).date()
+    return local_today()
 
 
 @pytest.mark.asyncio

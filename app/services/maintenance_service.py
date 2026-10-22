@@ -1,30 +1,30 @@
 from collections.abc import Sequence
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.maintenance_rules import SERVICE_CHECKLIST, normalize_checklist, validate_service_selection
 from app.models.document import Document, EntityType
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus, MaintenanceType
-from app.config import settings
 from app.models.vehicle import Vehicle
 from app.repositories.base import BaseRepository
 from app.repositories.vehicle_repo import vehicle_search_condition
 from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 from app.services.errors import DomainError
 from app.services.mileage_service import MileageService
+from app.services.validity import local_today
 from app.utils.s3 import get_s3_client
 from app.vehicle_rules import VehicleType
-
 
 PENDING_STATUSES = (MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS)
 
 
 def _today() -> date:
-    """Today's date in UTC (all dates are UTC by convention)."""
-    return datetime.now(UTC).date()
+    """Today's date in the business time zone."""
+    return local_today()
 
 
 def _with_completion(values: dict, current_status=None, current_completed=None) -> dict:

@@ -11,7 +11,7 @@
         <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium fc-badge-info">{{ _('driver_doc.change_' + c.action) }}</span>
         <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium {{ 'fc-badge-warning' if c.status == 'pending' else 'fc-badge-orange' }}">{{ _('driver_doc.change_status_' + c.status) }}</span>
         {% if show_driver %}<a href="/drivers/{{ c.driver.id }}#licences" class="text-primary-600 hover:underline">{{ c.driver.full_name }}</a>{% endif %}
-        <span class="ml-auto text-xs text-gray-500">{{ c.requester.full_name if c.requester else '—' }} · {{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '' }}</span>
+        <span class="ml-auto text-xs text-gray-500">{{ c.requester.full_name if c.requester else '—' }} · {{ local_dt(c.created_at) }}</span>
     </div>
     <dl class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
         {% for name, current, proposed in c.differences() %}

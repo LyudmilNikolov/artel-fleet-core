@@ -36,7 +36,7 @@ existing documents feature with `entity_type = compliance_document`.
 - `expiring_soon`: today ≤ `end_date` ≤ today + `COMPLIANCE_EXPIRING_SOON_DAYS` (config, default 30)
 - `valid`: later
 
-"Today" is the UTC date. Per (vehicle, type) the **current** entry is the one with
+"Today" is the Europe/Sofia calendar date (`local_today()` in `app/services/validity.py`, `APP_TIMEZONE`); storage stays UTC. Per (vehicle, type) the **current** entry is the one with
 the latest `end_date` (ties: latest start, newest created). Older entries are
 history ("Replaced") and never raise warnings. Dashboard and the daily Celery
 count use current entries whose type still applies to the vehicle, excluding

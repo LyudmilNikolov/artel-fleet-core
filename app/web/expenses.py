@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -16,6 +15,7 @@ from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 from app.services.document_expense_sync import DOCUMENT_CATEGORIES, is_document_category
 from app.services.errors import DomainError, MileageBelowCurrentError, render_error
 from app.services.expense_service import ExpenseService
+from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
@@ -209,7 +209,7 @@ async def expense_form_new(
     form_data = {
         "vehicle_id": vehicle_id,
         "category": category if category in {c.value for c in ExpenseCategory} else "other",
-        "date": datetime.now(UTC).date().isoformat(),
+        "date": local_today().isoformat(),
     }
     return await _render_form(request, db, user, form_data=form_data)
 

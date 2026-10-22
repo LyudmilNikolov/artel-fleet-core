@@ -1,6 +1,6 @@
 """REST API for driver documents: CRUD, renewal, RBAC, masking of personal data, scans access."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -8,11 +8,12 @@ import pytest
 from app.models.document import Document, DocumentType, EntityType
 from app.models.driver import Driver
 from app.models.user import User, UserRole
+from app.services.validity import local_today
 from app.utils.security import create_access_token, hash_password
 from tests.conftest import auth_header
 
 BASE = "/api/v1/driver-documents"
-TODAY = datetime.now(UTC).date()
+TODAY = local_today()
 
 
 async def make_driver(db, name="Иван Петров", user_id=None):

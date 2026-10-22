@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     APP_DEBUG: bool = True
     DEFAULT_LANGUAGE: str = "bg"
 
+    # Public address of the web UI, used for links in emails and Telegram messages
+    APP_BASE_URL: str = "http://localhost:8000"
+
+    # Business time zone: "today", days left and displayed times (storage stays UTC)
+    APP_TIMEZONE: str = "Europe/Sofia"
+
     VEHICLE_DEPARTMENTS: list[str] = []
 
     # Compliance documents: days before end_date when a current entry counts as "expiring soon"

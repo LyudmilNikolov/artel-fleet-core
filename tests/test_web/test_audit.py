@@ -2,6 +2,7 @@
 
 import datetime as dt
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import AsyncClient
@@ -10,6 +11,8 @@ from sqlalchemy import select
 from app.models.audit_log import AuditAction, AuditLog
 from tests.conftest import auth_header
 from tests.test_api.test_vehicles import VEHICLE_DATA
+
+SOFIA = ZoneInfo("Europe/Sofia")
 
 
 async def login(client, username="testadmin"):
@@ -59,7 +62,8 @@ async def test_login_logout_and_export_are_audited(client: AsyncClient, db_sessi
 
 @pytest.mark.asyncio
 async def test_audit_page_date_user_action_and_entity_filters(client: AsyncClient, db_session, admin_user):
-    day = lambda d, h=12: dt.datetime(2026, 3, d, h, 0, tzinfo=dt.UTC)  # noqa: E731
+    # Sofia wall-clock times: the filter days are Sofia calendar days (00:00 Sofia on the 6th is 22:00 UTC on the 5th)
+    day = lambda d, h=12: dt.datetime(2026, 3, d, h, 0, tzinfo=SOFIA)  # noqa: E731
     await add_entry(db_session, day(1), label="first-day")
     await add_entry(db_session, day(5, 23), AuditAction.UPDATE, label="late-fifth")
     await add_entry(db_session, day(6, 0), AuditAction.DELETE, "expense", admin_user.id, label="start-of-sixth")
@@ -103,3 +107,28 @@ async def test_audit_page_is_admin_only(client: AsyncClient, db_session, fleet_m
     await login(client, "testmanager")
     response = await client.get("/settings/audit", follow_redirects=False)
     assert response.status_code in (302, 303) and response.headers["location"] == "/"
+
+
+@pytest.mark.asyncio
+async def test_audit_page_shows_sofia_time_with_the_right_day_boundary(client: AsyncClient, db_session, admin_user):
+    winter = dt.datetime(2026, 1, 15, 22, 30, 5, tzinfo=dt.UTC)  # 00:30:05 on the 16th in Sofia (UTC+2)
+    summer = dt.datetime(2026, 7, 15, 21, 30, 5, tzinfo=dt.UTC)  # 00:30:05 on the 16th in Sofia (UTC+3)
+    await add_entry(db_session, winter, label="winter-entry")
+    await add_entry(db_session, summer, label="summer-entry")
+    await db_session.commit()
+    await login(client)
+
+    bg = (await client.get("/settings/audit?lang=bg")).text
+    assert "16.01.2026 00:30:05" in bg and "16.07.2026 00:30:05" in bg
+    assert "15.01.2026 22:30" not in bg
+    en = (await client.get("/settings/audit?lang=en")).text
+    assert "16/01/2026 00:30:05" in en
+
+    for day, label, other in (
+        ("2026-01-16", "winter-entry", "2026-01-15"),
+        ("2026-07-16", "summer-entry", "2026-07-15"),
+    ):
+        on_sofia_day = await client.get(f"/settings/audit?start_date={day}&end_date={day}")
+        assert label in on_sofia_day.text
+        on_utc_day = await client.get(f"/settings/audit?start_date={other}&end_date={other}")
+        assert label not in on_utc_day.text

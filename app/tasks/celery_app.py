@@ -7,6 +7,7 @@ celery_app = Celery(
     "fleetcore",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
+    include=["app.tasks.reminders", "app.tasks.notifications"],
 )
 
 celery_app.conf.update(
@@ -16,6 +17,11 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
+        # Cheap tick: sends each rule's reminders once per local day, at its send time (see ReminderDispatcher)
+        "send-due-reminders": {
+            "task": "app.tasks.notifications.send_due_reminders",
+            "schedule": crontab(minute="*/15"),
+        },
         "check-maintenance-reminders": {
             "task": "app.tasks.reminders.check_maintenance_reminders",
             "schedule": crontab(hour=8, minute=0),

@@ -15,7 +15,7 @@ from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
 from app.services.errors import render_error
-from app.utils.formatting import money
+from app.utils.formatting import format_local_date, format_local_datetime, money
 from app.web.deps import WebRedirectException
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -65,6 +65,8 @@ def create_app() -> FastAPI:
             "driver_scope": getattr(request.state, "driver_scope", None),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
+            "local_date": lambda value: format_local_date(value, lang),
+            "local_dt": lambda value, seconds=False: format_local_datetime(value, lang, seconds),
             "languages": get_available_languages(),
             "_": lambda key, **kw: _(key, lang=lang, **kw),
         }

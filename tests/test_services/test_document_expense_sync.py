@@ -1,6 +1,6 @@
 """One cost, two views: documents and expenses stay in sync; financial records are never deleted implicitly."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -16,10 +16,11 @@ from app.schemas.vehicle import VehicleCreate
 from app.services.compliance_service import ComplianceService
 from app.services.errors import DomainError, MileageBelowCurrentError
 from app.services.expense_service import ExpenseService
+from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import MILEAGE_TYPES
 
-TODAY = datetime.now(UTC).date()
+TODAY = local_today()
 
 
 class FakeS3:

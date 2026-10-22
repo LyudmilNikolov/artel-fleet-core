@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.audit_context import current_audit_context
 from app.models.audit_log import AuditAction, AuditLog
+from app.services.validity import app_timezone
 
 
 class AuditService:
@@ -58,7 +59,7 @@ class AuditService:
         page: int = 1,
         size: int = 50,
     ) -> tuple[list[AuditLog], int]:
-        """Audit entries, newest first. Dates are inclusive and compared in UTC (timestamps are stored in UTC)."""
+        """Audit entries, newest first. Dates are inclusive calendar days in the business time zone (timestamps are stored in UTC)."""
         conditions = []
         if user_id:
             conditions.append(AuditLog.user_id == user_id)
@@ -67,10 +68,10 @@ class AuditService:
         if entity_type:
             conditions.append(AuditLog.entity_type == entity_type)
         if start_date:
-            conditions.append(AuditLog.timestamp >= dt.datetime.combine(start_date, dt.time.min, dt.UTC))
+            conditions.append(AuditLog.timestamp >= dt.datetime.combine(start_date, dt.time.min, app_timezone()))
         if end_date:
             conditions.append(
-                AuditLog.timestamp < dt.datetime.combine(end_date + dt.timedelta(days=1), dt.time.min, dt.UTC)
+                AuditLog.timestamp < dt.datetime.combine(end_date + dt.timedelta(days=1), dt.time.min, app_timezone())
             )
 
         total = (

@@ -45,3 +45,5 @@ from app.models.expense import Expense  # noqa: E402, F401
 from app.models.compliance import ComplianceDocument  # noqa: E402, F401
 from app.models.audit_log import AuditLog  # noqa: E402, F401
 from app.models.notification import Notification, NotificationPreference  # noqa: E402, F401
+from app.models.notification_rule import NotificationRule, NotificationRuleRecipient, NotificationSettings  # noqa: E402, F401
+from app.models.notification_dispatch import NotificationDelivery, NotificationRun, NotificationStop  # noqa: E402, F401

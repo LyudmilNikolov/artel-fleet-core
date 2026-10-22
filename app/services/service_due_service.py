@@ -17,7 +17,7 @@ from app.models.maintenance import MaintenanceRecord
 from app.models.vehicle import Vehicle
 from app.repositories.maintenance_due import current_service_query
 from app.services.errors import DomainError
-from app.services.validity import utc_today
+from app.services.validity import local_today
 
 _RANK = {status: i for i, status in enumerate(DUE_STATUSES)}
 
@@ -40,7 +40,7 @@ class ServiceDueService:
         self, session: AsyncSession, today: date | None = None, km_window: int | None = None, day_window: int | None = None
     ):
         self.session = session
-        self.today = today or utc_today()
+        self.today = today or local_today()
         self.km_window = settings.SERVICE_DUE_SOON_KM if km_window is None else km_window
         self.day_window = settings.SERVICE_DUE_SOON_DAYS if day_window is None else day_window
 

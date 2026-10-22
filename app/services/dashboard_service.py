@@ -1,20 +1,19 @@
 """Dashboard service providing fleet overview and widget data."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.driver import Driver, DriverStatus
+from app.models.driver import Driver
 from app.models.expense import Expense
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle
-from app.services.compliance_service import ComplianceService
-from app.services.driver_document_service import DriverDocumentService
+from app.services.attention_service import AttentionService
 from app.services.service_due_service import ServiceDueService
-from app.services.validity import utc_today
+from app.services.validity import local_today
 
 
 class DashboardService:
@@ -36,7 +35,7 @@ class DashboardService:
 
     async def attention_needed(self) -> dict:
         """Get items needing attention: overdue maintenance, compliance deadlines, driver docs."""
-        today = utc_today()
+        today = local_today()
         upcoming_until = today + timedelta(days=settings.MAINTENANCE_UPCOMING_DAYS)
 
         # Overdue maintenance
@@ -61,15 +60,12 @@ class DashboardService:
         # Planned service items (engine oil, ...) overdue or due soon by km or date
         service = await ServiceDueService(self.db).attention_counts()
 
-        # Current vehicle compliance documents expiring soon / expired (computed from end_date)
-        compliance = await ComplianceService(self.db).attention_counts()
-        expiring_compliance = compliance["expiring_soon"]
-        expired_compliance = compliance["expired"]
-
-        # Current driver documents (licence, ID card, ...) of active drivers, computed from end_date
-        drivers = await DriverDocumentService(self.db).attention_counts()
-        expiring_driver_documents = drivers["expiring_soon"]
-        expired_driver_documents = drivers["expired"]
+        # Vehicle and driver documents (expired / expiring soon) come from the same list as the bell and inbox
+        documents = await AttentionService(self.db, today=today).counts()
+        expiring_compliance = documents["vehicle"]["expiring_soon"]
+        expired_compliance = documents["vehicle"]["expired"]
+        expiring_driver_documents = documents["driver"]["expiring_soon"]
+        expired_driver_documents = documents["driver"]["expired"]
 
         return {
             "overdue_maintenance": overdue_maintenance,
@@ -91,7 +87,7 @@ class DashboardService:
 
     async def expense_summary(self, months: int = 6) -> dict:
         """Get expense summary by month and category for last N months."""
-        today = date.today()
+        today = local_today()
         start_date = today.replace(day=1) - timedelta(days=months * 30)
 
         # Monthly totals

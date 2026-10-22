@@ -41,7 +41,7 @@ The columns `employee_id`, `license_number`, `license_category`, `license_expiry
 ## Status (computed, never stored)
 
 `expired` (end < today), `expiring_soon` (today ≤ end ≤ today + `DRIVER_DOCUMENT_EXPIRING_SOON_DAYS`,
-default 30), `valid`, and **`no_expiry`** (no end date). "Today" is the UTC date.
+default 30), `valid`, and **`no_expiry`** (no end date). "Today" is the Europe/Sofia calendar date (`local_today()` in `app/services/validity.py`, `APP_TIMEZONE`); storage stays UTC.
 
 - Per (driver, type) the **current** entry is the one with the latest end date; an entry without
   end date counts as the latest. Ties: latest start, newest created.

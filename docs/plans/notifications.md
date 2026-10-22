@@ -67,7 +67,7 @@ Also decided:
 ### B. Bell and inbox (phase 1, no migration)
 
 - Bell in `base.html`, **between the dark-mode toggle and the user menu**. `GET /notifications/bell`
-  (`hx-trigger="load, every 300s"`): icon plus count badge (red when anything is expired, amber when only expiring).
+  (`hx-trigger="load, every 300s"`): red bell icon plus red count badge (`data-bell-tone` still tells expired from only-expiring).
   Dropdown: top items grouped Expired / Expiring soon, each linking to its item page; "view all" opens the inbox.
 - **Inbox** `/notifications`: table of all current items with filters (source, vehicle/driver search, status, stopped or
   active) and sort. Replaces the old stored-notifications page. The old `Notification` table and its data are kept.

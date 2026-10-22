@@ -1,32 +1,18 @@
+{# Top-bar bell (always red): number of documents needing attention; data-bell-tone tells expired from expiring. #}
 <div class="relative" x-data="{ open: false }" @click.away="open = false">
-    <button @click="open = !open" class="relative p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+    <button type="button" @click="open = !open; if (open) htmx.trigger($refs.panel, 'load-dropdown')"
+            title="{{ _('notifications.bell_title') }}" aria-label="{{ _('notifications.bell_title') }}"
+            class="relative flex items-center gap-1 p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
         </svg>
-        {% if unread_count > 0 %}
-        <span class="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-            {{ unread_count if unread_count < 100 else '99+' }}
-        </span>
+        {% if count > 0 %}
+        <span data-bell-count="{{ count }}" data-bell-tone="{{ tone }}" class="text-sm font-bold text-red-600 dark:text-red-400">{{ count if count < 100 else '99+' }}</span>
         {% endif %}
     </button>
-
-    <div x-show="open" x-transition
-         class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-         hx-get="/notifications/dropdown" hx-trigger="click from:closest div" hx-target="#notification-content" hx-swap="innerHTML">
-        <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ _('nav.notifications') }}</h3>
-            {% if unread_count > 0 %}
-            <button hx-post="/notifications/mark-all-read" hx-swap="none"
-                    class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                {{ _('btn.mark_all_read') if _('btn.mark_all_read') != 'btn.mark_all_read' else 'Mark all read' }}
-            </button>
-            {% endif %}
-        </div>
-        <div id="notification-content" class="max-h-80 overflow-y-auto">
-            <div class="p-4 text-center text-sm text-gray-400">{{ _('common.loading') }}</div>
-        </div>
-        <a href="/notifications" class="block p-3 text-center text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 rounded-b-xl">
-            {{ _('common.view_all') }}
-        </a>
+    <div x-show="open" x-cloak x-transition x-ref="panel"
+         hx-get="/notifications/dropdown" hx-trigger="load-dropdown" hx-target="this" hx-swap="innerHTML"
+         class="absolute right-0 mt-2 w-96 max-w-[90vw] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+        <div class="p-4 text-center text-sm text-gray-400">{{ _('common.loading') }}</div>
     </div>
 </div>

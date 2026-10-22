@@ -1,19 +1,20 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func, select
 
 from app.config import settings
 from app.database import get_sync_db
-from app.models.compliance import ComplianceDocument
 from app.maintenance_rules import service_due
+from app.models.compliance import ComplianceDocument
 from app.models.driver import Driver, DriverStatus
 from app.models.driver_document import DriverDocument
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle, VehicleStatus
-from app.repositories.maintenance_due import current_service_query
 from app.repositories.compliance_repo import applicable_clause, current_ids, status_clause
 from app.repositories.driver_document_repo import current_ids as driver_current_ids
 from app.repositories.driver_document_repo import status_clause as driver_status_clause
+from app.repositories.maintenance_due import current_service_query
+from app.services.validity import local_today
 from app.tasks.celery_app import celery_app
 
 
@@ -22,7 +23,7 @@ def check_maintenance_reminders():
     """Check for upcoming/overdue maintenance and notify fleet managers."""
     db = get_sync_db()
     try:
-        today = date.today()
+        today = local_today()
         upcoming = db.query(MaintenanceRecord).filter(
             MaintenanceRecord.status == MaintenanceStatus.SCHEDULED,
             MaintenanceRecord.scheduled_date <= today + timedelta(days=14),
@@ -49,7 +50,7 @@ def check_service_due():
     """
     db = get_sync_db()
     try:
-        today = datetime.now(UTC).date()
+        today = local_today()
         by_item: dict[str, dict[str, int]] = {}
         totals = {"overdue": 0, "due_soon": 0}
         for record, vehicle in db.execute(current_service_query()).all():
@@ -74,7 +75,7 @@ def check_compliance_expiry():
     """Count current vehicle compliance documents expiring soon or expired (no notifications yet)."""
     db = get_sync_db()
     try:
-        today = datetime.now(UTC).date()
+        today = local_today()
         window = settings.COMPLIANCE_EXPIRING_SOON_DAYS
         counts = {}
         for status in ("expiring_soon", "expired"):
@@ -103,7 +104,7 @@ def check_driver_document_expiry():
     """
     db = get_sync_db()
     try:
-        today = datetime.now(UTC).date()
+        today = local_today()
         window = settings.DRIVER_DOCUMENT_EXPIRING_SOON_DAYS
         by_type: dict[str, dict[str, int]] = {}
         totals = {"expiring_soon": 0, "expired": 0}

@@ -6,11 +6,26 @@ the document does not expire.
 
 from calendar import monthrange
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+from app.config import settings
 
 
-def utc_today() -> date:
-    """Today's date in UTC (all dates are UTC by convention)."""
-    return datetime.now(UTC).date()
+def app_timezone() -> ZoneInfo:
+    """The business time zone (Europe/Sofia by default). Storage stays UTC; this is for what users see."""
+    return ZoneInfo(settings.APP_TIMEZONE)
+
+
+def to_local(value: datetime) -> datetime:
+    """Convert a stored timestamp to the business time zone (naive values are taken as UTC)."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(app_timezone())
+
+
+def local_today(now: datetime | None = None) -> date:
+    """Today's calendar date in the business time zone: the only source of "today" for deadlines."""
+    return to_local(now or datetime.now(UTC)).date()
 
 
 def validity_status(end_date: date | None, today: date, window: int) -> str:

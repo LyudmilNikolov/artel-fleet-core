@@ -234,6 +234,9 @@ AUDIT_ENTITY_TYPES = (
     "user",
     "session",
     "report",
+    "notification_rule",
+    "notification_settings",
+    "notification_stop",
 )
 
 

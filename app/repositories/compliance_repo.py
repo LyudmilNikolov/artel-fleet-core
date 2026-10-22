@@ -129,6 +129,26 @@ class ComplianceRepository(BaseRepository[ComplianceDocument]):
         )
         return (await self.session.execute(query)).scalar() or 0
 
+    async def attention_rows(self, *, today: date, window: int, vehicle_ids: Sequence[UUID] | None = None):
+        """(entry, vehicle) for current, applicable entries that are expired or expiring soon.
+
+        Decommissioned vehicles are skipped; ``vehicle_ids`` restricts to those vehicles (None = all).
+        """
+        doc = ComplianceDocument
+        query = (
+            select(doc, Vehicle)
+            .join(Vehicle, Vehicle.id == doc.vehicle_id)
+            .where(
+                doc.id.in_(current_ids().scalar_subquery()),
+                applicable_clause(),
+                Vehicle.status != VehicleStatus.DECOMMISSIONED,
+                or_(status_clause("expired", today, window), status_clause("expiring_soon", today, window)),
+            )
+        )
+        if vehicle_ids is not None:
+            query = query.where(doc.vehicle_id.in_(list(vehicle_ids)))
+        return list((await self.session.execute(query)).all())
+
     async def same_document(self, vehicle_id: UUID, document_type: str) -> list[ComplianceDocument]:
         """Every entry (current and history) of one vehicle and type."""
         result = await self.session.scalars(

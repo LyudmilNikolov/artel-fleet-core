@@ -1,8 +1,11 @@
 """Locale-explicit display helpers; monetary inputs stay decimal."""
 
+from datetime import date, datetime
 from decimal import Decimal
 
 from babel.numbers import format_currency
+
+from app.services.validity import to_local
 
 
 def money(value: Decimal | int | str | None, lang: str = "bg") -> str:
@@ -13,3 +16,20 @@ def money(value: Decimal | int | str | None, lang: str = "bg") -> str:
 
 
 format_money = money
+
+
+def format_local_date(value: date | datetime | None, lang: str = "bg") -> str:
+    """A date as dd.mm.yyyy (bg) / dd/mm/yyyy (en). Timestamps are shown on the business-time-zone calendar."""
+    if value is None:
+        return "—"
+    if isinstance(value, datetime):
+        value = to_local(value).date()
+    return value.strftime("%d/%m/%Y" if lang == "en" else "%d.%m.%Y")
+
+
+def format_local_datetime(value: datetime | None, lang: str = "bg", seconds: bool = False) -> str:
+    """A stored UTC timestamp in business time, e.g. ``21.10.2026 14:05`` (``14:05:09`` with ``seconds``)."""
+    if value is None:
+        return "—"
+    clock = "%H:%M:%S" if seconds else "%H:%M"
+    return to_local(value).strftime(("%d/%m/%Y " if lang == "en" else "%d.%m.%Y ") + clock)

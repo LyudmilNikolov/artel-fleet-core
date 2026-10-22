@@ -1,6 +1,6 @@
 """Web UI for planned service items: form fields, detail state, due page, vehicle tab, dashboard, roles."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -8,9 +8,10 @@ from sqlalchemy import select
 
 from app.models.maintenance import MaintenanceRecord
 from app.schemas.vehicle import VehicleCreate
+from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 
-TODAY = datetime.now(UTC).date()
+TODAY = local_today()
 
 
 async def make_vehicle(db, mileage=100000, plate=None, kind="van"):

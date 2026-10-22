@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -117,6 +117,29 @@ class DriverDocumentRepository(BaseRepository[DriverDocument]):
             )
         )
         return (await self.session.execute(query)).scalar() or 0
+
+    async def attention_rows(
+        self, *, today: date, window: int, driver_id: UUID | None = None, only_driver: bool = False
+    ):
+        """(entry, driver) for current entries of active drivers that are expired or expiring soon.
+
+        ``only_driver`` restricts to ``driver_id`` (a driver login without a profile gets nothing).
+        """
+        doc = DriverDocument
+        query = (
+            select(doc, Driver)
+            .join(Driver, Driver.id == doc.driver_id)
+            .where(
+                doc.id.in_(current_ids().scalar_subquery()),
+                Driver.status == DriverStatus.ACTIVE,
+                or_(status_clause("expired", today, window), status_clause("expiring_soon", today, window)),
+            )
+        )
+        if only_driver:
+            if driver_id is None:
+                return []
+            query = query.where(doc.driver_id == driver_id)
+        return list((await self.session.execute(query)).all())
 
     async def alert_counts(self, driver_ids: list[UUID], *, today: date, window: int) -> dict[UUID, dict[str, int]]:
         """Per driver, the number of current entries that are expired or expiring soon."""

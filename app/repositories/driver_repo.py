@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.driver import Driver, DriverStatus
 from app.repositories.base import BaseRepository
 from app.repositories.driver_document_repo import drivers_with_status
+from app.services.validity import local_today
 
 
 class DriverRepository(BaseRepository[Driver]):
@@ -47,7 +48,7 @@ class DriverRepository(BaseRepository[Driver]):
         if user_id:
             conditions.append(Driver.user_id == user_id)
         if doc_status:
-            conditions.append(Driver.id.in_(drivers_with_status(doc_status, today or date.today(), window)))
+            conditions.append(Driver.id.in_(drivers_with_status(doc_status, today or local_today(), window)))
 
         total = (await self.session.execute(select(func.count()).select_from(Driver).where(*conditions))).scalar() or 0
         query = select(Driver).where(*conditions)

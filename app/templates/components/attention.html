@@ -1,0 +1,17 @@
+{# Shared bits for documents that need attention. Import with context:
+   {% from 'components/attention.html' import days_text, status_badge with context %} #}
+{% macro days_text(days) -%}
+{%- if days == 0 -%}{{ _('notifications.expires_today') }}
+{%- elif days == 1 -%}{{ _('notifications.one_day_left') }}
+{%- elif days > 1 -%}{{ _('notifications.days_left', days=days) }}
+{%- elif days == -1 -%}{{ _('notifications.one_day_overdue') }}
+{%- else -%}{{ _('notifications.overdue_days', days=-days) }}{%- endif -%}
+{%- endmacro %}
+
+{% macro status_badge(item) %}
+{% if item.status == 'expired' %}
+<span class="fc-badge fc-badge-danger">{{ _('compliance_status.expired') }}</span>
+{% else %}
+<span class="fc-badge fc-badge-warning">{{ _('compliance_status.expiring_soon') }}</span>
+{% endif %}
+{% endmacro %}

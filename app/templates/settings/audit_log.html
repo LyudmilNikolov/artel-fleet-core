@@ -59,7 +59,7 @@
                 {% set changes = log.changes or {} %}
                 {% set items = changes.items()|rejectattr('0', 'equalto', '_label')|list %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top">
-                    <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '—' }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ local_dt(log.timestamp, seconds=True) }}</td>
                     <td class="px-4 py-3">
                         {% if log.user %}
                         <span class="font-medium">{{ log.user.full_name }}</span>

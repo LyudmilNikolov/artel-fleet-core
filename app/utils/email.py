@@ -20,7 +20,7 @@ class EmailSender:
         self.password = settings.SMTP_PASSWORD
         self.from_email = settings.SMTP_FROM or settings.SMTP_USER
 
-    def send(self, to: str, subject: str, body_html: str) -> bool:
+    def send(self, to: str, subject: str, body_html: str, body_text: str | None = None) -> bool:
         """Send an email. Returns True on success."""
         if not self.host:
             logger.warning("SMTP not configured, skipping email to %s", to)
@@ -31,7 +31,9 @@ class EmailSender:
             msg["Subject"] = subject
             msg["From"] = self.from_email
             msg["To"] = to
-            msg.attach(MIMEText(body_html, "html"))
+            if body_text:
+                msg.attach(MIMEText(body_text, "plain", "utf-8"))
+            msg.attach(MIMEText(body_html, "html", "utf-8"))
 
             with smtplib.SMTP(self.host, self.port, timeout=10) as server:
                 if self.port == 587:
