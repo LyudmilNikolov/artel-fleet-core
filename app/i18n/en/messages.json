@@ -998,7 +998,7 @@
   "notifications.channels": "Channels",
   "notifications.milestones": "Reminders before expiry (days)",
   "notifications.milestones_hint": "Press Enter or comma to add, for example 30, 15, 10",
-  "notifications.repeat_every": "Then repeat every (days)",
+  "notifications.repeat_every": "Repeat every (days)",
   "notifications.repeat_hint": "Leave empty for no repeat",
   "notifications.stop_after": "Stop after (days overdue)",
   "notifications.stop_after_hint": "Leave empty to continue until renewed or stopped",

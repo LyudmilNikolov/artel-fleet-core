@@ -247,7 +247,7 @@ async def test_send_test_messages_from_my_channels(client, db_session, monkeypat
     telegram = await client.post(f"{channels}/test/telegram")
     assert "Test Telegram message sent" in (await client.get(telegram.headers["location"])).text
     assert sent["email"][0][0] == fleet_manager_user.email and sent["telegram"] == ["424242424"]
-    assert "FleetCore" in sent["email"][0][1]
+    assert "FleetCore" in sent["email"][0][1]  # the test user is English
 
     monkeypatch.setattr(email_sender, "send", lambda *a, **k: False)
     failed = await client.post(f"{channels}/test/email")

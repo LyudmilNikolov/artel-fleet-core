@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
@@ -103,6 +103,11 @@ def create_app() -> FastAPI:
             get_lang(request),
         )
         return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=exc.headers)
+
+    @application.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        """Browsers ask for /favicon.ico by default; serve the truck icon."""
+        return FileResponse("static/img/favicon-32.png", media_type="image/png")
 
     # Static files
     application.mount("/static", StaticFiles(directory="static"), name="static")

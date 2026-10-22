@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
+    <link rel="apple-touch-icon" href="/static/img/favicon-180.png">
     <title>{% block title %}{{ _('app_name') }}{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/app.css">
     <link rel="stylesheet" href="/static/vendor/css/flatpickr.min.css">
@@ -24,7 +27,7 @@
         <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700">
             <a href="{{ driver_scope.home if (driver_scope is defined and driver_scope and driver_scope.restricted) else '/' }}" class="flex items-center gap-2">
                 <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m8 1V6a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16"/></svg>
-                <span class="text-xl font-bold text-primary-600">FleetCore</span>
+                <span class="text-xl font-bold text-primary-600">{{ _('app_name') }}</span>
             </a>
         </div>
         <!-- Navigation -->
