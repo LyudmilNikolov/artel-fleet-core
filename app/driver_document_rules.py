@@ -18,6 +18,7 @@ class DriverDocumentType(StrEnum):
     PSYCHO_TEST = "psycho_test"  # Психо
     PROFESSIONAL_COMPETENCE = "professional_competence"  # Компетентност (КПК / CPC)
     MEDICAL_CERTIFICATE = "medical_certificate"  # Медицинско удостоверение
+    ADR_CERTIFICATE = "adr_certificate"  # ADR (превоз на опасни товари)
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ DRIVER_DOCUMENT_TYPES: dict[str, DriverDocumentSpec] = {
     "psycho_test": DriverDocumentSpec(number_required=False, has_categories=False, upload_doc_type="medical"),
     "professional_competence": DriverDocumentSpec(number_required=False, has_categories=False, upload_doc_type="scan"),
     "medical_certificate": DriverDocumentSpec(number_required=False, has_categories=False, upload_doc_type="medical"),
+    "adr_certificate": DriverDocumentSpec(number_required=False, has_categories=False, upload_doc_type="license"),
 }
 
 CATEGORIES_MAX_LENGTH = 50

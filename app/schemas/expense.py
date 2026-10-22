@@ -16,7 +16,8 @@ class ExpenseCreate(BaseModel):
     date: dt.date
     description: str | None = None
     vendor: str | None = None
-    fuel_liters: float | None = None
+    fuel_liters: Decimal | None = Field(None, gt=0, max_digits=10, decimal_places=2, allow_inf_nan=False)
+    # Derived from amount / liters whenever liters are given; a value sent with liters is ignored.
     fuel_price_per_liter: Decimal | None = Field(None, max_digits=8, decimal_places=2)
     fuel_type: str | None = None
     mileage_at_refuel: int | None = Field(None, ge=0, le=10000000)
@@ -36,7 +37,8 @@ class ExpenseUpdate(BaseModel):
     date: dt.date | None = None
     description: str | None = None
     vendor: str | None = None
-    fuel_liters: float | None = None
+    fuel_liters: Decimal | None = Field(None, gt=0, max_digits=10, decimal_places=2, allow_inf_nan=False)
+    # Derived from amount / liters whenever liters are given; a value sent with liters is ignored.
     fuel_price_per_liter: Decimal | None = Field(None, max_digits=8, decimal_places=2)
     fuel_type: str | None = None
     mileage_at_refuel: int | None = Field(None, ge=0, le=10000000)
@@ -60,7 +62,7 @@ class ExpenseRead(BaseModel):
     date: dt.date
     description: str | None
     vendor: str | None
-    fuel_liters: float | None
+    fuel_liters: Decimal | None
     fuel_price_per_liter: Decimal | None
     fuel_type: str | None
     mileage_at_refuel: int | None

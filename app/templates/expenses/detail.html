@@ -29,7 +29,7 @@
         {{ field(_('common.vendor'), expense.vendor) }}
         {{ field(_('expense.mileage'), ('{:,}'.format(expense.mileage_at_refuel) ~ ' km') if expense.mileage_at_refuel is not none else none) }}
         {% if expense.category.value == 'fuel' %}
-        {{ field(_('expense.fuel_liters'), expense.fuel_liters) }}
+        {{ field(_('expense.fuel_liters'), (expense.fuel_liters ~ ' ' ~ _('reports.liters_unit')) if expense.fuel_liters is not none else none) }}
         {{ field(_('expense.fuel_price_per_liter'), money(expense.fuel_price_per_liter) if expense.fuel_price_per_liter is not none else none) }}
         {% endif %}
         {% if expense.compliance_document %}

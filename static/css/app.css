@@ -45,3 +45,5 @@ a.fc-notice-warning:hover { background-color: #fef9c3; }
 .dark .fc-notice-indigo { background-color: rgba(49, 46, 129, 0.3); color: #a5b4fc; border-color: #3730a3; }
 .fc-notice-purple { background-color: #faf5ff; color: #6b21a8; border-color: #e9d5ff; }
 .dark .fc-notice-purple { background-color: rgba(88, 28, 135, 0.3); color: #d8b4fe; border-color: #6b21a8; }
+
+.fc-input[readonly]{background-color:#f9fafb;color:#4b5563;border-style:dashed}.dark .fc-input[readonly]{background-color:#1f2937;color:#d1d5db}

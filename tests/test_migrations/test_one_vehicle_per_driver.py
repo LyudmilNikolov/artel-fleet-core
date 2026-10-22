@@ -52,6 +52,7 @@ def test_upgrade_refuses_drivers_with_two_vehicles_then_adds_the_index(migration
     assert alembic(env, "upgrade", HEAD).returncode == 0
     with engine.connect() as c:
         assert "uq_vehicles_assigned_driver" in indexes(c)
+    assert alembic(env, "upgrade", "head").returncode == 0
     assert alembic(env, "check").returncode == 0
     assert alembic(env, "downgrade", PREVIOUS).returncode == 0
     with engine.connect() as c:

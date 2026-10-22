@@ -48,6 +48,22 @@ document.addEventListener('htmx:afterRequest', function(event) {
     }
 });
 
+// Price per liter for the fuel expense form: amount / liters in whole cents, half up (the server's rule).
+// Accepts a decimal comma. Returns '' until both numbers are usable.
+window.fuelPricePerLiter = function(amount, liters) {
+    var num = function(v) { return /^\d+([.,]\d+)?$/.test(String(v).trim()) ? Number(String(v).trim().replace(',', '.')) : NaN; };
+    var cents = Math.round(num(amount) * 100), hundredths = Math.round(num(liters) * 100);
+    if (!(cents >= 0) || !(hundredths > 0)) return '';
+    var price = Math.floor((2 * cents * 100 + hundredths) / (2 * hundredths));
+    return (price / 100).toFixed(2);
+};
+
+// Localized native validation: a field's data-msg-required / data-msg-format replace the browser-language text.
+window.fcInvalid = function(el) {
+    var v = el.validity;
+    el.setCustomValidity(v.valueMissing ? (el.dataset.msgRequired || '') : v.patternMismatch ? (el.dataset.msgFormat || '') : '');
+};
+
 // Searchable vehicle picker shared by the maintenance and expense forms.
 // Usage: x-data="vehiclePicker({vehicleId, label, tracked, currentMileage}, {extra: 'state'})"
 document.addEventListener('alpine:init', function() {

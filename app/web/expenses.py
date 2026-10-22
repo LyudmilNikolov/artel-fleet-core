@@ -54,8 +54,21 @@ def _ctx(request: Request, user: User, **values) -> dict:
     }
 
 
+DECIMAL_FIELDS = ("amount", "fuel_liters")
+
+
+def _decimal_text(value: str) -> str:
+    """Accept a decimal comma (``80,5``) as typed on a Bulgarian keyboard; ``1,234.5`` is left alone."""
+    value = value.strip()
+    return value.replace(",", ".") if "," in value and "." not in value else value
+
+
 def _submitted(form) -> dict:
-    return {k: (v if v != "" else None) for k, v in form.items() if isinstance(v, str)}
+    values = {k: (v if v != "" else None) for k, v in form.items() if isinstance(v, str)}
+    for name in DECIMAL_FIELDS:
+        if values.get(name):
+            values[name] = _decimal_text(values[name])
+    return values
 
 
 async def _render_form(
@@ -231,7 +244,6 @@ async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
             description=raw.get("description"),
             vendor=raw.get("vendor"),
             fuel_liters=raw.get("fuel_liters") if category == "fuel" else None,
-            fuel_price_per_liter=raw.get("fuel_price_per_liter") if category == "fuel" else None,
             mileage_at_refuel=raw.get("mileage_at_refuel"),
             # The validity fields are hidden for other categories; ignore anything left in them.
             valid_from=raw.get("valid_from") if is_document_category(category) else None,
@@ -287,9 +299,13 @@ async def expense_update(
     raw = _submitted(await request.form())
     linked = expense.compliance_document is not None
     try:
-        values = {name: raw.get(name) for name in EDIT_FIELDS if name != "category" or (raw.get(name) and not linked)}
-        if values.get("category") != "fuel" and "category" in values:
-            values["fuel_liters"] = values["fuel_price_per_liter"] = None
+        values = {
+            name: raw.get(name)
+            for name in EDIT_FIELDS
+            if name != "fuel_price_per_liter" and (name != "category" or (raw.get(name) and not linked))
+        }
+        if ("category" in values and values["category"] != "fuel") or not values.get("fuel_liters"):
+            values["fuel_liters"] = values["fuel_price_per_liter"] = None  # no liters, no price per liter
         data = ExpenseUpdate(**values, overwrite_mileage=raw.get("confirm_mileage_overwrite") == "1")
         await service.update(expense_id, data)
         await db.commit()

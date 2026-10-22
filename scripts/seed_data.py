@@ -420,6 +420,7 @@ async def seed():
             "psycho_test": 2,
             "professional_competence": 5,
             "medical_certificate": 2,
+            "adr_certificate": 5,
         }
         driver_presence = {  # share of drivers that hold the document
             "id_card": 1.0,
@@ -428,6 +429,7 @@ async def seed():
             "psycho_test": 0.8,
             "professional_competence": 0.5,
             "medical_certificate": 0.8,
+            "adr_certificate": 0.3,
         }
 
         def driver_document_number(code: str) -> str | None:
@@ -668,9 +670,9 @@ async def seed():
             exp_date = rand_date(today - timedelta(days=365), today)
 
             if category == ExpenseCategory.FUEL:
-                liters = round(random.uniform(20, 80), 1)
-                price_per_liter = Decimal(random.randint(120, 200)) / 100
-                amount = (price_per_liter * Decimal(str(liters))).quantize(Decimal("0.01"))
+                liters = Decimal(str(round(random.uniform(20, 80), 2)))
+                amount = (Decimal(random.randint(120, 200)) / 100 * liters).quantize(Decimal("0.01"))
+                price_per_liter = (amount / liters).quantize(Decimal("0.01"))  # as the app derives it
                 fuel_type = random.choice(["AI-92", "AI-95", "AI-98", "DT"])
                 mileage_at_refuel = random.randint(10000, 300000)
                 vendor = random.choice(FUEL_STATIONS)

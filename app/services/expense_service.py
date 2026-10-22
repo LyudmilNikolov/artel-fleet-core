@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -16,6 +16,22 @@ from app.services.errors import DomainError
 from app.services.mileage_service import MileageService
 from app.utils.s3 import get_s3_client
 from app.vehicle_rules import VehicleType, validate_expense_category
+
+
+MAX_FUEL_PRICE = Decimal("999999.99")  # NUMERIC(8,2)
+
+
+def fuel_price_per_liter(amount: Decimal, liters: Decimal | None) -> Decimal | None:
+    """Price per liter = amount / liters, half-up to cents; None without liters.
+
+    The price is never entered: it follows the amount and the liters, so the three can not disagree.
+    """
+    if not liters:
+        return None
+    price = (amount / liters).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if price > MAX_FUEL_PRICE:
+        raise DomainError("error.fuel_price_out_of_range")
+    return price
 
 
 class ExpenseService:
@@ -58,6 +74,8 @@ class ExpenseService:
             data.vehicle_id, data.mileage_at_refuel, data.description, user_id, data.overwrite_mileage
         )
         values = data.model_dump(exclude={"valid_from", "valid_until", "policy_number", "overwrite_mileage"})
+        if data.fuel_liters:
+            values["fuel_price_per_liter"] = fuel_price_per_liter(data.amount, data.fuel_liters)
         expense = await self.repo.create(**values, created_by=user_id)
         if wants_document:
             await sync.create_document_for_expense(
@@ -83,6 +101,10 @@ class ExpenseService:
         if values.get("category", expense.category) != expense.category:
             vehicle = await self.session.get(Vehicle, expense.vehicle_id)
             self._check_category(vehicle, values["category"])
+        if "amount" in values or "fuel_liters" in values:
+            liters = values["fuel_liters"] if "fuel_liters" in values else expense.fuel_liters
+            if liters:
+                values["fuel_price_per_liter"] = fuel_price_per_liter(values.get("amount", expense.amount), liters)
         mileage = values.get("mileage_at_refuel")
         if mileage is not None and mileage != expense.mileage_at_refuel:
             await MileageService(self.session).apply_from_entry(

@@ -18,6 +18,7 @@ its status, renewal and "current entry" helpers (`app/services/validity.py`,
 | psycho_test | optional | – |
 | professional_competence | optional | – |
 | medical_certificate | optional | – |
+| adr_certificate | optional | – |
 
 Types are stored as plain strings (`VARCHAR(40)`). Adding a type = one entry in the enum and the
 table, plus `driver_document_type.<code>` labels in both catalogs; no migration. Templates and

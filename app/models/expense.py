@@ -2,7 +2,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Date, Enum, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
@@ -49,7 +49,7 @@ class Expense(Base, UUIDPrimaryKey, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     vendor: Mapped[str | None] = mapped_column(String(300), nullable=True)
     # Fuel sub-fields
-    fuel_liters: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fuel_liters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     fuel_price_per_liter: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
     fuel_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     mileage_at_refuel: Mapped[int | None] = mapped_column(Integer, nullable=True)

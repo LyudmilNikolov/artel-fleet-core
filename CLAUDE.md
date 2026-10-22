@@ -309,8 +309,8 @@ fleetcore/
 - `created_by` (FK to User)
 
 **Fuel sub-fields (when category=fuel):**
-- `fuel_liters` (float)
-- `fuel_price_per_liter` (decimal)
+- `fuel_liters` (Decimal, NUMERIC(10,2), > 0)
+- `fuel_price_per_liter` (decimal, derived: amount / liters half-up to cents, never entered; recomputed on create and update)
 - `fuel_type` (enum)
 - `mileage_at_refuel` (integer)
 
@@ -346,7 +346,7 @@ fleetcore/
 
 **Driver documents (`driver_documents`, "Лицензи и документи"):** see `docs/driver-documents.md`.
 - Types are defined only in `app/driver_document_rules.py` (`id_card`, `driving_licence`, `tachograph_card`,
-  `psycho_test`, `professional_competence`, `medical_certificate`); stored as strings, extend without a migration
+  `psycho_test`, `professional_competence`, `medical_certificate`, `adr_certificate`); stored as strings, extend without a migration
 - Fields: `driver_id` (FK, cascade), `document_type`, `document_number` (required per type), `categories`
   (driving licence only), optional `start_date`/`end_date` (no end date = no expiry), `notes`, `renewed_from_id`
 - Status (valid / expiring soon / expired / no expiry) is computed from `end_date` with
