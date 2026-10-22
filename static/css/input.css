@@ -106,3 +106,10 @@ span.flatpickr-weekday {
     font-weight: 600 !important;
     color: #6b7280 !important;
 }
+
+/* Password field with show / hide button (components/password_input.html) */
+.fc-password-wrap { position: relative; }
+.fc-password-input { padding-right: 2.75rem; }
+.fc-password-toggle { position: absolute; top: 0; bottom: 0; right: 0; display: flex; align-items: center; padding: 0 0.75rem; color: #9ca3af; background: transparent; border: 0; cursor: pointer; }
+.fc-password-toggle:hover, .fc-password-toggle:focus-visible { color: #4b5563; outline: none; }
+.dark .fc-password-toggle:hover, .dark .fc-password-toggle:focus-visible { color: #e5e7eb; }

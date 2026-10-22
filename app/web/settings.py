@@ -1,9 +1,11 @@
 """Web routes for admin settings: users and audit log."""
 
 import datetime as dt
+import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -11,12 +13,143 @@ from app.models.audit_log import AuditAction
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
+from app.services.auth_service import AuthService
 from app.services.errors import DomainError, render_error
+from app.utils.security import hash_password
 from app.web.deps import web_require_roles
 
 router = APIRouter()
 
 require_admin = web_require_roles(UserRole.ADMIN)
+
+
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+USER_LANGUAGES = ("bg", "en")
+
+
+def _user_form_response(request: Request, admin: User, *, target=None, form=None, error=None, status_code=200):
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="settings/user_form.html",
+        status_code=status_code,
+        context={
+            "request": request,
+            "user": admin,
+            "target": target,
+            "form_data": form or {},
+            "error": error,
+            "roles": [r.value for r in UserRole],
+            "language_choices": USER_LANGUAGES,  # not "languages": that name is a template global
+            "is_self": bool(target and target.id == admin.id),
+            "active_page": "users",
+            **request.app.state.template_globals(request),
+        },
+    )
+
+
+async def _read_user_form(request: Request) -> tuple[dict, str, str]:
+    raw = await request.form()
+    data = {k: str(raw.get(k) or "").strip() for k in ("username", "email", "full_name", "role", "language")}
+    data["is_active"] = "on" if raw.get("is_active") else ""
+    return data, str(raw.get("password") or ""), str(raw.get("password_confirm") or "")
+
+
+def _validate_user_form(data: dict, password: str, confirm: str, *, creating: bool) -> UserRole:
+    """Raise DomainError with a specific key for the first problem; returns the chosen role."""
+    if creating and not 3 <= len(data["username"]) <= 100:
+        raise DomainError("error.user_username_invalid")
+    if not data["full_name"]:
+        raise DomainError("error.user_name_required")
+    if not EMAIL_PATTERN.match(data["email"]) or len(data["email"]) > 255:
+        raise DomainError("error.user_email_invalid")
+    if data["language"] not in USER_LANGUAGES:
+        raise DomainError("errors.invalid_input")
+    try:
+        role = UserRole(data["role"])
+    except ValueError:
+        raise DomainError("errors.invalid_input") from None
+    if creating or password:
+        if not 6 <= len(password) <= 128:
+            raise DomainError("error.user_password_short")
+        if password != confirm:
+            raise DomainError("error.user_password_mismatch")
+    return role
+
+
+@router.get("/settings/users/new")
+async def user_new_page(request: Request, user: User = Depends(require_admin)):
+    return _user_form_response(request, user, form={"role": UserRole.VIEWER.value, "language": "bg"})
+
+
+@router.post("/settings/users/new")
+async def user_create(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
+    data, password, confirm = await _read_user_form(request)
+    try:
+        role = _validate_user_form(data, password, confirm, creating=True)
+        await AuthService(db).register(
+            email=data["email"],
+            username=data["username"],
+            full_name=data["full_name"],
+            password=password,
+            role=role,
+            language=data["language"],
+        )
+    except DomainError as exc:
+        return _user_form_response(
+            request, user, form=data, error=render_error(exc, request.state.locale), status_code=422
+        )
+    return RedirectResponse(url="/settings/users", status_code=303)
+
+
+@router.get("/settings/users/{user_id}/edit")
+async def user_edit_page(
+    request: Request, user_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)
+):
+    target = await UserRepository(db).get_by_id(user_id)
+    if not target:
+        return RedirectResponse(url="/settings/users", status_code=303)
+    form = {
+        "email": target.email,
+        "full_name": target.full_name,
+        "role": target.role.value,
+        "language": target.language,
+        "is_active": "on" if target.is_active else "",
+    }
+    return _user_form_response(request, user, target=target, form=form)
+
+
+@router.post("/settings/users/{user_id}/edit")
+async def user_update(
+    request: Request, user_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)
+):
+    repo = UserRepository(db)
+    target = await repo.get_by_id(user_id)
+    if not target:
+        return RedirectResponse(url="/settings/users", status_code=303)
+    data, password, confirm = await _read_user_form(request)
+    try:
+        role = _validate_user_form(data, password, confirm, creating=False)
+        is_active = bool(data["is_active"])
+        if target.id == user.id and (role != target.role or not is_active):
+            raise DomainError("error.user_self_locked")  # an admin cannot lock themselves out
+        other = await repo.get_by_email(data["email"])
+        if other and other.id != target.id:
+            raise DomainError("auth.email_registered")
+    except DomainError as exc:
+        return _user_form_response(
+            request, user, target=target, form=data, error=render_error(exc, request.state.locale), status_code=422
+        )
+    changes = {
+        "full_name": data["full_name"],
+        "email": data["email"],
+        "role": role,
+        "language": data["language"],
+        "is_active": is_active,
+    }
+    if password:
+        changes["hashed_password"] = hash_password(password)
+    await repo.update(target, **changes)
+    return RedirectResponse(url="/settings/users", status_code=303)
 
 
 @router.get("/settings/users")
