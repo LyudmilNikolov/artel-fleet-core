@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from decimal import Decimal
 from uuid import UUID
 
@@ -8,12 +9,13 @@ from app.models.document import Document, EntityType
 from app.models.expense import Expense, ExpenseCategory
 from app.models.vehicle import Vehicle
 from app.repositories.base import BaseRepository
+from app.repositories.vehicle_repo import vehicle_search_condition
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 from app.services import document_expense_sync as sync
 from app.services.errors import DomainError
 from app.services.mileage_service import MileageService
 from app.utils.s3 import get_s3_client
-from app.vehicle_rules import validate_expense_category
+from app.vehicle_rules import VehicleType, validate_expense_category
 
 
 class ExpenseService:
@@ -106,12 +108,33 @@ class ExpenseService:
         return list(result.scalars().all()), total
 
     async def list_all(
-        self, *, category: ExpenseCategory | None = None, page: int = 1, size: int = 50
+        self,
+        *,
+        category: ExpenseCategory | None = None,
+        q: str | None = None,
+        vehicle_types: Sequence[VehicleType] | None = None,
+        page: int = 1,
+        size: int = 50,
     ) -> tuple[list[Expense], int]:
-        filters = {}
+        """List expenses, newest first; filter by category and by vehicle (search text and vehicle type)."""
+        conditions = []
         if category:
-            filters["category"] = category
-        return await self.repo.list(offset=(page - 1) * size, limit=size, order_by="-date", filters=filters)
+            conditions.append(Expense.category == category)
+        search = vehicle_search_condition(q)
+        if search is not None:
+            conditions.append(search)
+        if vehicle_types:
+            conditions.append(Vehicle.vehicle_type.in_(list(vehicle_types)))
+        base = select(Expense).join(Vehicle, Vehicle.id == Expense.vehicle_id).where(*conditions)
+        total = (
+            await self.session.execute(
+                select(func.count()).select_from(Expense).join(Vehicle, Vehicle.id == Expense.vehicle_id).where(*conditions)
+            )
+        ).scalar() or 0
+        result = await self.session.execute(
+            base.order_by(Expense.date.desc(), Expense.id).offset((page - 1) * size).limit(size)
+        )
+        return list(result.scalars().all()), total
 
     async def cost_breakdown_by_category(self, vehicle_id: UUID | None = None) -> dict[str, Decimal]:
         query = select(Expense.category, func.sum(Expense.amount))

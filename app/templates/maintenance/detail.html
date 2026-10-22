@@ -34,6 +34,21 @@
         {{ field(_('maintenance.cost'), money(record.cost) if record.cost is not none else none) }}
         {{ field(_('maintenance.service_provider'), record.service_provider) }}
         {{ field(_('maintenance.mileage_at_service'), "{:,}".format(record.mileage_at_service) ~ ' km' if record.mileage_at_service else '—') }}
+        {% if record.service_item %}{{ field(_('maintenance.service_item'), _('service_item.' + record.service_item)) }}{% endif %}
+        {% if record.service_checklist %}
+        {% set names = [] %}{% for c in record.service_checklist %}{% set ignore = names.append(_('service_check.' + c)) %}{% endfor %}
+        {{ field(_('maintenance.service_checklist'), names | join(', ')) }}
+        {% endif %}
+        {% if record.type.value == 'scheduled_service' %}
+        {{ field(_('maintenance.next_service_mileage'), "{:,}".format(record.next_service_mileage) ~ ' km' if record.next_service_mileage is not none else '—') }}
+        {{ field(_('maintenance.next_service_date'), record.next_service_date) }}
+        {% endif %}
+        {% if due %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('maintenance.due_state') }}</dt>
+            <dd class="mt-1 text-sm">{% from 'components/service_due.html' import due_badge with context %}{{ due_badge(due) }}</dd>
+        </div>
+        {% endif %}
     </div>
     {% if record.description %}
     <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">

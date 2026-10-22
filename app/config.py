@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     # Compliance documents: days before end_date when a current entry counts as "expiring soon"
     COMPLIANCE_EXPIRING_SOON_DAYS: int = 30
 
+    # Scheduled maintenance counts as "upcoming" when its scheduled date is within this many days
+    MAINTENANCE_UPCOMING_DAYS: int = 14
+
+    # Planned service items: a due km / date counts as "due soon" within these windows
+    SERVICE_DUE_SOON_KM: int = 10000
+    SERVICE_DUE_SOON_DAYS: int = 30
+
     # Driver documents: days before end_date when a current entry counts as "expiring soon"
     DRIVER_DOCUMENT_EXPIRING_SOON_DAYS: int = 30
 

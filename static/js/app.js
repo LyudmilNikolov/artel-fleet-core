@@ -59,6 +59,8 @@ document.addEventListener('alpine:init', function() {
             currentMileage: cfg.currentMileage === undefined ? null : cfg.currentMileage,
             docTypes: cfg.docTypes || [],
             blocked: cfg.blocked || [],
+            serviceItems: cfg.serviceItems || [],
+            allServiceItems: cfg.allServiceItems || [],
             open: false,
             choose: function(el) {
                 this.vehicleId = el.dataset.id;
@@ -67,6 +69,9 @@ document.addEventListener('alpine:init', function() {
                 this.currentMileage = el.dataset.current === '' ? null : Number(el.dataset.current);
                 this.docTypes = JSON.parse(el.dataset.docTypes || '[]');
                 this.blocked = JSON.parse(el.dataset.blocked || '[]');
+                this.serviceItems = JSON.parse(el.dataset.serviceItems || '[]');
+                // a chosen item that does not apply to this vehicle (e.g. a trailer) is dropped
+                if ('serviceItem' in this && !this.serviceItems.includes(this.serviceItem)) this.serviceItem = '';
                 this.open = false;
             },
             clear: function() {
@@ -76,6 +81,7 @@ document.addEventListener('alpine:init', function() {
                 this.currentMileage = null;
                 this.docTypes = [];
                 this.blocked = [];
+                this.serviceItems = this.allServiceItems;
                 this.$nextTick(() => this.$refs.search.focus());
             },
         }, extra || {});

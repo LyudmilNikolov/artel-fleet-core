@@ -8,6 +8,27 @@ from app.models.vehicle import Vehicle, VehicleStatus
 from app.repositories.base import BaseRepository
 
 
+def vehicle_search_condition(q: str | None):
+    """SQL condition matching plate, VIN, brand or model; None for a blank search.
+
+    Plates are typed with or without spaces/dashes ("CA1234AB" finds "CA 1234 AB"). Shared by every list
+    that filters by vehicle (vehicles, expenses, maintenance).
+    """
+    if not q or not q.strip():
+        return None
+    q = q.strip()
+    pattern = f"%{q}%"
+    compact = re.sub(r"[\s-]", "", q)
+    plate = func.replace(func.replace(Vehicle.license_plate, " ", ""), "-", "")
+    return or_(
+        Vehicle.license_plate.ilike(pattern),
+        plate.ilike(f"%{compact}%") if compact else false(),
+        Vehicle.vin.ilike(pattern),
+        Vehicle.brand.ilike(pattern),
+        Vehicle.model.ilike(pattern),
+    )
+
+
 class VehicleRepository(BaseRepository[Vehicle]):
     def __init__(self, session: AsyncSession):
         super().__init__(Vehicle, session)
@@ -28,21 +49,10 @@ class VehicleRepository(BaseRepository[Vehicle]):
         query = select(Vehicle)
         count_query = select(func.count()).select_from(Vehicle)
 
-        if q and q.strip():
-            q = q.strip()
-            pattern = f"%{q}%"
-            # Plates are typed with or without spaces/dashes ("CA1234AB" finds "CA 1234 AB").
-            compact = re.sub(r"[\s-]", "", q)
-            plate = func.replace(func.replace(Vehicle.license_plate, " ", ""), "-", "")
-            filt = or_(
-                Vehicle.license_plate.ilike(pattern),
-                plate.ilike(f"%{compact}%") if compact else false(),
-                Vehicle.vin.ilike(pattern),
-                Vehicle.brand.ilike(pattern),
-                Vehicle.model.ilike(pattern),
-            )
-            query = query.where(filt)
-            count_query = count_query.where(filt)
+        search = vehicle_search_condition(q)
+        if search is not None:
+            query = query.where(search)
+            count_query = count_query.where(search)
 
         for attr, val in [
             ("status", status),

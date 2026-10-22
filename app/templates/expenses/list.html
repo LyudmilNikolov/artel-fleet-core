@@ -1,44 +1,27 @@
 {% extends "base.html" %}
+{% from 'components/vehicle_filter.html' import vehicle_filter_fields with context %}
 {% block title %}{{ _('nav.expenses') }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('nav.expenses') }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex items-center justify-between">
-    <form method="GET" class="flex flex-wrap items-center gap-3">
-        <select name="category" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
-            <option value="">{{ _('expense_category.title') }}</option>
-            {% for c in categories %}<option value="{{ c.value }}" {% if category_filter and category_filter.value == c.value %}selected{% endif %}>{{ _('expense_category.' + c.value) }}</option>{% endfor %}
-        </select>
-        <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+<div class="mb-6 flex flex-wrap items-center gap-3">
+    <form method="GET" action="/expenses" class="flex flex-wrap items-center gap-3 flex-1 min-w-0"
+          x-data='{ q: {{ q | tojson }}, type: {{ type_filter | tojson }}, category: {{ (category_filter.value if category_filter else "") | tojson }} }'
+          hx-get="/expenses" hx-target="#expense-results" hx-swap="innerHTML" hx-push-url="true"
+          hx-trigger="input changed delay:300ms from:#expense-search, change from:#expense-type, change from:#expense-category, submit">
+        {{ vehicle_filter_fields('expense') }}
+        <div class="w-48">
+            <select id="expense-category" name="category" x-model="category" aria-label="{{ _('expense_category.title') }}" class="fc-select">
+                <option value="">{{ _('expense_category.title') }}</option>
+                {% for c in categories %}<option value="{{ c.value }}">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
+            </select>
+        </div>
+        <a href="/expenses" x-show="q || type || category" {% if not (q or type_filter or category_filter) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
     </form>
     {% if can_edit %}
-    <a href="/expenses/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('expense.add') }}</a>
+    <a href="/expenses/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium ml-auto whitespace-nowrap">+ {{ _('expense.add') }}</a>
     {% endif %}
 </div>
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.date') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('picker.vehicle') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.category') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.vendor') }}</th>
-                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('common.amount') }}</th>
-            </tr></thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for e in expenses %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/expenses/{{ e.id }}'">
-                    <td class="px-4 py-3">{{ e.date }}</td>
-                    <td class="px-4 py-3">
-                        <a href="/vehicles/{{ e.vehicle.id }}" class="font-medium text-primary-600 hover:underline" onclick="event.stopPropagation()">{{ e.vehicle.license_plate }}</a>
-                        <span class="block text-xs text-gray-500">{{ e.vehicle.brand }} {{ e.vehicle.model }}</span>
-                    </td>
-                    <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + e.category.value) }}</span></td>
-                    <td class="px-4 py-3 text-gray-500">{{ e.vendor or '—' }}</td>
-                    <td class="px-4 py-3 text-right font-mono font-medium">{{ money(e.amount) }}</td>
-                </tr>
-                {% else %}<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div id="expense-results">
+    {% include 'expenses/partials/list_results.html' %}
 </div>
 {% endblock %}

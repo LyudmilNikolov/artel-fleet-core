@@ -1,0 +1,16 @@
+{# Search and vehicle-type controls shared by the vehicle, expense and maintenance lists.
+   Usage: {% from 'components/vehicle_filter.html' import vehicle_filter_fields with context %}
+   Needs the form's Alpine state to hold `q` and `type`, and `type_filters` in the context. #}
+{% macro vehicle_filter_fields(prefix) %}
+<div class="w-64">
+    <input id="{{ prefix }}-search" type="search" name="q" x-model="q" autocomplete="off"
+           placeholder="{{ _('vehicle.search_placeholder') }}" aria-label="{{ _('vehicle.search_placeholder') }}"
+           class="fc-input">
+</div>
+<div class="w-48">
+    <select id="{{ prefix }}-type" name="vehicle_type" x-model="type" aria-label="{{ _('vehicle.vehicle_type') }}" class="fc-select">
+        <option value="">{{ _('vehicle.all_types') }}</option>
+        {% for t in type_filters %}<option value="{{ t }}">{{ _('vehicle_type.' + t) }}</option>{% endfor %}
+    </select>
+</div>
+{% endmacro %}

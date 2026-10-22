@@ -20,6 +20,10 @@ celery_app.conf.update(
             "task": "app.tasks.reminders.check_maintenance_reminders",
             "schedule": crontab(hour=8, minute=0),
         },
+        "check-service-due": {
+            "task": "app.tasks.reminders.check_service_due",
+            "schedule": crontab(hour=8, minute=0),
+        },
         "check-compliance-expiry": {
             "task": "app.tasks.reminders.check_compliance_expiry",
             "schedule": crontab(hour=8, minute=0),

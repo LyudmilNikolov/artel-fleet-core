@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from app.database import AsyncSessionLocal
 from app.i18n import _
 from app.i18n import _ as translate
+from app.maintenance_rules import SERVICE_CHECKLIST, SERVICE_ITEMS, service_items_for
 from app.models.audit_log import AuditAction, AuditLog
 from app.models.compliance import ComplianceDocument
 from app.models.document import Document, DocumentType, EntityType
@@ -616,6 +617,20 @@ async def seed():
             )
             cost = Decimal(random.randint(10, 1000)) if status == MaintenanceStatus.COMPLETED else None
             vid = random.choice(active_vehicle_ids)
+            mileage_at_service = random.randint(10000, 300000)
+            planned = mtype == MaintenanceType.SCHEDULED_SERVICE
+            # Planned services name what was serviced and when the next one is due (km and/or date).
+            allowed_items = service_items_for(vehicle_types[vid]) if planned else ()
+            service_item = random.choice(allowed_items) if allowed_items else None
+            checklist = (
+                [c for c in SERVICE_CHECKLIST.get(service_item or "", ()) if random.random() > 0.4] or None
+            )
+            next_km = mileage_at_service + random.choice([10000, 30000, 60000]) if planned and random.random() > 0.2 else None
+            next_date = (
+                (completed or scheduled) + timedelta(days=random.randint(-30, 365))
+                if planned and random.random() > 0.3
+                else None
+            )
 
             record = MaintenanceRecord(
                 vehicle_id=vid,
@@ -625,11 +640,11 @@ async def seed():
                 status=status,
                 scheduled_date=scheduled,
                 completed_date=completed,
-                mileage_at_service=random.randint(10000, 300000),
-                next_service_mileage=random.randint(10000, 300000) + 10000 if random.random() > 0.5 else None,
-                next_service_date=scheduled + timedelta(days=random.randint(90, 365))
-                if random.random() > 0.5
-                else None,
+                service_item=service_item,
+                service_checklist=checklist,
+                mileage_at_service=mileage_at_service,
+                next_service_mileage=next_km,
+                next_service_date=next_date,
                 cost=cost,
                 service_provider=random.choice(SERVICE_PROVIDERS),
                 performed_by=f"{random.choice(KZ_FIRST_NAMES)} {random.choice(KZ_LAST_NAMES)}",

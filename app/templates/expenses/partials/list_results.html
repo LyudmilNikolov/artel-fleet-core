@@ -1,0 +1,29 @@
+{# Expense table and pagination; swapped into #expense-results when the filters change. #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.date') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('picker.vehicle') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.category') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.vendor') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('common.amount') }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for e in expenses %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/expenses/{{ e.id }}'">
+                    <td class="px-4 py-3">{{ e.date }}</td>
+                    <td class="px-4 py-3">
+                        <a href="/vehicles/{{ e.vehicle.id }}" class="font-medium text-primary-600 hover:underline" onclick="event.stopPropagation()">{{ e.vehicle.license_plate }}</a>
+                        <span class="block text-xs text-gray-500">{{ e.vehicle.brand }} {{ e.vehicle.model }}</span>
+                    </td>
+                    <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + e.category.value) }}</span></td>
+                    <td class="px-4 py-3 text-gray-500">{{ e.vendor or '—' }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-medium">{{ money(e.amount) }}</td>
+                </tr>
+                {% else %}<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'components/list_pagination.html' %}
+</div>

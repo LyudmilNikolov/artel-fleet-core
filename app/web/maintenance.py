@@ -7,14 +7,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.config import settings
+from app.maintenance_rules import DUE_STATUSES, SERVICE_CHECKLIST, SERVICE_ITEMS
 from app.models.maintenance import MaintenanceStatus, MaintenanceType
 from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
 from app.repositories.base import BaseRepository
 from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 from app.services.errors import DomainError, MileageBelowCurrentError, render_error
-from app.services.maintenance_service import MaintenanceService
+from app.services.maintenance_service import PENDING_STATUSES, MaintenanceService
+from app.services.service_due_service import ServiceDueService
 from app.services.vehicle_service import VehicleService
+from app.vehicle_rules import LIST_TYPE_FILTERS, vehicle_type_filter
 from app.web.deps import get_web_user, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -30,7 +34,12 @@ FORM_FIELDS = (
     "service_provider",
     "mileage_at_service",
     "description",
+    "service_item",
+    "service_checklist",
+    "next_service_mileage",
+    "next_service_date",
 )
+PLANNED_ONLY_FIELDS = ("service_item", "service_checklist", "next_service_mileage", "next_service_date")
 
 
 def _ctx(request: Request, user: User, **values) -> dict:
@@ -45,7 +54,10 @@ def _ctx(request: Request, user: User, **values) -> dict:
 
 
 def _submitted(form) -> dict:
-    return {k: (v if v != "" else None) for k, v in form.items() if isinstance(v, str)}
+    """Form fields with blanks as None; the checklist checkboxes are collected into a list."""
+    values = {k: (v if v != "" else None) for k, v in form.items() if isinstance(v, str)}
+    values["service_checklist"] = form.getlist("service_checklist") or None
+    return values
 
 
 async def _render_form(
@@ -77,6 +89,11 @@ async def _render_form(
             picker=picker_state(vehicle),
             types=MaintenanceType,
             statuses=MaintenanceStatus,
+            service_items=SERVICE_ITEMS,
+            checklist_options=SERVICE_CHECKLIST,
+            item_labels={
+                code: request.app.state.template_globals(request)["_"]("service_item." + code) for code in SERVICE_ITEMS
+            },
             error=error,
             mileage_warning=mileage_warning,
         ),
@@ -105,6 +122,9 @@ def _error_text(exc: Exception, request: Request) -> str:
 async def maintenance_list(
     request: Request,
     status: str | None = None,
+    when: str | None = None,
+    q: str | None = None,
+    vehicle_type: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -112,14 +132,26 @@ async def maintenance_list(
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    # "pending" = scheduled and in progress together.
+    if status == "pending":
+        statuses = list(PENDING_STATUSES)
+    else:
+        try:
+            statuses = [MaintenanceStatus(status)] if status else []
+        except ValueError:
+            statuses, status = [], None
+    when = when if when in ("overdue", "upcoming") else None
     try:
-        status_enum = MaintenanceStatus(status) if status else None
+        types = vehicle_type_filter(vehicle_type)
     except ValueError:
-        status_enum = None
-    items, total = await MaintenanceService(db).list_all(status=status_enum, page=page, size=size)
+        types, vehicle_type = None, None
+    items, total = await MaintenanceService(db).list_all(
+        status=statuses, q=q, vehicle_types=types, when=when, page=page, size=size
+    )
+    partial = request.headers.get("HX-Request") == "true" and request.headers.get("HX-Target") == "maintenance-results"
     return request.app.state.templates.TemplateResponse(
         request=request,
-        name="maintenance/list.html",
+        name="maintenance/partials/list_results.html" if partial else "maintenance/list.html",
         context=_ctx(
             request,
             user,
@@ -128,9 +160,29 @@ async def maintenance_list(
             page=page,
             size=size,
             pages=BaseRepository.calc_pages(total, size),
-            status_filter=status_enum,
+            q=q or "",
+            type_filter=vehicle_type or "",
+            type_filters=LIST_TYPE_FILTERS,
+            status_filter=status or "",
+            when_filter=when or "",
             statuses=MaintenanceStatus,
+            upcoming_days=settings.MAINTENANCE_UPCOMING_DAYS,
         ),
+    )
+
+
+@router.get("/due", response_class=HTMLResponse)
+async def service_due_list(request: Request, status: str | None = None, db: AsyncSession = Depends(get_db)):
+    """Current planned services (engine oil, gearbox oil, ...) with their next due km and date."""
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    status = status if status in DUE_STATUSES else None
+    views = await ServiceDueService(db).list_due(status)
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="maintenance/due.html",
+        context=_ctx(request, user, views=views, status_filter=status, due_statuses=DUE_STATUSES),
     )
 
 
@@ -172,6 +224,10 @@ async def maintenance_create(
             title=raw.get("title") or "",
             status=raw.get("status") or "scheduled",
             description=raw.get("description"),
+            service_item=raw.get("service_item"),
+            service_checklist=raw.get("service_checklist"),
+            next_service_mileage=raw.get("next_service_mileage"),
+            next_service_date=raw.get("next_service_date"),
             scheduled_date=raw.get("scheduled_date"),
             completed_date=raw.get("completed_date"),
             cost=raw.get("cost"),
@@ -200,7 +256,7 @@ async def maintenance_detail(request: Request, record_id: UUID, db: AsyncSession
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="maintenance/detail.html",
-        context=_ctx(request, user, record=record),
+        context=_ctx(request, user, record=record, due=await ServiceDueService(db).state_for_record(record)),
     )
 
 
@@ -226,8 +282,11 @@ async def maintenance_update(
         return RedirectResponse(url="/maintenance", status_code=302)
     raw = _submitted(await request.form())
     try:
+        new_type = raw.get("type") or record.type.value
+        # The item and next due km / date are only offered for planned services; other types keep what they have.
+        fields = [n for n in FORM_FIELDS if new_type == "scheduled_service" or n not in PLANNED_ONLY_FIELDS]
         data = MaintenanceUpdate(
-            **{name: raw.get(name) for name in FORM_FIELDS if name not in ("type", "status") or raw.get(name)},
+            **{name: raw.get(name) for name in fields if name not in ("type", "status") or raw.get(name)},
             overwrite_mileage=raw.get("confirm_mileage_overwrite") == "1",
         )
         await service.update(record_id, data)

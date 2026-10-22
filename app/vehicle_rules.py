@@ -188,3 +188,21 @@ def validate_expense_category(vehicle_type, category) -> None:
         raise ValueError("error.expense_category_retired")
     if code in blocked_expense_categories(vehicle_type):
         raise ValueError("error.expense_category_not_applicable")
+
+
+# Presentation only: trailers share one filter / form choice, but each kind is still stored as its own type.
+TRAILER_TYPES = (VehicleType.CONTAINER_SEMI_TRAILER, VehicleType.CURTAIN_SIDE_SEMI_TRAILER)
+# The lists filter by one of these; "trailer" covers both trailer kinds.
+LIST_TYPE_FILTERS = ("tractor_unit", "trailer", "van", "passenger_car", "forklift")
+
+
+def vehicle_type_filter(value: str | None) -> list[VehicleType] | None:
+    """Vehicle types matched by a list filter value (``trailer`` = both trailer kinds); None for no filter.
+
+    Raises ValueError for an unknown value.
+    """
+    if not value:
+        return None
+    if value == "trailer":
+        return list(TRAILER_TYPES)
+    return [VehicleType(value)]

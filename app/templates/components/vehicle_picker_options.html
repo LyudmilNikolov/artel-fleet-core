@@ -10,6 +10,7 @@
                 data-current="{{ o.vehicle.current_mileage if o.vehicle.current_mileage is not none else '' }}"
                 data-doc-types='{{ o.doc_types | tojson }}'
                 data-blocked='{{ o.blocked | tojson }}'
+                data-service-items='{{ o.service_items | tojson }}'
                 @click="choose($el)">
             <span class="font-medium text-gray-900 dark:text-white">{{ o.vehicle.license_plate }}</span>
             <span class="text-gray-600 dark:text-gray-300">{{ o.vehicle.brand }} {{ o.vehicle.model }}</span>

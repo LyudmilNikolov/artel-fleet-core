@@ -1,0 +1,20 @@
+{# Computed due badge of a planned service item. Usage: {% from 'components/service_due.html' import due_badge with context %} #}
+{% macro due_badge(due) %}
+{% if due.status == 'overdue' %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">{{ _('service_due.overdue') }}</span>
+{% elif due.status == 'due_soon' %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">{{ _('service_due.due_soon') }}</span>
+{% elif due.status == 'ok' %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{{ _('service_due.ok') }}</span>
+{% else %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ _('service_due.none') }}</span>
+{% endif %}
+{% endmacro %}
+
+{# Remaining km and days, e.g. "1,200 km · 14 days" or "overdue by 300 km". #}
+{% macro due_left(due) %}
+{%- set parts = [] -%}
+{%- if due.km_left is not none -%}{%- set ignore = parts.append(("{:,}".format(due.km_left | abs) ~ ' km') ~ (' ' ~ _('service_due.over') if due.km_left < 0 else '')) -%}{%- endif -%}
+{%- if due.days_left is not none -%}{%- set ignore = parts.append(_('service_due.days', days=due.days_left | abs) ~ (' ' ~ _('service_due.over') if due.days_left < 0 else '')) -%}{%- endif -%}
+{{ parts | join(' · ') if parts else '—' }}
+{% endmacro %}

@@ -10,6 +10,7 @@ from app.models.vehicle import FuelType, TransmissionType, VehicleStatus, Vehicl
 from app.repositories.base import BaseRepository
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
 from app.services.compliance_service import ComplianceService
+from app.services.service_due_service import ServiceDueService
 from app.services.errors import DomainError, render_error
 from app.services.expense_service import ExpenseService
 from app.services.maintenance_service import MaintenanceService
@@ -23,19 +24,17 @@ from app.vehicle_rules import (
     EMISSION_STANDARDS,
     FUEL_CHOICES,
     INTEGER_BOUNDS,
+    LIST_TYPE_FILTERS,
+    TRAILER_TYPES,
     PowerSource,
 )
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
 
-# Presentation only: trailers share one form choice, but each kind is still stored as its own vehicle type.
-TRAILER_TYPES = (VehicleType.CONTAINER_SEMI_TRAILER, VehicleType.CURTAIN_SIDE_SEMI_TRAILER)
 VEHICLE_GROUPS = list(dict.fromkeys("trailer" if t in TRAILER_TYPES else t.value for t in VehicleType))
 
 
-# The list filters by one of these; "trailer" covers both trailer kinds.
-LIST_TYPE_FILTERS = ("tractor_unit", "trailer", "van", "passenger_car", "forklift")
 
 
 @router.get("", response_class=HTMLResponse)
@@ -300,7 +299,14 @@ async def vehicle_tab_maintenance(
     return templates.TemplateResponse(
         request=request,
         name="vehicles/partials/tab_maintenance.html",
-        context={"request": request, "records": records, "total": total, "vehicle_id": str(vehicle_id), **ctx},
+        context={
+            "request": request,
+            "records": records,
+            "total": total,
+            "vehicle_id": str(vehicle_id),
+            "due_items": await ServiceDueService(db).for_vehicle(vehicle_id),
+            **ctx,
+        },
     )
 
 
@@ -320,7 +326,14 @@ async def vehicle_tab_expenses(
     return templates.TemplateResponse(
         request=request,
         name="vehicles/partials/tab_expenses.html",
-        context={"request": request, "records": records, "total": total, "vehicle_id": str(vehicle_id), **ctx},
+        context={
+            "request": request,
+            "records": records,
+            "total": total,
+            "vehicle_id": str(vehicle_id),
+            "due_items": await ServiceDueService(db).for_vehicle(vehicle_id),
+            **ctx,
+        },
     )
 
 

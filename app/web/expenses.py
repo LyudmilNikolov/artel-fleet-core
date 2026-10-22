@@ -17,7 +17,7 @@ from app.services.document_expense_sync import DOCUMENT_CATEGORIES, is_document_
 from app.services.errors import DomainError, MileageBelowCurrentError, render_error
 from app.services.expense_service import ExpenseService
 from app.services.vehicle_service import VehicleService
-from app.vehicle_rules import RETIRED_EXPENSE_CATEGORIES
+from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
 from app.web.deps import get_web_user, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -117,6 +117,8 @@ def _error_text(exc: Exception, request: Request) -> str:
 async def expense_list(
     request: Request,
     category: str | None = None,
+    q: str | None = None,
+    vehicle_type: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -128,10 +130,17 @@ async def expense_list(
         category_enum = ExpenseCategory(category) if category else None
     except ValueError:
         category_enum = None
-    items, total = await ExpenseService(db).list_all(category=category_enum, page=page, size=size)
+    try:
+        types = vehicle_type_filter(vehicle_type)
+    except ValueError:
+        types, vehicle_type = None, None
+    items, total = await ExpenseService(db).list_all(
+        category=category_enum, q=q, vehicle_types=types, page=page, size=size
+    )
+    partial = request.headers.get("HX-Request") == "true" and request.headers.get("HX-Target") == "expense-results"
     return request.app.state.templates.TemplateResponse(
         request=request,
-        name="expenses/list.html",
+        name="expenses/partials/list_results.html" if partial else "expenses/list.html",
         context=_ctx(
             request,
             user,
@@ -140,6 +149,9 @@ async def expense_list(
             page=page,
             size=size,
             pages=BaseRepository.calc_pages(total, size),
+            q=q or "",
+            type_filter=vehicle_type or "",
+            type_filters=LIST_TYPE_FILTERS,
             category_filter=category_enum,
             categories=LISTED_CATEGORIES,
         ),

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from 'components/service_due.html' import due_badge, due_left with context %}
+{% block title %}{{ _('maintenance.service_due') }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('maintenance.service_due') }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <form method="GET" class="flex flex-wrap items-center gap-3">
+        <select name="status" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+            <option value="">{{ _('service_due.all') }}</option>
+            {% for s in due_statuses %}<option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ _('service_due.' + s) }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+    </form>
+    <a href="/maintenance" class="text-sm text-primary-600 hover:underline">{{ _('maintenance.back_to_list') }}</a>
+</div>
+<p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ _('maintenance.service_due_hint') }}</p>
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('maintenance.vehicle') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('maintenance.service_item') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('maintenance.last_service') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('maintenance.next_service_mileage') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('maintenance.next_service_date') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('service_due.left') }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for v in views %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/maintenance/{{ v.record.id }}'">
+                    <td class="px-4 py-3">
+                        <a href="/vehicles/{{ v.vehicle.id }}" class="font-medium text-primary-600 hover:underline" onclick="event.stopPropagation()">{{ v.vehicle.license_plate }}</a>
+                        <span class="block text-xs text-gray-500">{{ v.vehicle.brand }} {{ v.vehicle.model }}</span>
+                    </td>
+                    <td class="px-4 py-3 font-medium">{{ _('service_item.' + v.record.service_item) }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{{ due_badge(v.due) }}</td>
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ v.record.completed_date or '—' }}{% if v.record.mileage_at_service %}<span class="block text-xs">{{ "{:,}".format(v.record.mileage_at_service) }} km</span>{% endif %}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ "{:,}".format(v.record.next_service_mileage) ~ ' km' if v.record.next_service_mileage is not none else '—' }}{% if v.vehicle.current_mileage is not none %}<span class="block text-xs text-gray-500">{{ _('maintenance.now_at') }} {{ "{:,}".format(v.vehicle.current_mileage) }} km</span>{% endif %}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ v.record.next_service_date or '—' }}</td>
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ due_left(v.due) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

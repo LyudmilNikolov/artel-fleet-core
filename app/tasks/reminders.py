@@ -5,10 +5,12 @@ from sqlalchemy import func, select
 from app.config import settings
 from app.database import get_sync_db
 from app.models.compliance import ComplianceDocument
+from app.maintenance_rules import service_due
 from app.models.driver import Driver, DriverStatus
 from app.models.driver_document import DriverDocument
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle, VehicleStatus
+from app.repositories.maintenance_due import current_service_query
 from app.repositories.compliance_repo import applicable_clause, current_ids, status_clause
 from app.repositories.driver_document_repo import current_ids as driver_current_ids
 from app.repositories.driver_document_repo import status_clause as driver_status_clause
@@ -34,6 +36,35 @@ def check_maintenance_reminders():
 
         # TODO: Send notifications for upcoming/overdue maintenance
         return {"upcoming": len(upcoming), "overdue": len(overdue)}
+    finally:
+        db.close()
+
+
+@celery_app.task
+def check_service_due():
+    """Count current planned services (engine oil, gearbox oil, ...) that are overdue or due soon, per item.
+
+    Counting only: sending notifications belongs to the reminders feature. Only the latest completed
+    service of each vehicle and item counts; decommissioned vehicles are skipped.
+    """
+    db = get_sync_db()
+    try:
+        today = datetime.now(UTC).date()
+        by_item: dict[str, dict[str, int]] = {}
+        totals = {"overdue": 0, "due_soon": 0}
+        for record, vehicle in db.execute(current_service_query()).all():
+            due = service_due(
+                record.next_service_mileage,
+                record.next_service_date,
+                vehicle.current_mileage,
+                today,
+                settings.SERVICE_DUE_SOON_KM,
+                settings.SERVICE_DUE_SOON_DAYS,
+            )
+            if due.status in totals:
+                totals[due.status] += 1
+                by_item.setdefault(record.service_item, {"overdue": 0, "due_soon": 0})[due.status] += 1
+        return {"overdue_service": totals["overdue"], "due_soon_service": totals["due_soon"], "by_item": by_item}
     finally:
         db.close()
 

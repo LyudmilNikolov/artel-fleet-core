@@ -273,6 +273,9 @@ fleetcore/
 - `mileage_at_service` (integer)
 - `next_service_mileage` (integer, nullable — e.g., next oil change at 60,000 km)
 - `next_service_date` (date, nullable)
+- `service_item` (string, nullable, planned services only: engine_oil, gearbox_oil, differential_oil, brake_fluid, coolant; none for
+  trailers; defined in `app/maintenance_rules.py`) and `service_checklist` (filters ticked under engine oil, not items of their own). The latest completed planned service per vehicle and item is current; its next km / date
+  gives a computed overdue / due-soon state (dashboard, vehicle tab, `/maintenance/due`, daily Celery count). See `docs/maintenance-service-items.md`
 - `cost` (decimal)
 - `service_provider` (string — name of service center)
 - `performed_by` (string)
@@ -287,7 +290,7 @@ fleetcore/
 
 **Reminders (Celery tasks):**
 - Notify fleet_manager 14 / 7 / 3 / 1 day before scheduled maintenance
-- Notify when vehicle approaches next_service_mileage (within 500km)
+- Notify when vehicle approaches next_service_mileage (within 10,000 km, `SERVICE_DUE_SOON_KM`)
 - Notify on overdue maintenance (past scheduled_date but still status=scheduled)
 
 ### 5. 💰 Expense Tracking (Расходы)

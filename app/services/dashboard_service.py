@@ -6,12 +6,15 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.driver import Driver, DriverStatus
 from app.models.expense import Expense
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle
 from app.services.compliance_service import ComplianceService
 from app.services.driver_document_service import DriverDocumentService
+from app.services.service_due_service import ServiceDueService
+from app.services.validity import utc_today
 
 
 class DashboardService:
@@ -33,8 +36,8 @@ class DashboardService:
 
     async def attention_needed(self) -> dict:
         """Get items needing attention: overdue maintenance, compliance deadlines, driver docs."""
-        today = date.today()
-        deadline_14 = today + timedelta(days=14)
+        today = utc_today()
+        upcoming_until = today + timedelta(days=settings.MAINTENANCE_UPCOMING_DAYS)
 
         # Overdue maintenance
         overdue_maint = await self.db.execute(
@@ -50,10 +53,13 @@ class DashboardService:
             select(func.count(MaintenanceRecord.id)).where(
                 MaintenanceRecord.status == MaintenanceStatus.SCHEDULED,
                 MaintenanceRecord.scheduled_date >= today,
-                MaintenanceRecord.scheduled_date <= deadline_14,
+                MaintenanceRecord.scheduled_date <= upcoming_until,
             )
         )
         upcoming_maintenance = upcoming_maint.scalar() or 0
+
+        # Planned service items (engine oil, ...) overdue or due soon by km or date
+        service = await ServiceDueService(self.db).attention_counts()
 
         # Current vehicle compliance documents expiring soon / expired (computed from end_date)
         compliance = await ComplianceService(self.db).attention_counts()
@@ -68,11 +74,15 @@ class DashboardService:
         return {
             "overdue_maintenance": overdue_maintenance,
             "upcoming_maintenance": upcoming_maintenance,
+            "overdue_service": service["overdue"],
+            "due_soon_service": service["due_soon"],
             "expiring_compliance": expiring_compliance,
             "expired_compliance": expired_compliance,
             "expiring_driver_documents": expiring_driver_documents,
             "expired_driver_documents": expired_driver_documents,
             "total_alerts": overdue_maintenance
+            + service["overdue"]
+            + service["due_soon"]
             + expiring_compliance
             + expired_compliance
             + expiring_driver_documents

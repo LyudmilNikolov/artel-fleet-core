@@ -12,6 +12,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
 from app.services.errors import DomainError, MileageBelowCurrentError, error_detail
 from app.services.expense_service import ExpenseService
+from app.vehicle_rules import vehicle_type_filter
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -27,13 +28,20 @@ def _http_error(exc: DomainError) -> HTTPException:
 @router.get("", response_model=PaginatedResponse[ExpenseRead])
 async def list_expenses(
     category: ExpenseCategory | None = None,
+    q: str | None = None,
+    vehicle_type: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    """``q`` and ``vehicle_type`` (a type, or ``trailer``) filter by vehicle."""
+    try:
+        types = vehicle_type_filter(vehicle_type)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=error_detail(DomainError("errors.invalid_input"))) from None
     service = ExpenseService(db)
-    items, total = await service.list_all(category=category, page=page, size=size)
+    items, total = await service.list_all(category=category, q=q, vehicle_types=types, page=page, size=size)
     return PaginatedResponse(
         items=[ExpenseRead.model_validate(i) for i in items],
         total=total,
