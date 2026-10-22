@@ -16,6 +16,7 @@ async def test_export_status_and_category_labels_are_localized():
         return_value=[
             {
                 "license_plate": "KEEP",
+                "vehicle_type": "forklift",
                 "brand": "Brand",
                 "model": "Model",
                 "type": "repair",
@@ -38,10 +39,10 @@ async def test_export_status_and_category_labels_are_localized():
         wb = load_workbook(BytesIO(await service.export_maintenance_excel(locale=locale)))
         rows = list(wb.active.values)
         row = next(row for row in rows if row[0] == "KEEP")
-        assert row[4] == expected_status
-        assert row[3] == "User content"
-        assert row[5] == "2026-01-02"
-        assert row[7] == 0.3
+        assert row[5] == expected_status
+        assert row[4] == "User content"
+        assert row[6] == "2026-01-02"
+        assert row[8] == 0.3
         output = await service.export_expense_csv(locale=locale)
         assert output.startswith(b"\xef\xbb\xbf")
         csv_rows = list(csv.reader(StringIO(output.decode("utf-8-sig"))))

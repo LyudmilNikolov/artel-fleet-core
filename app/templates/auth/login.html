@@ -1,8 +1,12 @@
 <!DOCTYPE html>
+{% from 'components/password_input.html' import password_input with context %}
 <html lang="{{ lang }}" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }" :class="{ 'dark': darkMode }">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
+    <link rel="apple-touch-icon" href="/static/img/favicon-180.png">
     <title>{{ _('auth.login_title') }}</title>
     <link rel="stylesheet" href="/static/css/app.css">
     <script defer src="/static/vendor/js/alpine.min.js"></script>
@@ -15,12 +19,12 @@
                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900 mb-4">
                     <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m8 1V6a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16"/></svg>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">FleetCore</h1>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ _('app_name') }}</h1>
                 <p class="text-gray-500 dark:text-gray-400 mt-1">{{ _('auth.login_title') }}</p>
             </div>
 
             {% if error %}
-            <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+            <div class="mb-4 fc-notice fc-notice-danger">
                 {{ error }}
             </div>
             {% endif %}
@@ -33,8 +37,7 @@
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ _('auth.password') }}</label>
-                    <input type="password" id="password" name="password" required
-                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition">
+                    {{ password_input('password', 'password', autocomplete='current-password', input_class='w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition') }}
                 </div>
                 <div class="flex items-center justify-between">
                     <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">

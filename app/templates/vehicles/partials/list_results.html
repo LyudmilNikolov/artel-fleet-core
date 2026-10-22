@@ -1,0 +1,42 @@
+{# Vehicle table and pagination; swapped into #vehicle-results when the filters change. #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('vehicle.registration') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('vehicle.vin') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                    <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('vehicle.current_mileage') }}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for v in vehicles %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/vehicles/{{ v.id }}'">
+                    <td class="px-4 py-3">
+                        <div class="font-medium">{{ v.brand }} {{ v.model }} ({{ v.year if v.year is not none else '—' }})</div>
+                        <div class="text-xs text-gray-500">{{ v.license_plate }} · {{ _("vehicle_type." + v.vehicle_type.value) }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ v.vin or '—' }}</td>
+                    <td class="px-4 py-3">
+                        <span class="fc-badge
+                            {% if v.status.value == 'active' %}fc-badge-success
+                            {% elif v.status.value == 'in_maintenance' %}fc-badge-warning
+                            {% elif v.status.value == 'decommissioned' %}fc-badge-neutral
+                            {% else %}fc-badge-info{% endif %}">
+                            {{ _('status.' + v.status.value) }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">{{ "{:,}".format(v.current_mileage) if v.current_mileage is not none else "—" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% include 'components/list_pagination.html' %}
+</div>

@@ -3,13 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_fleet_manager
+from app.api.deps import get_current_user, get_driver_scope, require_fleet_manager
 from app.database import get_db
 from app.models.user import User
-from app.models.vehicle import BodyType, FuelType, VehicleStatus
+from app.models.vehicle import FuelType, VehicleStatus, VehicleType
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
+from app.services.driver_scope import DriverScope
 from app.services.errors import error_detail
 from app.services.vehicle_service import VehicleService
 
@@ -22,20 +23,22 @@ async def list_vehicles(
     status: VehicleStatus | None = None,
     brand: str | None = None,
     fuel_type: FuelType | None = None,
-    body_type: BodyType | None = None,
+    vehicle_type: VehicleType | None = None,
     department: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
+    scope: DriverScope = Depends(get_driver_scope),
 ):
     service = VehicleService(db)
     items, total = await service.list_vehicles(
+        vehicle_ids=scope.vehicle_filter,
         q=q,
         status=status,
         brand=brand,
         fuel_type=fuel_type,
-        body_type=body_type,
+        vehicle_type=vehicle_type,
         department=department,
         page=page,
         size=size,
@@ -49,15 +52,21 @@ async def list_vehicles(
     )
 
 
+@router.get("/departments", response_model=list[str])
+async def vehicle_departments(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
+    return await VehicleService(db).departments()
+
+
 @router.get("/{vehicle_id}", response_model=VehicleRead)
 async def get_vehicle(
     vehicle_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
+    scope: DriverScope = Depends(get_driver_scope),
 ):
     service = VehicleService(db)
     vehicle = await service.get_by_id(vehicle_id)
-    if not vehicle:
+    if not vehicle or not scope.allows_vehicle(vehicle.id):
         raise HTTPException(status_code=404, detail="error.vehicle_not_found")
     return vehicle
 
@@ -70,7 +79,7 @@ async def create_vehicle(
 ):
     service = VehicleService(db)
     try:
-        return await service.create(data)
+        return await service.create(data, user_id=_.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=error_detail(e))
 
@@ -84,7 +93,7 @@ async def update_vehicle(
 ):
     service = VehicleService(db)
     try:
-        return await service.update(vehicle_id, data)
+        return await service.update(vehicle_id, data, user_id=_.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=error_detail(e))
 

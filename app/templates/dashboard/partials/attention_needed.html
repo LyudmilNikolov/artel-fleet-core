@@ -2,15 +2,13 @@
     <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('dashboard.attention_needed') }}</h3>
         {% if data.total_alerts > 0 %}
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-            {{ data.total_alerts }}
-        </span>
+        <span class="text-lg font-bold text-red-600 dark:text-red-400">{{ data.total_alerts }}</span>
         {% endif %}
     </div>
 
     <div class="space-y-3">
         {% if data.overdue_maintenance > 0 %}
-        <a href="/maintenance" class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition">
+        <a href="/maintenance?status=scheduled&when=overdue" class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition">
             <div class="flex items-center gap-3">
                 <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
                     <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,7 +22,7 @@
         {% endif %}
 
         {% if data.upcoming_maintenance > 0 %}
-        <a href="/maintenance" class="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/20 transition">
+        <a href="/maintenance?status=scheduled&when=upcoming" class="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/20 transition">
             <div class="flex items-center gap-3">
                 <div class="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                     <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -37,45 +35,87 @@
         </a>
         {% endif %}
 
-        {% if data.expiring_contracts > 0 %}
-        <a href="/contracts" class="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/20 transition">
+        {% if data.overdue_service > 0 %}
+        <a href="/maintenance/due?status=overdue" class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                    <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-red-800 dark:text-red-300">{{ _('dashboard.overdue_service') }}</span>
+            </div>
+            <span class="text-sm font-bold text-red-600 dark:text-red-400">{{ data.overdue_service }}</span>
+        </a>
+        {% endif %}
+
+        {% if data.due_soon_service > 0 %}
+        <a href="/maintenance/due?status=due_soon" class="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/20 transition">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                    <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-yellow-800 dark:text-yellow-300">{{ _('dashboard.due_soon_service') }}</span>
+            </div>
+            <span class="text-sm font-bold text-yellow-600 dark:text-yellow-400">{{ data.due_soon_service }}</span>
+        </a>
+        {% endif %}
+
+        {% if data.expired_compliance > 0 %}
+        <a href="/compliance?status=expired" class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                    <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-red-800 dark:text-red-300">{{ _('dashboard.expired_compliance') }}</span>
+            </div>
+            <span class="text-sm font-bold text-red-600 dark:text-red-400">{{ data.expired_compliance }}</span>
+        </a>
+        {% endif %}
+
+        {% if data.expiring_compliance > 0 %}
+        <a href="/compliance?status=expiring_soon" class="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/20 transition">
             <div class="flex items-center gap-3">
                 <div class="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
                     <svg class="w-4 h-4 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                 </div>
-                <span class="text-sm font-medium text-orange-800 dark:text-orange-300">{{ _('dashboard.expiring_contracts') }}</span>
+                <span class="text-sm font-medium text-orange-800 dark:text-orange-300">{{ _('dashboard.expiring_compliance') }}</span>
             </div>
-            <span class="text-sm font-bold text-orange-600 dark:text-orange-400">{{ data.expiring_contracts }}</span>
+            <span class="text-sm font-bold text-orange-600 dark:text-orange-400">{{ data.expiring_compliance }}</span>
         </a>
         {% endif %}
 
-        {% if data.expiring_licenses > 0 %}
-        <a href="/drivers" class="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/20 transition">
+        {% if data.expired_driver_documents > 0 %}
+        <a href="/drivers?doc_status=expired" class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                    <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-red-800 dark:text-red-300">{{ _('dashboard.expired_driver_documents') }}</span>
+            </div>
+            <span class="text-sm font-bold text-red-600 dark:text-red-400">{{ data.expired_driver_documents }}</span>
+        </a>
+        {% endif %}
+
+        {% if data.expiring_driver_documents > 0 %}
+        <a href="/drivers?doc_status=expiring_soon" class="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/20 transition">
             <div class="flex items-center gap-3">
                 <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                     <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
                     </svg>
                 </div>
-                <span class="text-sm font-medium text-purple-800 dark:text-purple-300">{{ _('dashboard.expiring_licenses') }}</span>
+                <span class="text-sm font-medium text-purple-800 dark:text-purple-300">{{ _('dashboard.expiring_driver_documents') }}</span>
             </div>
-            <span class="text-sm font-bold text-purple-600 dark:text-purple-400">{{ data.expiring_licenses }}</span>
-        </a>
-        {% endif %}
-
-        {% if data.expiring_medical > 0 %}
-        <a href="/drivers" class="flex items-center justify-between p-3 bg-pink-50 dark:bg-pink-900/10 rounded-lg hover:bg-pink-100 dark:hover:bg-pink-900/20 transition">
-            <div class="flex items-center gap-3">
-                <div class="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
-                    <svg class="w-4 h-4 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                    </svg>
-                </div>
-                <span class="text-sm font-medium text-pink-800 dark:text-pink-300">{{ _('dashboard.expiring_medical') }}</span>
-            </div>
-            <span class="text-sm font-bold text-pink-600 dark:text-pink-400">{{ data.expiring_medical }}</span>
+            <span class="text-sm font-bold text-purple-600 dark:text-purple-400">{{ data.expiring_driver_documents }}</span>
         </a>
         {% endif %}
 

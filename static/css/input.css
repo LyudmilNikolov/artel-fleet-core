@@ -19,6 +19,7 @@
         @apply w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
         font-size: 16px;
     }
+    .fc-input[readonly] { @apply bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-dashed; }
     .fc-select { @apply w-full h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white; }
     .fc-textarea { @apply w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500; }
     .fc-checkbox { @apply rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500; }
@@ -106,3 +107,50 @@ span.flatpickr-weekday {
     font-weight: 600 !important;
     color: #6b7280 !important;
 }
+
+/* Password field with show / hide button (components/password_input.html) */
+.fc-password-wrap { position: relative; }
+.fc-password-input { padding-right: 2.75rem; }
+.fc-password-toggle { position: absolute; top: 0; bottom: 0; right: 0; display: flex; align-items: center; padding: 0 0.75rem; color: #9ca3af; background: transparent; border: 0; cursor: pointer; }
+.fc-password-toggle:hover, .fc-password-toggle:focus-visible { color: #4b5563; outline: none; }
+.dark .fc-password-toggle:hover, .dark .fc-password-toggle:focus-visible { color: #e5e7eb; }
+
+/* Notices (success / warning) with readable light and dark colours */
+.fc-notice { padding: 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; border: 1px solid; }
+.fc-notice-success { background-color: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.dark .fc-notice-success { background-color: rgba(20, 83, 45, 0.6); color: #bbf7d0; border-color: #166534; }
+.fc-notice-warning { background-color: #fefce8; color: #854d0e; border-color: #fde68a; }
+.dark .fc-notice-warning { background-color: rgba(113, 63, 18, 0.45); color: #fde68a; border-color: #854d0e; }
+a.fc-notice-warning:hover { background-color: #fef9c3; }
+.dark a.fc-notice-warning:hover { background-color: rgba(113, 63, 18, 0.65); }
+
+/* Delete / destructive buttons: always red, in both themes */
+.fc-btn-danger { padding: 0.5rem 1rem; background-color: #dc2626; color: #fff; font-size: 0.875rem; line-height: 1.25rem; border-radius: 0.5rem; border: 0; cursor: pointer; transition: background-color 0.15s ease; }
+.fc-btn-danger:hover { background-color: #b91c1c; }
+.dark .fc-btn-danger { background-color: #dc2626; }
+.dark .fc-btn-danger:hover { background-color: #ef4444; }
+
+/* Status badges: one size and one colour per meaning, in both themes (use fc-badge + one fc-badge-<tone>) */
+.fc-badge { display: inline-flex; align-items: center; padding: 0.125rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; line-height: 1rem; font-weight: 500; white-space: nowrap; }
+.fc-badge-success { background-color: #dcfce7; color: #166534; }
+.fc-badge-warning { background-color: #fef9c3; color: #854d0e; }
+.fc-badge-danger { background-color: #fee2e2; color: #991b1b; }
+.fc-badge-info { background-color: #dbeafe; color: #1e40af; }
+.fc-badge-orange { background-color: #ffedd5; color: #9a3412; }
+.fc-badge-purple { background-color: #f3e8ff; color: #6b21a8; }
+.fc-badge-neutral { background-color: #f3f4f6; color: #1f2937; }
+.dark .fc-badge-success { background-color: rgba(20, 83, 45, 0.3); color: #4ade80; }
+.dark .fc-badge-warning { background-color: rgba(113, 63, 18, 0.3); color: #facc15; }
+.dark .fc-badge-danger { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
+.dark .fc-badge-info { background-color: rgba(30, 58, 138, 0.3); color: #60a5fa; }
+.dark .fc-badge-orange { background-color: rgba(124, 45, 18, 0.3); color: #fb923c; }
+.dark .fc-badge-purple { background-color: rgba(88, 28, 135, 0.3); color: #c084fc; }
+.dark .fc-badge-neutral { background-color: #374151; color: #d1d5db; }
+.fc-notice-danger { background-color: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.dark .fc-notice-danger { background-color: rgba(127, 29, 29, 0.3); color: #f87171; border-color: #991b1b; }
+.fc-notice-info { background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+.dark .fc-notice-info { background-color: rgba(30, 58, 138, 0.3); color: #60a5fa; border-color: #1e40af; }
+.fc-notice-indigo { background-color: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+.dark .fc-notice-indigo { background-color: rgba(49, 46, 129, 0.3); color: #a5b4fc; border-color: #3730a3; }
+.fc-notice-purple { background-color: #faf5ff; color: #6b21a8; border-color: #e9d5ff; }
+.dark .fc-notice-purple { background-color: rgba(88, 28, 135, 0.3); color: #d8b4fe; border-color: #6b21a8; }

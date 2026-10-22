@@ -21,13 +21,8 @@ class Driver(Base, UUIDPrimaryKey, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    employee_id: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    license_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    license_category: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    license_expiry: Mapped[str | None] = mapped_column(Date, nullable=True)
-    medical_expiry: Mapped[str | None] = mapped_column(Date, nullable=True)
     hire_date: Mapped[str | None] = mapped_column(Date, nullable=True)
     department: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[DriverStatus] = mapped_column(
@@ -39,6 +34,7 @@ class Driver(Base, UUIDPrimaryKey, TimestampMixin):
 
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
+    documents = relationship("DriverDocument", back_populates="driver", lazy="raise", passive_deletes=True)
     assigned_vehicles = relationship("Vehicle", back_populates="assigned_driver", foreign_keys="Vehicle.assigned_driver_id")
 
     def __repr__(self) -> str:

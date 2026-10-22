@@ -1,0 +1,74 @@
+{# Licences & Documents tab: current entry per type, then full history. #}
+{% from 'components/compliance_status.html' import status_badge, missing_badge with context %}
+{% from 'components/driver_changes.html' import change_cards with context %}
+{% if pending_changes or revision_changes %}
+<div class="p-4 space-y-3 border-b border-gray-200 dark:border-gray-700">
+    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ _('driver_doc.pending_section') }}</h4>
+    {{ change_cards(pending_changes, manager=is_manager, next_url='/drivers/' ~ summary.driver.id ~ '#licences') }}
+    {{ change_cards(revision_changes, driver_view=not is_manager) }}
+</div>
+{% endif %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.type') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.number') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.categories') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.end_date') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for code, current in summary.slots %}
+            <tr>
+                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                    {% if current %}<a href="/driver-documents/{{ current.id }}" class="hover:underline">{{ _('driver_document_type.' + code) }}</a>{% else %}{{ _('driver_document_type.' + code) }}{% endif %}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">{% if current %}{{ status_badge(current) }}{% else %}{{ missing_badge() }}{% endif %}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{{ (number(current.document_number) if current else none) or '—' }}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ (current.categories if current else none) or '—' }}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ (current.end_date if current else none) or '—' }}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                    {% if can_edit %}
+                    {% if current %}
+                    <a href="/driver-documents/{{ current.id }}/renew" class="text-primary-600 hover:underline text-xs font-medium">{{ _('driver_doc.renew') }}</a>
+                    {% else %}
+                    <a href="/driver-documents/new?driver_id={{ summary.driver.id }}&document_type={{ code }}" class="text-primary-600 hover:underline text-xs font-medium">+ {{ _('driver_doc.add') }}</a>
+                    {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if summary.entries %}
+<h4 class="mt-6 mb-2 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">{{ _('driver_doc.history') }}</h4>
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.type') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.period') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.number') }}</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for e in summary.entries %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/driver-documents/{{ e.id }}'">
+                <td class="px-4 py-3 whitespace-nowrap">{{ status_badge(e, history=not e.is_current) }}</td>
+                <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ _('driver_document_type.' + e.document_type) }}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap text-xs">{{ e.start_date or '…' }} — {{ e.end_date or _('compliance_status.no_expiry') }}</td>
+                <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ number(e.document_number) or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="mt-4 px-4 text-sm text-gray-400">{{ _('driver_doc.none_yet') }}</p>
+{% endif %}

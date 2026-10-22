@@ -1,6 +1,6 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div class="flex items-center justify-between">
+    <a href="/vehicles" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex items-center hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition">
+        <div class="flex items-center justify-between w-full">
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('dashboard.total_vehicles') }}</p>
                 <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ data.total }}</p>
@@ -12,10 +12,10 @@
                 </svg>
             </div>
         </div>
-    </div>
+    </a>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div class="flex items-center justify-between">
+    <a href="/vehicles?status=active" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex items-center hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition">
+        <div class="flex items-center justify-between w-full">
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('dashboard.active') }}</p>
                 <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{{ data.active }}</p>
@@ -26,10 +26,10 @@
                 </svg>
             </div>
         </div>
-    </div>
+    </a>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div class="flex items-center justify-between">
+    <a href="/vehicles?status=in_maintenance" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex items-center hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition">
+        <div class="flex items-center justify-between w-full">
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('dashboard.in_maintenance') }}</p>
                 <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{{ data.in_maintenance }}</p>
@@ -41,10 +41,10 @@
                 </svg>
             </div>
         </div>
-    </div>
+    </a>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div class="flex items-center justify-between">
+    <a href="/vehicles?status=decommissioned" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex items-center hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition">
+        <div class="flex items-center justify-between w-full">
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('dashboard.decommissioned') }}</p>
                 <p class="text-3xl font-bold text-red-600 dark:text-red-400 mt-1">{{ data.decommissioned }}</p>
@@ -55,5 +55,5 @@
                 </svg>
             </div>
         </div>
-    </div>
+    </a>
 </div>

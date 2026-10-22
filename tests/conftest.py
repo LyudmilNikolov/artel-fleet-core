@@ -143,3 +143,10 @@ def viewer_token(viewer_user: User) -> str:
 def auth_header(token: str) -> dict:
     """Return Authorization header."""
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def vehicle_departments(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "VEHICLE_DEPARTMENTS", ["Test department"])

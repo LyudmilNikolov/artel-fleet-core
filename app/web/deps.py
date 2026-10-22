@@ -4,10 +4,12 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_303_SEE_OTHER
 
+from app.audit_context import set_audit_user
 from app.database import get_db
 from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.services.driver_scope import UNRESTRICTED, DriverScope, driver_may_open, resolve_scope
 
 
 class WebRedirectException(HTTPException):
@@ -33,7 +35,37 @@ async def get_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> 
         resolve_locale(request)
         return None
     resolve_locale(request, user)
+    set_audit_user(user.id)
+    scope = await resolve_scope(db, user)
+    request.state.driver_scope = scope
+    if scope.restricted and not driver_may_open(request.url.path, request.method, scope):
+        if request.headers.get("HX-Request") == "true":
+            raise HTTPException(status_code=403, detail="errors.forbidden")
+        raise WebRedirectException(scope.home)  # a driver only has their profile and assigned vehicles
     return user
+
+
+def driver_scope_of(request: Request) -> DriverScope:
+    """Visibility of the logged-in user, set by ``get_web_user`` (unrestricted for everyone but drivers)."""
+    return getattr(request.state, "driver_scope", UNRESTRICTED)
+
+
+def can_contribute(request: Request, user: User) -> bool:
+    """Managers add expenses, maintenance and files anywhere; a driver only with an assigned vehicle."""
+    return user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER) or driver_scope_of(request).may_contribute
+
+
+def vehicle_choice_for(request: Request, vehicle_id: str | None) -> str | None:
+    """The vehicle a form starts with. A driver only gets one of their own (their only vehicle if they have one)."""
+    scope = driver_scope_of(request)
+    if not scope.restricted:
+        return vehicle_id
+    try:
+        if vehicle_id and UUID(vehicle_id) in scope.vehicle_ids:
+            return vehicle_id
+    except ValueError:
+        pass
+    return str(scope.vehicle_ids[0]) if len(scope.vehicle_ids) == 1 else None
 
 
 async def require_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:

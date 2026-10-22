@@ -1,9 +1,13 @@
+import datetime as dt
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.audit_context import current_audit_context
 from app.models.audit_log import AuditAction, AuditLog
+from app.services.validity import app_timezone
 
 
 class AuditService:
@@ -21,18 +25,28 @@ class AuditService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> AuditLog:
+        context = current_audit_context()
         entry = AuditLog(
-            user_id=user_id,
+            user_id=user_id or context.get("user_id"),
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
             changes=changes,
-            ip_address=ip_address,
-            user_agent=user_agent,
+            ip_address=ip_address or context.get("ip_address"),
+            user_agent=user_agent or context.get("user_agent"),
         )
         self.session.add(entry)
         await self.session.flush()
         return entry
+
+    async def log_export(self, *, user_id: UUID | None, report: str, file_format: str, filters: dict | None = None):
+        """Record that a report was exported, with the filters it was exported with."""
+        return await self.log(
+            user_id=user_id,
+            action=AuditAction.EXPORT,
+            entity_type="report",
+            changes={"report": report, "format": file_format, **(filters or {})},
+        )
 
     async def list_logs(
         self,
@@ -40,25 +54,36 @@ class AuditService:
         user_id: UUID | None = None,
         action: AuditAction | None = None,
         entity_type: str | None = None,
+        start_date: dt.date | None = None,
+        end_date: dt.date | None = None,
         page: int = 1,
         size: int = 50,
     ) -> tuple[list[AuditLog], int]:
-        query = select(AuditLog)
-        count_query = select(func.count()).select_from(AuditLog)
-
+        """Audit entries, newest first. Dates are inclusive calendar days in the business time zone (timestamps are stored in UTC)."""
+        conditions = []
         if user_id:
-            query = query.where(AuditLog.user_id == user_id)
-            count_query = count_query.where(AuditLog.user_id == user_id)
+            conditions.append(AuditLog.user_id == user_id)
         if action:
-            query = query.where(AuditLog.action == action)
-            count_query = count_query.where(AuditLog.action == action)
+            conditions.append(AuditLog.action == action)
         if entity_type:
-            query = query.where(AuditLog.entity_type == entity_type)
-            count_query = count_query.where(AuditLog.entity_type == entity_type)
+            conditions.append(AuditLog.entity_type == entity_type)
+        if start_date:
+            conditions.append(AuditLog.timestamp >= dt.datetime.combine(start_date, dt.time.min, app_timezone()))
+        if end_date:
+            conditions.append(
+                AuditLog.timestamp < dt.datetime.combine(end_date + dt.timedelta(days=1), dt.time.min, app_timezone())
+            )
 
-        total = (await self.session.execute(count_query)).scalar() or 0
+        total = (
+            await self.session.execute(select(func.count()).select_from(AuditLog).where(*conditions))
+        ).scalar() or 0
         result = await self.session.execute(
-            query.order_by(AuditLog.timestamp.desc()).offset((page - 1) * size).limit(size)
+            select(AuditLog)
+            .options(selectinload(AuditLog.user))
+            .where(*conditions)
+            .order_by(AuditLog.timestamp.desc(), AuditLog.id)
+            .offset((page - 1) * size)
+            .limit(size)
         )
         return list(result.scalars().all()), total
 

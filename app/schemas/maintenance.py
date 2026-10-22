@@ -2,8 +2,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from app.maintenance_rules import ServiceCheck, ServiceItem, normalize_checklist
 from app.models.maintenance import MaintenanceStatus, MaintenanceType
 
 
@@ -12,28 +13,46 @@ class MaintenanceCreate(BaseModel):
     type: MaintenanceType
     title: str = Field(..., max_length=300)
     description: str | None = None
+    service_item: ServiceItem | None = None  # only for scheduled_service
+    service_checklist: list[ServiceCheck] | None = None  # extra work ticked off, depends on the item
     status: MaintenanceStatus = MaintenanceStatus.SCHEDULED
     scheduled_date: date | None = None
-    mileage_at_service: int | None = None
-    next_service_mileage: int | None = None
+    completed_date: date | None = None
+    mileage_at_service: int | None = Field(None, ge=0, le=10000000)
+    next_service_mileage: int | None = Field(None, ge=0, le=10000000)
     next_service_date: date | None = None
     cost: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     service_provider: str | None = None
     performed_by: str | None = None
+    # Confirms that a mileage below the vehicle's current one may overwrite it (adds a correction reading).
+    overwrite_mileage: bool = False
 
 
 class MaintenanceUpdate(BaseModel):
-    title: str | None = None
+    """PATCH: omitted fields are kept. The vehicle cannot change; title, type and status cannot be null."""
+
+    type: MaintenanceType | None = None
+    title: str | None = Field(None, max_length=300)
     description: str | None = None
+    service_item: ServiceItem | None = None  # only for scheduled_service; cleared when the type changes
+    service_checklist: list[ServiceCheck] | None = None
     status: MaintenanceStatus | None = None
     scheduled_date: date | None = None
     completed_date: date | None = None
-    mileage_at_service: int | None = None
-    next_service_mileage: int | None = None
+    mileage_at_service: int | None = Field(None, ge=0, le=10000000)
+    next_service_mileage: int | None = Field(None, ge=0, le=10000000)
     next_service_date: date | None = None
     cost: Decimal | None = Field(None, max_digits=12, decimal_places=2)
     service_provider: str | None = None
     performed_by: str | None = None
+    overwrite_mileage: bool = False
+
+    @model_validator(mode="after")
+    def _required_fields(self):
+        for name in ("type", "title", "status"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError("errors.invalid_input")
+        return self
 
 
 class MaintenanceRead(BaseModel):
@@ -42,6 +61,8 @@ class MaintenanceRead(BaseModel):
     type: MaintenanceType
     title: str
     description: str | None
+    service_item: str | None
+    service_checklist: list[str] | None
     status: MaintenanceStatus
     scheduled_date: date | None
     completed_date: date | None
@@ -56,3 +77,20 @@ class MaintenanceRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ServiceDueRead(BaseModel):
+    """Current planned service of one vehicle and service item with its computed (never stored) due state."""
+
+    record_id: UUID
+    vehicle_id: UUID
+    license_plate: str | None
+    service_item: str
+    completed_date: date | None
+    mileage_at_service: int | None
+    next_service_mileage: int | None
+    next_service_date: date | None
+    current_mileage: int | None
+    status: str  # overdue | due_soon | ok | none
+    km_left: int | None
+    days_left: int | None

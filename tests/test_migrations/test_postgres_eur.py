@@ -90,7 +90,7 @@ def test_fresh_chain_and_language_normalization(migration_db):
         assert "bg" in language_default
         monetary_columns = connection.execute(
             text(
-                "SELECT table_name,column_name,numeric_precision,numeric_scale FROM information_schema.columns WHERE (table_name,column_name) IN (('expenses','amount'),('expenses','fuel_price_per_liter'),('vehicles','purchase_price'),('maintenance_records','cost'),('contracts','amount'))"
+                "SELECT table_name,column_name,numeric_precision,numeric_scale FROM information_schema.columns WHERE (table_name,column_name) IN (('expenses','amount'),('expenses','fuel_price_per_liter'),('vehicles','purchase_price'),('maintenance_records','cost'),('compliance_documents','amount'))"
             )
         ).all()
         assert len(monetary_columns) == 5
@@ -110,7 +110,6 @@ def test_financial_fields_block_without_mutation(migration_db, field):
     assert result.returncode == 0, result.stderr
     with engine.begin() as connection:
         # Minimal rows are copied from database metadata to avoid altering business validation.
-        from app.models.vehicle import BodyType, FuelType, TransmissionType, VehicleStatus
 
         vehicle = dict(
             id=uuid4(),
@@ -119,10 +118,10 @@ def test_financial_fields_block_without_mutation(migration_db, field):
             brand="B",
             model="M",
             year=2026,
-            body_type=next(iter(BodyType)).name,
-            fuel_type=next(iter(FuelType)).name,
-            transmission=next(iter(TransmissionType)).name,
-            status=VehicleStatus.ACTIVE.name,
+            body_type="SEDAN",
+            fuel_type="GASOLINE",
+            transmission="MANUAL",
+            status="ACTIVE",
         )
         connection.execute(
             text(
@@ -153,7 +152,7 @@ def test_financial_fields_block_without_mutation(migration_db, field):
                 ),
                 dict(id=uuid4(), vehicle_id=vehicle["id"]),
             )
-    result = alembic(env, "upgrade", "head")
+    result = alembic(env, "upgrade", "57dd1f893b21")
     assert result.returncode != 0
     assert "Financial review required" in result.stderr
     with engine.connect() as connection:
@@ -167,7 +166,7 @@ def test_financial_fields_block_without_mutation(migration_db, field):
 
 def test_eur_financial_data_refuses_downgrade(migration_db):
     engine, env = migration_db
-    result = alembic(env, "upgrade", "head")
+    result = alembic(env, "upgrade", "57dd1f893b21")
     assert result.returncode == 0, result.stderr
     with engine.begin() as connection:
         connection.execute(

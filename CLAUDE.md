@@ -45,7 +45,7 @@ fleetcore/
 │   │   ├── mileage.py
 │   │   ├── maintenance.py
 │   │   ├── expense.py
-│   │   ├── contract.py
+│   │   ├── compliance.py
 │   │   ├── document.py
 │   │   └── audit_log.py
 │   │
@@ -57,7 +57,7 @@ fleetcore/
 │   │   ├── mileage.py
 │   │   ├── maintenance.py
 │   │   ├── expense.py
-│   │   ├── contract.py
+│   │   ├── compliance.py
 │   │   └── common.py            # Pagination, filters, shared schemas
 │   │
 │   ├── api/                     # REST API endpoints (versioned)
@@ -71,7 +71,7 @@ fleetcore/
 │   │   │   ├── mileage.py
 │   │   │   ├── maintenance.py
 │   │   │   ├── expenses.py
-│   │   │   ├── contracts.py
+│   │   │   ├── compliance.py
 │   │   │   ├── reports.py
 │   │   │   ├── documents.py
 │   │   │   └── users.py
@@ -86,7 +86,7 @@ fleetcore/
 │   │   ├── drivers.py
 │   │   ├── maintenance.py
 │   │   ├── expenses.py
-│   │   ├── contracts.py
+│   │   ├── compliance.py
 │   │   ├── reports.py
 │   │   └── settings.py
 │   │
@@ -97,7 +97,7 @@ fleetcore/
 │   │   ├── mileage_service.py
 │   │   ├── maintenance_service.py
 │   │   ├── expense_service.py
-│   │   ├── contract_service.py
+│   │   ├── compliance_service.py
 │   │   ├── report_service.py
 │   │   ├── notification_service.py
 │   │   ├── document_service.py
@@ -114,7 +114,7 @@ fleetcore/
 │   │   ├── __init__.py
 │   │   ├── celery_app.py
 │   │   ├── notifications.py     # Email + Telegram notifications
-│   │   ├── reminders.py         # Scheduled maintenance/contract reminders
+│   │   ├── reminders.py         # Scheduled maintenance/document deadline checks
 │   │   └── reports.py           # Async report generation
 │   │
 │   ├── i18n/                    # Internationalization
@@ -158,7 +158,7 @@ fleetcore/
 │       ├── drivers/
 │       ├── maintenance/
 │       ├── expenses/
-│       ├── contracts/
+│       ├── compliance/
 │       ├── reports/
 │       └── settings/
 │
@@ -192,7 +192,7 @@ fleetcore/
 | Role | Permissions |
 |------|------------|
 | `admin` | Full access: manage users, system settings, all CRUD operations |
-| `fleet_manager` | Manage vehicles, drivers, maintenance, contracts, expenses, reports |
+| `fleet_manager` | Manage vehicles, drivers, maintenance, documents & deadlines, expenses, reports |
 | `driver` | View assigned vehicles, submit mileage readings, view own maintenance schedule |
 | `viewer` | Read-only access to dashboards and reports |
 
@@ -211,22 +211,22 @@ fleetcore/
 **Vehicle model fields:**
 - `id` (UUID, PK)
 - `license_plate` (гос. номер, unique, string)
-- `vin` (VIN код, unique, string, 17 chars)
+- `vin` (optional, unique, trimmed uppercase string, exactly 17 characters when supplied)
 - `brand` (марка: Toyota, Hyundai, etc.)
 - `model` (модель: Camry, Tucson, etc.)
-- `year` (год выпуска)
+- `year` (optional manufacturing year, 1900–2100)
 - `color` (цвет)
-- `body_type` (enum: sedan, suv, truck, van, bus, minivan, pickup)
-- `fuel_type` (enum: gasoline, diesel, gas, electric, hybrid)
-- `engine_volume` (объём двигателя, float, литры)
-- `transmission` (enum: manual, automatic, cvt, robot)
+- `vehicle_type` (required: tractor_unit, container_semi_trailer, curtain_side_semi_trailer, van, passenger_car, forklift)
+- `fuel_type` (optional and type-specific: gasoline, diesel, gas/LPG, electric, hybrid, lng, cng)
+- `engine_displacement_cc` (optional integer cc; applies to tractor units, vans, passenger cars)
+- `transmission` (optional: manual, automatic; applies to powered road types)
 - `seats` (кол-во мест)
 - `purchase_date` (дата приобретения)
 - `purchase_price` (стоимость приобретения, decimal)
-- `current_mileage` (текущий пробег, auto-calculated from mileage logs)
+- `current_mileage` (nullable, authoritative logged reading; only tractor_unit, van, passenger_car)
 - `status` (enum: active, in_maintenance, decommissioned, reserved)
 - `assigned_driver_id` (FK to Driver, nullable)
-- `department` (отдел/подразделение, string)
+- `department` (required; configured VEHICLE_DEPARTMENTS union existing vehicle departments)
 - `notes` (примечания, text)
 - `photos` (relation to Document, type=photo)
 - Timestamps: `created_at`, `updated_at`
@@ -234,7 +234,7 @@ fleetcore/
 **UI Features:**
 - Table view with sorting, filtering, search (by plate, VIN, brand, status)
 - Card view option (with photo thumbnail)
-- Detail page: vehicle card with tabs (info, mileage history, maintenance, expenses, contracts, documents)
+- Detail page: vehicle card with tabs (info, mileage history, maintenance, expenses, documents & deadlines, documents)
 - HTMX-powered inline editing for quick status changes
 - Photo gallery upload (multiple photos per vehicle)
 - QR code generation for each vehicle (links to vehicle detail page)
@@ -273,6 +273,9 @@ fleetcore/
 - `mileage_at_service` (integer)
 - `next_service_mileage` (integer, nullable — e.g., next oil change at 60,000 km)
 - `next_service_date` (date, nullable)
+- `service_item` (string, nullable, planned services only: engine_oil, gearbox_oil, differential_oil, brake_fluid, coolant; none for
+  trailers; defined in `app/maintenance_rules.py`) and `service_checklist` (filters ticked under engine oil, not items of their own). The latest completed planned service per vehicle and item is current; its next km / date
+  gives a computed overdue / due-soon state (dashboard, vehicle tab, `/maintenance/due`, daily Celery count). See `docs/maintenance-service-items.md`
 - `cost` (decimal)
 - `service_provider` (string — name of service center)
 - `performed_by` (string)
@@ -287,7 +290,7 @@ fleetcore/
 
 **Reminders (Celery tasks):**
 - Notify fleet_manager 14 / 7 / 3 / 1 day before scheduled maintenance
-- Notify when vehicle approaches next_service_mileage (within 500km)
+- Notify when vehicle approaches next_service_mileage (within 10,000 km, `SERVICE_DUE_SOON_KM`)
 - Notify on overdue maintenance (past scheduled_date but still status=scheduled)
 
 ### 5. 💰 Expense Tracking (Расходы)
@@ -306,8 +309,8 @@ fleetcore/
 - `created_by` (FK to User)
 
 **Fuel sub-fields (when category=fuel):**
-- `fuel_liters` (float)
-- `fuel_price_per_liter` (decimal)
+- `fuel_liters` (Decimal, NUMERIC(10,2), > 0)
+- `fuel_price_per_liter` (decimal, derived: amount / liters half-up to cents, never entered; recomputed on create and update)
 - `fuel_type` (enum)
 - `mileage_at_refuel` (integer)
 
@@ -325,57 +328,60 @@ fleetcore/
 - `id` (UUID)
 - `user_id` (FK to User, nullable — if driver has system access)
 - `full_name` (string)
-- `employee_id` (string — табельный номер)
 - `phone` (string)
 - `email` (string, nullable)
-- `license_number` (номер ВУ)
-- `license_category` (string — e.g., "B, C")
-- `license_expiry` (date)
-- `medical_expiry` (date — мед. справка)
 - `hire_date` (дата приёма)
 - `department` (отдел)
 - `status` (enum: active, on_leave, terminated)
 - `assigned_vehicles` (relation to Vehicle)
 - `photo` (FK to Document)
-- `documents` (relation — scans of license, medical cert, etc.)
+- `documents` (relation — generic scans, `entity_type=driver`)
+- Licence, ID card and similar data live in `driver_documents` (below), not on `drivers`
 
 **Features:**
 - Driver ↔ Vehicle assignment (one driver can have multiple vehicles, configurable)
-- License expiry reminders (30 / 14 / 7 days before)
-- Medical certificate expiry reminders
+- Driver document deadlines (computed status, 30-day window); reminders are not implemented yet
 - Driver history: which vehicles they drove and when
 - Violation / fine tracking linked to driver
 
-### 7. 📝 Contracts (Контракты)
+**Driver documents (`driver_documents`, "Лицензи и документи"):** see `docs/driver-documents.md`.
+- Types are defined only in `app/driver_document_rules.py` (`id_card`, `driving_licence`, `tachograph_card`,
+  `psycho_test`, `professional_competence`, `medical_certificate`, `adr_certificate`); stored as strings, extend without a migration
+- Fields: `driver_id` (FK, cascade), `document_type`, `document_number` (required per type), `categories`
+  (driving licence only), optional `start_date`/`end_date` (no end date = no expiry), `notes`, `renewed_from_id`
+- Status (valid / expiring soon / expired / no expiry) is computed from `end_date` with
+  `DRIVER_DOCUMENT_EXPIRING_SOON_DAYS`, never stored; per driver and type the latest end date is current,
+  a renewed entry is never current; only current entries of active drivers warn
+- Shares status/renewal helpers with vehicle Documents & Deadlines (`app/services/validity.py`)
+- Admin and fleet_manager manage; viewers see masked numbers and no scans; a driver sees only their own record
+- Audit entries hold masked numbers only
 
-**Contract model:**
-- `id` (UUID)
-- `vehicle_id` (FK)
-- `type` (enum: leasing, rental, insurance_casco, insurance_osago, warranty, service_contract)
-- `contractor` (string — company name)
-- `contract_number` (string)
-- `start_date` (date)
-- `end_date` (date)
-- `amount` (decimal)
-- `payment_frequency` (enum: one_time, monthly, quarterly, annual)
-- `status` (enum: active, expired, cancelled, pending_renewal)
-- `auto_renew` (boolean)
-- `notes` (text)
-- `documents` (relation — scanned contracts)
-- `created_by` (FK to User)
+### 7. 📅 Documents & Deadlines (Документи и срокове)
 
-**Features:**
-- Contract expiry dashboard widget
-- Auto-status update: set to `expired` when end_date passes
-- Reminders: 30 / 14 / 7 days before expiry
-- Renewal workflow: clone contract with new dates
-- Insurance policy tracking with coverage details
+Replaces the former Contracts module. See `docs/compliance-documents.md`.
+
+**ComplianceDocument model (`compliance_documents`):**
+- `id` (UUID), `vehicle_id` (FK, cascade)
+- `document_type` (string from `ComplianceType` in `app/vehicle_rules.py`: civil_liability, casco, technical_inspection, tachograph)
+- `start_date`, `end_date` (dates, inclusive, end >= start)
+- `amount` (optional EUR Decimal, NUMERIC(12,2), >= 0)
+- `provider`, `policy_number`, `notes` (optional)
+- `renewed_from_id` (FK to the renewed entry, nullable), `created_by` (FK to User)
+- Scans via the documents feature (`entity_type=compliance_document`)
+
+**Rules:**
+- Applicability per vehicle type is defined only in `COMPLIANCE_TYPES` (`app/vehicle_rules.py`) and enforced in `ComplianceService`; forklifts have none, only tractor units have tachograph
+- Status (valid / expiring soon / expired) is computed from `end_date` with `COMPLIANCE_EXPIRING_SOON_DAYS`, never stored
+- Per vehicle and type the entry with the latest `end_date` is current; older entries are history and never warn
+- Renew creates a new entry (same vehicle/type, new dates, may overlap); the old entry stays as history
+- Reminders are not implemented yet
+- A document's amount and its expense are linked (`expense_id`) and synced both ways; document-category expenses (civil_liability, casco, technical_inspection, tachograph) can create the document. Deleting a document never deletes its expense. See `docs/compliance-documents.md`
 
 ### 8. 📊 Reports & Dashboards
 
 **Main Dashboard (role-aware):**
 - Fleet overview: total vehicles by status (active, maintenance, decommissioned)
-- Vehicles requiring attention (upcoming maintenance, expiring contracts, overdue inspections)
+- Vehicles requiring attention (upcoming maintenance, expiring or expired vehicle documents)
 - Monthly expense summary with trend sparklines
 - Mileage statistics (fleet average, top runners)
 - Expiring documents widget (licenses, medical certs, insurance)
@@ -387,11 +393,11 @@ fleetcore/
 - Maintenance history per vehicle / fleet-wide
 - Fuel consumption analysis
 - Driver performance summary
-- Contract and insurance coverage overview
+- Insurance and inspection coverage overview
 - Custom date range filtering on all reports
 
 **Export:**
-- All reports exportable to Excel (.xlsx) using `openpyxl`
+- All reports exportable to Excel (.xlsx) using `openpyxl`; every report has vehicle / vehicle type / date filters shared by page, API and export (see `docs/reports.md`)
 - PDF report export is not implemented; do not advertise it
 - CSV export for raw data
 
@@ -399,7 +405,7 @@ fleetcore/
 
 **Document model:**
 - `id` (UUID)
-- `entity_type` (enum: vehicle, driver, maintenance, contract, expense)
+- `entity_type` (enum: vehicle, driver, maintenance, compliance_document, expense)
 - `entity_id` (UUID — polymorphic FK)
 - `type` (enum: photo, scan, invoice, act, contract, license, medical, insurance, other)
 - `filename` (original filename)
@@ -425,7 +431,7 @@ fleetcore/
 
 **Notification Types:**
 - Maintenance reminders (upcoming / overdue)
-- Contract expiry warnings
+- Vehicle document (insurance, ГТП, tachograph) expiry warnings
 - Driver license / medical cert expiry
 - Abnormal mileage alerts
 - Budget threshold alerts (configurable)
@@ -569,7 +575,7 @@ volumes:
 ### Phase 3 — Business Logic
 11. Maintenance module (CRUD + Kanban + Calendar)
 12. Expense tracking (CRUD + fuel sub-form)
-13. Contract management (CRUD + expiry tracking)
+13. Documents & deadlines (CRUD + renewal + computed expiry status)
 14. Audit logging (middleware + admin view)
 
 ### Phase 4 — Intelligence
@@ -621,3 +627,11 @@ Never relabel or convert existing financial data implicitly. Run the read-only
 (including zero) blocks the guarded migration. See `docs/eur-deployment.md`.
 Tests require explicit disposable PostgreSQL URLs and must never inherit the
 development database. Preserve historical migrations and user-entered content.
+
+### Authoritative vehicle workflow
+
+`app/vehicle_rules.py` defines six independent vehicle types, technical applicability, defaults and bounds. The create/edit form shows both trailer kinds under one Trailer choice with a trailer-kind submenu; this is presentation only, and each kind is still stored as its own type. Technical fields are nullable, Decimal measurements retain exact precision, and incompatible submitted fields are rejected. PATCH omission keeps values, explicit null clears optional fields. Type transitions clear incompatible stored values without applying creation defaults.
+
+Forklifts receive a stable server-generated `PRIVATE-` plus eight hex digits; road types require a real plate. Mileage changes use MileageService under a vehicle row lock, preserve history across type changes, and cannot erase logged readings. Readings never decrease, except a confirmed maintenance correction: a lower mileage entered on a maintenance record (after an explicit overwrite confirmation) adds a reading flagged `is_correction`; it becomes the current mileage and the new baseline, and earlier readings stay as history.
+
+See `docs/vehicle-workflow.md` for API compatibility and guarded deployment. Never run a vehicle migration on retained data without a reviewed mapping strategy.

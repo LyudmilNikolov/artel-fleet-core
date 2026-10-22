@@ -7,7 +7,10 @@ from botocore.client import Config
 from app.config import settings
 
 ALLOWED_MIME_TYPES = {
-    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
@@ -34,9 +37,13 @@ class S3Client:
         # Uses external endpoint (e.g. localhost:9000) so URLs are
         # accessible from outside Docker.
         ext = settings.MINIO_EXTERNAL_ENDPOINT or settings.MINIO_ENDPOINT
+        external_ssl = (
+            settings.MINIO_USE_SSL if settings.MINIO_EXTERNAL_USE_SSL is None else settings.MINIO_EXTERNAL_USE_SSL
+        )
+        external_scheme = "https" if external_ssl else "http"
         self._presign_client = boto3.client(
             "s3",
-            endpoint_url=f"{scheme}://{ext}",
+            endpoint_url=f"{external_scheme}://{ext}",
             aws_access_key_id=settings.MINIO_ACCESS_KEY,
             aws_secret_access_key=settings.MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),

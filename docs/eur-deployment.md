@@ -3,7 +3,7 @@
 The release supports EUR and Bulgarian/English only. Historical migration files
 are intentionally unchanged. The new financial migration locks the affected
 tables and rejects **any expense** or any populated purchase price, maintenance
-cost, contract amount or fuel unit price, including zero. It never converts or
+cost, contract/compliance document amount or fuel unit price, including zero. It never converts or
 relabels money. The language migration preserves English/Bulgarian preferences,
 normalizes removed/unsupported preferences to Bulgarian, and adds a constraint.
 

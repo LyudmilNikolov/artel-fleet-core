@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% if mode == 'renew' %}{% set heading = _('driver_doc.renew_title', type=_('driver_document_type.' + source.document_type), driver=driver.full_name) %}
+{% elif mode == 'edit' %}{% set heading = _('driver_doc.edit') %}
+{% else %}{% set heading = _('driver_doc.add') %}{% endif %}
+{% block title %}{{ heading }} — {{ _('nav.drivers') }}{% endblock %}
+{% block page_title %}{{ heading }}{% endblock %}
+{% macro field_error(name) %}{% if field_errors.get(name) %}<p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
+{% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
+{% block content %}
+<div class="max-w-3xl">
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
+    {% if resubmitting and revision_note %}
+    <div role="status" class="mb-4 fc-notice fc-notice-warning"><span class="font-medium">{{ _('driver_doc.revision_note') }}:</span> {{ revision_note }}</div>
+    {% endif %}
+    {% if needs_approval %}
+    <div class="mb-4 fc-notice fc-notice-warning">{{ _('driver_doc.needs_approval') }}</div>
+    {% endif %}
+    {% if mode == 'renew' %}
+    <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">{{ _('driver_doc.renew_hint') }}</p>
+    {% endif %}
+    <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
+          x-data='{
+              types: {{ types | tojson }},
+              selectedType: {{ selected_type | tojson }} || {{ (types[0].code if types else "") | tojson }},
+              get spec() { return this.types.find(t => t.code === this.selectedType) || { number_required: false, has_categories: false } }
+          }'>
+        <input type="hidden" name="driver_id" value="{{ driver.id }}">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+                <span class="fc-label">{{ _('nav.drivers') }}</span>
+                <p class="text-sm font-medium text-gray-900 dark:text-white"><a href="/drivers/{{ driver.id }}#licences" class="hover:underline">{{ driver.full_name }}</a></p>
+            </div>
+            <div class="md:col-span-2">
+                <label class="fc-label" for="document_type">{{ _('driver_doc.type') }}</label>
+                {% if mode == 'create' %}
+                <select id="document_type" name="document_type" class="fc-select" required x-model="selectedType">
+                    <template x-for="t in types" :key="t.code">
+                        <option :value="t.code" x-text="t.label" :selected="t.code === selectedType"></option>
+                    </template>
+                </select>
+                {% else %}
+                <p class="text-sm text-gray-900 dark:text-white">{{ _('driver_document_type.' + source.document_type) }}</p>
+                {% endif %}
+                {{ field_error('document_type') }}
+            </div>
+            <div>
+                <label class="fc-label" for="document_number">{{ _('driver_doc.number') }}<span x-show="spec.number_required" class="text-red-500"> *</span></label>
+                <input id="document_number" type="text" name="document_number" maxlength="100" :required="spec.number_required" value="{{ value('document_number') }}" class="fc-input">
+                {{ field_error('document_number') }}
+            </div>
+            <div x-show="spec.has_categories">
+                <span class="fc-label">{{ _('driver_doc.categories') }}</span>
+                <div class="flex flex-wrap gap-4 pt-2">
+                    {% for c in category_options %}
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
+                        <input type="checkbox" name="categories" value="{{ c }}" :disabled="!spec.has_categories" {% if c in selected_categories %}checked{% endif %} class="rounded border-gray-300 dark:border-gray-600">
+                        {{ c }}
+                    </label>
+                    {% endfor %}
+                </div>
+                {{ field_error('categories') }}
+            </div>
+            <div>
+                <label class="fc-label" for="start_date">{{ _('driver_doc.start_date') }}</label>
+                <input id="start_date" type="date" name="start_date" value="{{ value('start_date') }}" class="fc-input-date">
+                {{ field_error('start_date') }}
+            </div>
+            <div>
+                <label class="fc-label" for="end_date">{{ _('driver_doc.end_date') }}</label>
+                <input id="end_date" type="date" name="end_date" value="{{ value('end_date') }}" class="fc-input-date">
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('driver_doc.end_date_hint') }}</p>
+                {{ field_error('end_date') }}
+            </div>
+        </div>
+        <div>
+            <label class="fc-label" for="notes">{{ _('common.notes') }}</label>
+            <textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ value('notes') }}</textarea>
+        </div>
+        {% if mode != 'edit' %}
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ _('driver_doc.attachment_after_save') }}</p>
+        {% endif %}
+        <div class="flex items-center gap-3">
+            <button type="submit" class="fc-btn-primary">{{ _('driver_doc.submit_for_approval') if needs_approval else _('btn.save') }}</button>
+            <a href="{{ '/driver-documents/' ~ source.id if source else '/drivers/' ~ driver.id ~ '#licences' }}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

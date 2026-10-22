@@ -1,0 +1,13 @@
+# Keep secrets, backups and VCS data out of the image build context
+.git
+.env
+.env.*
+!.env.production.example
+backups/
+.deploy-state/
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.pytest_cache/
+.ruff_cache/

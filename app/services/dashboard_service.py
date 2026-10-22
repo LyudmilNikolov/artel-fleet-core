@@ -1,16 +1,19 @@
 """Dashboard service providing fleet overview and widget data."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.contract import Contract, ContractStatus
-from app.models.driver import Driver, DriverStatus
+from app.config import settings
+from app.models.driver import Driver
 from app.models.expense import Expense
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus
 from app.models.vehicle import Vehicle
+from app.services.attention_service import AttentionService
+from app.services.service_due_service import ServiceDueService
+from app.services.validity import local_today
 
 
 class DashboardService:
@@ -31,10 +34,9 @@ class DashboardService:
         }
 
     async def attention_needed(self) -> dict:
-        """Get items needing attention: overdue maintenance, expiring contracts, docs."""
-        today = date.today()
-        deadline_30 = today + timedelta(days=30)
-        deadline_14 = today + timedelta(days=14)
+        """Get items needing attention: overdue maintenance, compliance deadlines, driver docs."""
+        today = local_today()
+        upcoming_until = today + timedelta(days=settings.MAINTENANCE_UPCOMING_DAYS)
 
         # Overdue maintenance
         overdue_maint = await self.db.execute(
@@ -50,53 +52,42 @@ class DashboardService:
             select(func.count(MaintenanceRecord.id)).where(
                 MaintenanceRecord.status == MaintenanceStatus.SCHEDULED,
                 MaintenanceRecord.scheduled_date >= today,
-                MaintenanceRecord.scheduled_date <= deadline_14,
+                MaintenanceRecord.scheduled_date <= upcoming_until,
             )
         )
         upcoming_maintenance = upcoming_maint.scalar() or 0
 
-        # Expiring contracts (next 30 days)
-        exp_contracts = await self.db.execute(
-            select(func.count(Contract.id)).where(
-                Contract.status == ContractStatus.ACTIVE,
-                Contract.end_date >= today,
-                Contract.end_date <= deadline_30,
-            )
-        )
-        expiring_contracts = exp_contracts.scalar() or 0
+        # Planned service items (engine oil, ...) overdue or due soon by km or date
+        service = await ServiceDueService(self.db).attention_counts()
 
-        # Expiring driver licenses (next 30 days)
-        exp_licenses = await self.db.execute(
-            select(func.count(Driver.id)).where(
-                Driver.status == DriverStatus.ACTIVE,
-                Driver.license_expiry >= today,
-                Driver.license_expiry <= deadline_30,
-            )
-        )
-        expiring_licenses = exp_licenses.scalar() or 0
-
-        # Expiring medical certs (next 30 days)
-        exp_medical = await self.db.execute(
-            select(func.count(Driver.id)).where(
-                Driver.status == DriverStatus.ACTIVE,
-                Driver.medical_expiry >= today,
-                Driver.medical_expiry <= deadline_30,
-            )
-        )
-        expiring_medical = exp_medical.scalar() or 0
+        # Vehicle and driver documents (expired / expiring soon) come from the same list as the bell and inbox
+        documents = await AttentionService(self.db, today=today).counts()
+        expiring_compliance = documents["vehicle"]["expiring_soon"]
+        expired_compliance = documents["vehicle"]["expired"]
+        expiring_driver_documents = documents["driver"]["expiring_soon"]
+        expired_driver_documents = documents["driver"]["expired"]
 
         return {
             "overdue_maintenance": overdue_maintenance,
             "upcoming_maintenance": upcoming_maintenance,
-            "expiring_contracts": expiring_contracts,
-            "expiring_licenses": expiring_licenses,
-            "expiring_medical": expiring_medical,
-            "total_alerts": overdue_maintenance + expiring_contracts + expiring_licenses + expiring_medical,
+            "overdue_service": service["overdue"],
+            "due_soon_service": service["due_soon"],
+            "expiring_compliance": expiring_compliance,
+            "expired_compliance": expired_compliance,
+            "expiring_driver_documents": expiring_driver_documents,
+            "expired_driver_documents": expired_driver_documents,
+            "total_alerts": overdue_maintenance
+            + service["overdue"]
+            + service["due_soon"]
+            + expiring_compliance
+            + expired_compliance
+            + expiring_driver_documents
+            + expired_driver_documents,
         }
 
     async def expense_summary(self, months: int = 6) -> dict:
         """Get expense summary by month and category for last N months."""
-        today = date.today()
+        today = local_today()
         start_date = today.replace(day=1) - timedelta(days=months * 30)
 
         # Monthly totals

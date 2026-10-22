@@ -34,6 +34,10 @@ RUN pip install --no-cache-dir -e .
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+# Release version shown by /api/v1/health (docker build --build-arg APP_VERSION=v1.2.0 .)
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+
 EXPOSE 8000
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

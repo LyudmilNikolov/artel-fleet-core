@@ -38,7 +38,7 @@ superuser:
 	python -m scripts.create_superuser
 
 css:
-	./tailwindcss -i static/css/input.css -o static/css/app.css --minify
+	npx --yes tailwindcss@3.4.17 -i static/css/input.css -o static/css/app.css --minify
 
 css-watch:
-	./tailwindcss -i static/css/input.css -o static/css/app.css --watch
+	npx --yes tailwindcss@3.4.17 -i static/css/input.css -o static/css/app.css --watch

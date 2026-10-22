@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% from 'components/attention.html' import days_text, status_badge with context %}
+{% block title %}{{ _('notifications.item_title') }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('nav.notifications') }}{% endblock %}
+{% block content %}
+{% macro step(kind, target, url) %}
+{% if target %}
+<a data-nav="{{ kind }}" href="{{ url }}" class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+    {% if kind == 'previous' %}&laquo; {{ _('notifications.previous') }}{% else %}{{ _('notifications.next') }} &raquo;{% endif %}
+</a>
+{% else %}
+<span data-nav="{{ kind }}" aria-disabled="true" class="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-400">
+    {% if kind == 'previous' %}&laquo; {{ _('notifications.previous') }}{% else %}{{ _('notifications.next') }} &raquo;{% endif %}
+</span>
+{% endif %}
+{% endmacro %}
+<div class="max-w-3xl">
+    <div class="mb-4 flex items-center justify-between gap-3">
+        <a href="/notifications{{ '?' ~ carried if carried }}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">&laquo; {{ _('notifications.back_to_list') }}</a>
+        <div class="flex items-center gap-2">
+            {% if position %}<span class="text-sm text-gray-500">{{ _('notifications.position', position=position, total=total) }}</span>{% endif %}
+            {{ step('previous', previous, previous_url) }}
+            {{ step('next', following, following_url) }}
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">{{ _('notifications.item_title') }}</p>
+        <h2 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ _('notification_source.' ~ item.source) }}</h2>
+        <p class="text-sm text-gray-500">{{ _('notifications.owner_' ~ item.owner) }}</p>
+
+        <dl class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div><dt class="text-gray-500">{{ _('notifications.col_subject') }}</dt><dd class="font-medium">{{ item.subject }}</dd></div>
+            <div><dt class="text-gray-500">{{ _('notifications.col_end_date') }}</dt><dd class="font-medium">{{ local_date(item.end_date) }}</dd></div>
+            <div><dt class="text-gray-500">{{ _('notifications.status') }}</dt><dd>{{ status_badge(item) }}</dd></div>
+            <div><dt class="text-gray-500">{{ _('notifications.col_days') }}</dt><dd class="font-medium">{{ days_text(item.days_left) }}</dd></div>
+        </dl>
+
+        {% if done %}<div role="status" class="mt-4 fc-notice fc-notice-success">{{ _('notifications.stopped_done') if done == 'stopped' else _('notifications.resumed_done') }}</div>{% endif %}
+        {% if item.stopped %}
+        <div data-stopped class="mt-4 fc-notice fc-notice-warning">
+            <strong>{{ _('notifications.stopped_badge') }}</strong>
+            {% if stop_info %}<span class="block text-xs mt-1">{{ _('notifications.stopped_by', name=stop_info.stopped_by_name or '—', date=local_dt(stop_info.stopped_at)) }}</span>{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="mt-6 flex flex-wrap gap-3">
+            <a href="{{ item.document_url }}" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">{{ _('notifications.open_document') }}</a>
+            <a href="{{ item.subject_url }}" class="h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                {{ _('notifications.open_' ~ item.owner) }}
+            </a>
+            {% if can_stop %}
+            <form method="POST" action="{{ item.url }}/{{ 'resume' if item.stopped else 'stop' }}{{ '?' ~ carried if carried }}">
+                <button type="submit" class="h-10 px-4 inline-flex items-center text-sm rounded-lg font-medium {{ 'fc-btn-secondary' if item.stopped else 'fc-btn-danger' }}">
+                    {{ _('notifications.resume') if item.stopped else _('notifications.stop') }}
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% if can_stop %}<p class="mt-2 text-xs text-gray-500">{{ _('notifications.stop_hint') }}</p>{% endif %}
+    </div>
+
+    {% if can_stop and rule %}
+    <div class="mt-6 fc-card p-6">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ _('notifications.schedule_title') }}</h3>
+        <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div><dt class="text-gray-500">{{ _('notifications.rule_summary') }}</dt>
+                <dd>{{ rule_preview }}
+                    <span class="block text-xs text-gray-500">
+                        {% for ch in ['email', 'telegram'] if (rule.email_enabled if ch == 'email' else rule.telegram_enabled) %}{{ _('notifications.channel_' ~ ch) }}{{ ', ' if not loop.last }}{% endfor %}
+                    </span>
+                    {% if can_edit_rules %}<a href="/settings/notifications/rules#rule-{{ item.source|replace(':', '-') }}" class="text-xs text-primary-600 hover:underline">{{ _('notifications.edit_rule') }}</a>{% endif %}
+                </dd></div>
+            <div><dt class="text-gray-500">{{ _('notifications.next_reminder') }}</dt>
+                <dd class="font-medium" data-next="{{ next_reminder.kind }}">
+                    {% if next_reminder.kind == 'today' %}{{ _('notifications.next_today') }}
+                    {% elif next_reminder.kind == 'date' %}{{ local_date(next_reminder.day) }}
+                    {% elif next_reminder.kind == 'stopped' %}{{ _('notifications.next_stopped') }}
+                    {% elif next_reminder.kind == 'off' %}{{ _('notifications.next_off') }}
+                    {% else %}{{ _('notifications.next_none') }}{% endif %}
+                </dd></div>
+            <div class="sm:col-span-2"><dt class="text-gray-500">{{ _('notifications.rule_recipients') }}</dt>
+                <dd>{% if rule.recipients %}{{ rule.recipients | map(attribute='label') | join(', ') }}{% else %}{{ _('notifications.no_recipients') }}{% endif %}</dd></div>
+        </dl>
+    </div>
+
+    <div class="mt-6 fc-card p-6">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ _('notifications.history') }}</h3>
+        {% if history %}
+        <div class="mt-3 overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500">
+                    <th class="py-2 pr-4 font-medium">{{ _('notifications.history_when') }}</th>
+                    <th class="py-2 pr-4 font-medium">{{ _('notifications.history_channel') }}</th>
+                    <th class="py-2 pr-4 font-medium">{{ _('notifications.history_to') }}</th>
+                    <th class="py-2 pr-4 font-medium">{{ _('notifications.history_point') }}</th>
+                    <th class="py-2 font-medium">{{ _('notifications.history_status') }}</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for h in history %}
+                    <tr data-delivery>
+                        <td class="py-2 pr-4 whitespace-nowrap">{{ local_dt(h.when) }}</td>
+                        <td class="py-2 pr-4">{{ _('notifications.channel_' ~ h.channel) }}</td>
+                        <td class="py-2 pr-4">{{ h.recipient }}</td>
+                        <td class="py-2 pr-4">{{ days_text(h.point) }}</td>
+                        <td class="py-2"><span class="fc-badge {{ {'sent': 'fc-badge-success', 'failed': 'fc-badge-danger'}.get(h.status, 'fc-badge-neutral') }}">{{ _('notifications.delivery_' ~ h.status) }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="mt-2 text-sm text-gray-500">{{ _('notifications.history_empty') }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

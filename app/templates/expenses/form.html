@@ -1,60 +1,94 @@
 {% extends "base.html" %}
-{% block title %}{{ _('btn.create') }} — {{ _('nav.expenses') }}{% endblock %}
-{% block page_title %}{{ _('btn.create') }}{% endblock %}
+{% set heading = _('expense.edit') if expense else _('expense.add') %}
+{% block title %}{{ heading }} — {{ _('nav.expenses') }}{% endblock %}
+{% block page_title %}{{ heading }}{% endblock %}
+{% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
+{% set linked = expense and expense.compliance_document %}
 {% block content %}
-<div class="max-w-3xl" x-data="{ category: 'other' }">
-    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
-    <form method="POST" class="fc-card p-6 space-y-6">
+<div class="max-w-3xl">
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
+    <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
+          x-data='vehiclePicker({{ picker | tojson }}, { category: {{ (form_data.get("category") or "other") | tojson }}, documentCategories: {{ document_values | tojson }}, enforce: {{ 'false' if expense else 'true' }}, initialCategory: {{ (expense.category.value if expense else '') | tojson }}, amount: {{ (form_data.get('amount') | string if form_data.get('amount') is not none else '') | tojson }}, liters: {{ (form_data.get('fuel_liters') | string if form_data.get('fuel_liters') is not none else '') | tojson }} })'
+          x-effect="if (enforce && documentCategories.includes(category) && !docTypes.includes(category)) category = 'other'; if (blocked.includes(category) && category !== initialCategory) category = 'other'">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+                {% with options_url='/expenses/vehicle-options', locked=expense %}{% include 'components/vehicle_picker.html' %}{% endwith %}
+            </div>
             <div>
-                <label class="fc-label">{{ _('expense.vehicle') }}</label>
-                <select name="vehicle_id" required class="fc-select">
-                    <option value="">{{ _('expense.vehicle') }}</option>
-                    {% for vehicle in vehicles %}
-                    <option value="{{ vehicle.id }}">{{ vehicle.license_plate }} — {{ vehicle.brand }} {{ vehicle.model }}</option>
-                    {% endfor %}
+                <label class="fc-label" for="category">{{ _('common.category') }}</label>
+                <select id="category" name="category" x-model="category" class="fc-select" {% if linked %}disabled{% endif %}>
+                    {% for c in general_categories %}<option value="{{ c.value }}" :disabled="blocked.includes('{{ c.value }}') && initialCategory !== '{{ c.value }}'">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
+                    {% if legacy_category %}<option value="{{ legacy_category.value }}">{{ _('expense_category.' + legacy_category.value) }}</option>{% endif %}
+                    <optgroup label="{{ _('expense.category_group_documents') }}">
+                        {% for c in document_categories %}<option value="{{ c.value }}" :disabled="enforce && !docTypes.includes('{{ c.value }}')">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
+                    </optgroup>
                 </select>
+                {% if linked %}<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('expense.category_locked') }}</p>{% endif %}
             </div>
             <div>
-                <label class="fc-label">{{ _('common.category') }}</label>
-                <select name="category" x-model="category" class="fc-select">
-                    {% for c in categories %}<option value="{{ c.value }}">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
-                </select>
+                <label class="fc-label" for="amount">{{ _('common.amount') }} (EUR)</label>
+                <input id="amount" type="text" inputmode="decimal" name="amount" required x-model="amount" value="{{ value('amount') }}" class="fc-input"
+                       pattern="[0-9]+([.,][0-9]{1,2})?" data-msg-required="{{ _('validation.amount_required') }}" data-msg-format="{{ _('validation.money_format') }}"
+                       oninvalid="fcInvalid(this)" oninput="this.setCustomValidity('')">
             </div>
             <div>
-                <label class="fc-label">{{ _('common.amount') }}</label>
-                <input type="number" name="amount" step="0.01" required class="fc-input">
+                <label class="fc-label" for="date">{{ _('common.date') }}</label>
+                <input id="date" type="date" name="date" required value="{{ value('date') }}" class="fc-input-date">
             </div>
             <div>
-                <label class="fc-label">{{ _('expense.currency') }}</label>
-                <input name="currency" value="EUR" readonly class="fc-input">
+                <label class="fc-label" for="vendor">{{ _('common.vendor') }}</label>
+                <input id="vendor" type="text" name="vendor" maxlength="300" value="{{ value('vendor') }}" class="fc-input">
+            </div>
+            {% with field_name='mileage_at_refuel', field_label=_('expense.mileage') %}{% include 'components/mileage_field.html' %}{% endwith %}
+        </div>
+        <div x-show="category === 'fuel'" {% if form_data.get('category') != 'fuel' %}style="display: none"{% endif %} x-transition class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div>
+                <label class="fc-label" for="fuel_liters">{{ _('expense.fuel_liters') }}</label>
+                <input id="fuel_liters" type="text" inputmode="decimal" name="fuel_liters" x-model="liters" value="{{ value('fuel_liters') }}" class="fc-input"
+                       :disabled="category !== 'fuel'" :required="category === 'fuel'"
+                       pattern="[0-9]+([.,][0-9]{1,2})?" data-msg-required="{{ _('validation.liters_required') }}" data-msg-format="{{ _('validation.liters_format') }}"
+                       oninvalid="fcInvalid(this)" oninput="this.setCustomValidity('')">
             </div>
             <div>
-                <label class="fc-label">{{ _('common.date') }}</label>
-                <input type="date" name="date" required class="fc-input-date">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('common.vendor') }}</label>
-                <input type="text" name="vendor" class="fc-input">
+                <label class="fc-label" for="fuel_price_per_liter">{{ _('expense.fuel_price_per_liter') }} (EUR)</label>
+                {# Calculated from amount / liters; the server recomputes it, so this field is display-only. #}
+                <input id="fuel_price_per_liter" type="text" readonly tabindex="-1" class="fc-input" placeholder="—"
+                       value="{{ value('fuel_price_per_liter') }}" :value="fuelPricePerLiter(amount, liters)">
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('expense.fuel_price_auto') }}</p>
             </div>
         </div>
-        <div x-show="category === 'fuel'" x-transition class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <div>
-                <label class="fc-label">{{ _('expense.fuel_liters') }}</label>
-                <input type="number" name="fuel_liters" step="0.01" class="fc-input">
-            </div>
-            <div>
-                <label class="fc-label">{{ _('expense.fuel_price_per_liter') }}</label>
-                <input type="number" name="fuel_price_per_liter" step="0.01" class="fc-input">
+        {% if linked %}
+        <div class="p-4 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-sm text-gray-700 dark:text-gray-300">
+            <p>{{ _('expense.linked_document_hint') }}</p>
+            <a href="/compliance/{{ expense.compliance_document.id }}" class="mt-1 inline-block text-primary-600 hover:underline">{{ _('compliance_type.' + expense.compliance_document.document_type) }}: {{ expense.compliance_document.start_date }} — {{ expense.compliance_document.end_date }}</a>
+        </div>
+        {% elif not expense %}
+        <div x-show="documentCategories.includes(category)" {% if form_data.get('category') not in document_values %}style="display: none"{% endif %} x-transition class="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">{{ _('expense.document_hint') }}</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="fc-label" for="valid_from">{{ _('compliance.start_date') }}</label>
+                    <input id="valid_from" type="date" name="valid_from" value="{{ value('valid_from') }}" class="fc-input-date">
+                </div>
+                <div>
+                    <label class="fc-label" for="valid_until">{{ _('compliance.end_date') }}</label>
+                    <input id="valid_until" type="date" name="valid_until" value="{{ value('valid_until') }}" class="fc-input-date">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="fc-label" for="policy_number">{{ _('compliance.policy_number') }}</label>
+                    <input id="policy_number" type="text" name="policy_number" maxlength="100" value="{{ value('policy_number') }}" class="fc-input">
+                </div>
             </div>
         </div>
+        {% endif %}
         <div>
-            <label class="fc-label">{{ _('common.description') }}</label>
-            <textarea name="description" rows="2" class="fc-textarea"></textarea>
+            <label class="fc-label" for="description">{{ _('common.description') }}</label>
+            <textarea id="description" name="description" rows="2" class="fc-textarea">{{ value('description') }}</textarea>
         </div>
+        {% include 'components/mileage_warning.html' %}
         <div class="flex items-center gap-3">
             <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
-            <a href="/expenses" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
+            <a href="{{ '/expenses/' ~ expense.id if expense else '/expenses' }}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
         </div>
     </form>
 </div>

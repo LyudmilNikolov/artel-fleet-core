@@ -2,9 +2,12 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit_context import set_audit_user
 from app.database import get_db
 from app.i18n.locales import SUPPORTED_LANGUAGES, normalize_language, resolve_locale
+from app.models.audit_log import AuditAction
 from app.repositories.user_repo import UserRepository
+from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.errors import render_error
 from app.web.deps import get_web_user
@@ -41,6 +44,14 @@ async def login_submit(
             language = normalize_language(user.language)
         request.session["lang"] = language
         resolve_locale(request, user)
+        set_audit_user(user.id)
+        await AuditService(db).log(
+            user_id=user.id,
+            action=AuditAction.LOGIN,
+            entity_type="session",
+            entity_id=user.id,
+            changes={"channel": "web"},
+        )
         return RedirectResponse(url="/", status_code=302)
     except ValueError:
         return request.app.state.templates.TemplateResponse(
@@ -56,7 +67,16 @@ async def login_submit(
 
 
 @router.get("/logout")
-async def logout(request: Request):
+async def logout(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if user:
+        await AuditService(db).log(
+            user_id=user.id,
+            action=AuditAction.LOGOUT,
+            entity_type="session",
+            entity_id=user.id,
+            changes={"channel": "web"},
+        )
     language = request.session.get("lang")
     request.session.clear()
     if language in SUPPORTED_LANGUAGES:

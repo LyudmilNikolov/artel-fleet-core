@@ -4,17 +4,18 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.audit_context import AuditContextMiddleware
 from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
 from app.services.errors import render_error
-from app.utils.formatting import money
+from app.utils.formatting import format_local_date, format_local_datetime, money
 from app.web.deps import WebRedirectException
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -29,7 +30,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     application = FastAPI(
         title=settings.APP_NAME,
-        version="0.1.0",
+        version=settings.APP_VERSION,
         docs_url="/docs" if settings.APP_DEBUG else None,
         redoc_url="/redoc" if settings.APP_DEBUG else None,
         lifespan=lifespan,
@@ -42,6 +43,8 @@ def create_app() -> FastAPI:
         session_cookie="fleetcore_session",
         max_age=86400 * 7,
     )
+
+    application.add_middleware(AuditContextMiddleware)
 
     # Templates
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -59,8 +62,11 @@ def create_app() -> FastAPI:
         lang = get_lang(request)
         return {
             "lang": lang,
+            "driver_scope": getattr(request.state, "driver_scope", None),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
+            "local_date": lambda value: format_local_date(value, lang),
+            "local_dt": lambda value, seconds=False: format_local_datetime(value, lang, seconds),
             "languages": get_available_languages(),
             "_": lambda key, **kw: _(key, lang=lang, **kw),
         }
@@ -97,6 +103,11 @@ def create_app() -> FastAPI:
             get_lang(request),
         )
         return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=exc.headers)
+
+    @application.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        """Browsers ask for /favicon.ico by default; serve the truck icon."""
+        return FileResponse("static/img/favicon-32.png", media_type="image/png")
 
     # Static files
     application.mount("/static", StaticFiles(directory="static"), name="static")

@@ -1,0 +1,75 @@
+{# Documents & Deadlines tab: current entry per applicable type, then full history. #}
+{% from 'components/compliance_status.html' import status_badge, missing_badge with context %}
+{% if not summary.slots %}
+<div class="text-center py-8 text-gray-400">
+    <p class="text-sm">{{ _('compliance.not_applicable_vehicle') }}</p>
+</div>
+{% else %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.type') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.end_date') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.provider') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for code, current in summary.slots %}
+            <tr>
+                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                    {% if current %}<a href="/compliance/{{ current.id }}" class="hover:underline">{{ _('compliance_type.' + code) }}</a>{% else %}{{ _('compliance_type.' + code) }}{% endif %}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">{% if current %}{{ status_badge(current) }}{% else %}{{ missing_badge() }}{% endif %}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ current.end_date if current else '—' }}</td>
+                <td class="px-4 py-3">{{ (current.provider if current else none) or '—' }}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                    {% if can_edit %}
+                    {% if current %}
+                    <a href="/compliance/{{ current.id }}/renew" class="text-primary-600 hover:underline text-xs font-medium">{{ _('compliance.renew') }}</a>
+                    {% else %}
+                    <a href="/compliance/new?vehicle_id={{ summary.vehicle.id }}&document_type={{ code }}" class="text-primary-600 hover:underline text-xs font-medium">+ {{ _('compliance.add') }}</a>
+                    {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if summary.entries %}
+<h4 class="mt-6 mb-2 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">{{ _('compliance.history') }}</h4>
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.type') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.period') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.policy_number') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('compliance.amount') }}</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for e in summary.entries %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/compliance/{{ e.id }}'">
+                <td class="px-4 py-3 whitespace-nowrap">{{ status_badge(e, history=not e.is_current) }}</td>
+                <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    {{ _('compliance_type.' + e.document_type) }}
+                    {% if not e.applicable %}<span class="block text-xs text-gray-400">{{ _('compliance.not_applicable_type') }}</span>{% endif %}
+                </td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap text-xs">{{ e.start_date }} — {{ e.end_date }}</td>
+                <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ e.policy_number or '—' }}</td>
+                <td class="px-4 py-3 text-right font-mono whitespace-nowrap">{{ money(e.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif summary.slots %}
+<p class="mt-4 px-4 text-sm text-gray-400">{{ _('vtab.no_compliance') }}</p>
+{% endif %}

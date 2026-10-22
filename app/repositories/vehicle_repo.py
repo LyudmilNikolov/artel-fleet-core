@@ -1,10 +1,32 @@
-from typing import Any
+import re
+from collections.abc import Sequence
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.repositories.base import BaseRepository
+
+
+def vehicle_search_condition(q: str | None):
+    """SQL condition matching plate, VIN, brand or model; None for a blank search.
+
+    Plates are typed with or without spaces/dashes ("CA1234AB" finds "CA 1234 AB"). Shared by every list
+    that filters by vehicle (vehicles, expenses, maintenance).
+    """
+    if not q or not q.strip():
+        return None
+    q = q.strip()
+    pattern = f"%{q}%"
+    compact = re.sub(r"[\s-]", "", q)
+    plate = func.replace(func.replace(Vehicle.license_plate, " ", ""), "-", "")
+    return or_(
+        Vehicle.license_plate.ilike(pattern),
+        plate.ilike(f"%{compact}%") if compact else false(),
+        Vehicle.vin.ilike(pattern),
+        Vehicle.brand.ilike(pattern),
+        Vehicle.model.ilike(pattern),
+    )
 
 
 class VehicleRepository(BaseRepository[Vehicle]):
@@ -18,8 +40,9 @@ class VehicleRepository(BaseRepository[Vehicle]):
         status: VehicleStatus | None = None,
         brand: str | None = None,
         fuel_type: str | None = None,
-        body_type: str | None = None,
+        vehicle_type: str | Sequence[str] | None = None,
         department: str | None = None,
+        ids: Sequence | None = None,
         offset: int = 0,
         limit: int = 50,
         order_by: str = "-created_at",
@@ -27,22 +50,27 @@ class VehicleRepository(BaseRepository[Vehicle]):
         query = select(Vehicle)
         count_query = select(func.count()).select_from(Vehicle)
 
-        if q:
-            pattern = f"%{q}%"
-            filt = or_(
-                Vehicle.license_plate.ilike(pattern),
-                Vehicle.vin.ilike(pattern),
-                Vehicle.brand.ilike(pattern),
-                Vehicle.model.ilike(pattern),
-            )
-            query = query.where(filt)
-            count_query = count_query.where(filt)
+        search = vehicle_search_condition(q)
+        if search is not None:
+            query = query.where(search)
+            count_query = count_query.where(search)
 
-        for attr, val in [("status", status), ("brand", brand), ("fuel_type", fuel_type), ("body_type", body_type), ("department", department)]:
+        if ids is not None:  # restrict to these vehicles (a driver's assigned ones); empty means none
+            query = query.where(Vehicle.id.in_(list(ids)))
+            count_query = count_query.where(Vehicle.id.in_(list(ids)))
+
+        for attr, val in [
+            ("status", status),
+            ("brand", brand),
+            ("fuel_type", fuel_type),
+            ("vehicle_type", vehicle_type),
+            ("department", department),
+        ]:
             if val is not None:
                 col = getattr(Vehicle, attr)
-                query = query.where(col == val)
-                count_query = count_query.where(col == val)
+                condition = col.in_(list(val)) if isinstance(val, (list, tuple, set, frozenset)) else col == val
+                query = query.where(condition)
+                count_query = count_query.where(condition)
 
         total = (await self.session.execute(count_query)).scalar() or 0
 
@@ -65,7 +93,5 @@ class VehicleRepository(BaseRepository[Vehicle]):
         return result.scalar_one_or_none()
 
     async def count_by_status(self) -> dict[str, int]:
-        result = await self.session.execute(
-            select(Vehicle.status, func.count()).group_by(Vehicle.status)
-        )
+        result = await self.session.execute(select(Vehicle.status, func.count()).group_by(Vehicle.status))
         return {row[0].value: row[1] for row in result.all()}

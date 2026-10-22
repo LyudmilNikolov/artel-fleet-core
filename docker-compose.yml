@@ -30,6 +30,14 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      # Notification channels: set these in the root .env file (never commit real values)
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@fleetcore.local}
     volumes:
       - ./scripts:/scripts:ro
     entrypoint: ["/bin/sh", "/scripts/vault-init.sh"]
@@ -88,6 +96,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      VEHICLE_DEPARTMENTS: '${VEHICLE_DEPARTMENTS:-[]}'
       APP_ENV: development
       APP_DEBUG: "true"
       MINIO_EXTERNAL_ENDPOINT: localhost:9002
@@ -117,6 +126,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      VEHICLE_DEPARTMENTS: '${VEHICLE_DEPARTMENTS:-[]}'
     volumes:
       - ./app:/app/app
 
@@ -133,6 +143,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-token  # DEV ONLY
+      VEHICLE_DEPARTMENTS: '${VEHICLE_DEPARTMENTS:-[]}'
     volumes:
       - ./app:/app/app
 

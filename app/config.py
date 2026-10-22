@@ -18,9 +18,32 @@ inject_vault_secrets_to_env()
 class Settings(BaseSettings):
     # App (non-sensitive, safe defaults)
     APP_NAME: str = "FleetCore"
+    # Release version: set at image build time (--build-arg APP_VERSION=v1.2.0), "dev" otherwise
+    APP_VERSION: str = "dev"
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
     DEFAULT_LANGUAGE: str = "bg"
+
+    # Public address of the web UI, used for links in emails and Telegram messages
+    APP_BASE_URL: str = "http://localhost:8000"
+
+    # Business time zone: "today", days left and displayed times (storage stays UTC)
+    APP_TIMEZONE: str = "Europe/Sofia"
+
+    VEHICLE_DEPARTMENTS: list[str] = []
+
+    # Compliance documents: days before end_date when a current entry counts as "expiring soon"
+    COMPLIANCE_EXPIRING_SOON_DAYS: int = 30
+
+    # Scheduled maintenance counts as "upcoming" when its scheduled date is within this many days
+    MAINTENANCE_UPCOMING_DAYS: int = 14
+
+    # Planned service items: a due km / date counts as "due soon" within these windows
+    SERVICE_DUE_SOON_KM: int = 10000
+    SERVICE_DUE_SOON_DAYS: int = 30
+
+    # Driver documents: days before end_date when a current entry counts as "expiring soon"
+    DRIVER_DOCUMENT_EXPIRING_SOON_DAYS: int = 30
 
     # Database (no defaults — must come from Vault or env)
     DATABASE_URL: str = ""
@@ -42,6 +65,9 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = ""
     MINIO_BUCKET: str = "fleetcore"
     MINIO_USE_SSL: bool = False
+    # https for the browser-facing download links when the public address uses TLS (inside Docker MinIO stays http);
+    # unset = same as MINIO_USE_SSL
+    MINIO_EXTERNAL_USE_SSL: bool | None = None
 
     # SMTP
     SMTP_HOST: str = ""

@@ -2,8 +2,9 @@
 {% block title %}{{ _('nav.users') }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('nav.users') }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-6 flex flex-wrap items-center gap-3">
     <p class="text-sm text-gray-500 dark:text-gray-400">{{ _('settings.users_description') }}</p>
+    <a href="/settings/users/new" class="fc-btn-primary inline-flex items-center gap-2 whitespace-nowrap ml-auto">+ {{ _('settings.new_user') }}</a>
 </div>
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
     <div class="overflow-x-auto">
@@ -15,6 +16,7 @@
                     <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('settings.role') }}</th>
                     <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
                     <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('settings.created') }}</th>
+                    <th class="px-4 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -33,25 +35,30 @@
                     </td>
                     <td class="px-4 py-3 text-gray-500">{{ u.email }}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if u.role.value == 'admin' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
-                            {% elif u.role.value == 'fleet_manager' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
-                            {% elif u.role.value == 'driver' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
-                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
-                            {{ u.role.value }}
+                        <span class="fc-badge
+                            {% if u.role.value == 'admin' %}fc-badge-danger
+                            {% elif u.role.value == 'fleet_manager' %}fc-badge-info
+                            {% elif u.role.value == 'driver' %}fc-badge-success
+                            {% else %}fc-badge-neutral{% endif %}">
+                            {{ _('role.' + u.role.value) }}
                         </span>
+                        {% if u.role.value == 'driver' %}
+                        {% set profile = driver_profiles.get(u.id) %}
+                        <div class="mt-1 text-xs {{ 'text-gray-500' if profile else 'text-red-600' }}">{% if profile %}<a href="/drivers/{{ profile.id }}" class="hover:underline">{{ profile.full_name }}</a>{% else %}{{ _('settings.driver_profile_missing') }}{% endif %}</div>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3">
                         {% if u.is_active %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{{ _('status.active') }}</span>
+                        <span class="fc-badge fc-badge-success">{{ _('status.active') }}</span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">{{ _('status.inactive') }}</span>
+                        <span class="fc-badge fc-badge-neutral">{{ _('status.inactive') }}</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-gray-500 text-xs">{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '—' }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ local_dt(u.created_at) }}</td>
+                    <td class="px-4 py-3 text-right"><a href="/settings/users/{{ u.id }}/edit" class="text-primary-600 hover:underline text-sm whitespace-nowrap">{{ _('btn.edit') }}</a></td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

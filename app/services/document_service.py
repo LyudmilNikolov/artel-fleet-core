@@ -3,7 +3,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.compliance import ComplianceDocument
 from app.models.document import Document, DocumentType, EntityType
+from app.models.driver_document import DriverDocument
 from app.services.errors import DomainError
 from app.utils.s3 import ALLOWED_MIME_TYPES, MAX_FILE_SIZE, get_s3_client
 
@@ -23,6 +25,10 @@ class DocumentService:
         doc_type: DocumentType = DocumentType.OTHER,
         uploaded_by: UUID | None = None,
     ) -> Document:
+        if entity_type == EntityType.COMPLIANCE_DOCUMENT and not await self.session.get(ComplianceDocument, entity_id):
+            raise DomainError("error.compliance_not_found")
+        if entity_type == EntityType.DRIVER_DOCUMENT and not await self.session.get(DriverDocument, entity_id):
+            raise DomainError("error.driver_document_not_found")
         if mime_type not in ALLOWED_MIME_TYPES:
             raise DomainError("error.file_type", mime_type=mime_type)
         if len(file_data) > MAX_FILE_SIZE:
@@ -46,6 +52,10 @@ class DocumentService:
         await self.session.flush()
         await self.session.refresh(doc)
         return doc
+
+    async def get(self, doc_id: UUID) -> Document | None:
+        """Return one document row, or None."""
+        return await self.session.get(Document, doc_id)
 
     async def get_download_url(self, doc_id: UUID) -> str | None:
         doc = await self.session.get(Document, doc_id)

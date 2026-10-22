@@ -14,9 +14,18 @@ FINANCIAL_COUNTS_SQL = """
 SELECT (SELECT count(*) FROM expenses) AS expenses,
        (SELECT count(*) FROM expenses WHERE fuel_price_per_liter IS NOT NULL) AS fuel_unit_prices,
        (SELECT count(*) FROM vehicles WHERE purchase_price IS NOT NULL) AS purchase_prices,
-       (SELECT count(*) FROM maintenance_records WHERE cost IS NOT NULL) AS maintenance_costs,
-       (SELECT count(*) FROM contracts WHERE amount IS NOT NULL) AS contract_amounts
+       (SELECT count(*) FROM maintenance_records WHERE cost IS NOT NULL) AS maintenance_costs
 """
+# Amount tables that exist only on some schema revisions (contracts were replaced by compliance documents).
+OPTIONAL_AMOUNT_TABLES = {"contract_amounts": "contracts", "compliance_amounts": "compliance_documents"}
+
+
+def optional_amount_counts(connection) -> dict:
+    counts = {}
+    for label, table in OPTIONAL_AMOUNT_TABLES.items():
+        if connection.execute(text("SELECT to_regclass(:table) IS NOT NULL"), {"table": table}).scalar():
+            counts[label] = connection.execute(text(f"SELECT count(*) FROM {table} WHERE amount IS NOT NULL")).scalar()
+    return counts
 
 
 def main() -> int:
@@ -25,6 +34,7 @@ def main() -> int:
         # Explicit read-only transaction: this script never decodes legacy enums via ORM.
         connection.execute(text("SET TRANSACTION READ ONLY"))
         counts = dict(connection.execute(text(FINANCIAL_COUNTS_SQL)).mappings().one())
+        counts.update(optional_amount_counts(connection))
         result = {
             "revision": connection.execute(text("SELECT version_num FROM alembic_version")).scalars().all(),
             "currency_enum": connection.execute(

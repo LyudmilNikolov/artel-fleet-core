@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import Date, Enum, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base, TimestampMixin, UUIDPrimaryKey
@@ -34,6 +34,10 @@ class MaintenanceRecord(Base, UUIDPrimaryKey, TimestampMixin):
     type: Mapped[MaintenanceType] = mapped_column(Enum(MaintenanceType, name="maintenance_type"), nullable=False)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What a planned service covers (engine oil, ...); only for scheduled_service. See app/maintenance_rules.py.
+    service_item: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Extra work ticked off during the service (e.g. oil / air / fuel filter with an engine oil change).
+    service_checklist: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[MaintenanceStatus] = mapped_column(
         Enum(MaintenanceStatus, name="maintenance_status"), default=MaintenanceStatus.SCHEDULED, nullable=False
     )
@@ -49,5 +53,5 @@ class MaintenanceRecord(Base, UUIDPrimaryKey, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id], lazy="joined")
     creator = relationship("User", foreign_keys=[created_by])

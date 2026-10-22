@@ -1,0 +1,18 @@
+{# Computed compliance status badge. Usage: {% from 'components/compliance_status.html' import status_badge with context %} #}
+{% macro status_badge(entry, history=false) %}
+{% if history %}
+<span class="fc-badge fc-badge-neutral">{{ _('compliance_status.replaced') }}</span>
+{% elif entry.status == 'no_expiry' %}
+<span class="fc-badge fc-badge-info">{{ _('compliance_status.no_expiry') }}</span>
+{% elif entry.status == 'expired' %}
+<span class="fc-badge fc-badge-danger">{{ _('compliance_status.expired') }}</span>
+{% elif entry.status == 'expiring_soon' %}
+<span class="fc-badge fc-badge-warning">{{ _('compliance_status.expiring_soon') }} · {{ _('compliance.days_left', days=entry.days_left) }}</span>
+{% else %}
+<span class="fc-badge fc-badge-success">{{ _('compliance_status.valid') }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro missing_badge() %}
+<span class="fc-badge fc-badge-neutral">{{ _('compliance_status.missing') }}</span>
+{% endmacro %}

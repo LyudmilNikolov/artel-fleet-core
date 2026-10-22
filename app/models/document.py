@@ -11,8 +11,9 @@ from app.models import Base, UUIDPrimaryKey
 class EntityType(str, enum.Enum):
     VEHICLE = "vehicle"
     DRIVER = "driver"
+    DRIVER_DOCUMENT = "driver_document"
     MAINTENANCE = "maintenance"
-    CONTRACT = "contract"
+    COMPLIANCE_DOCUMENT = "compliance_document"
     EXPENSE = "expense"
 
 

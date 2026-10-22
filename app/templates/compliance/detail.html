@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% from 'components/compliance_status.html' import status_badge with context %}
+{% block title %}{{ _('compliance_type.' + entry.document_type) }} — {{ entry.vehicle.license_plate }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('compliance_type.' + entry.document_type) }} — {{ entry.vehicle.license_plate }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-3">
+    <a href="/vehicles/{{ entry.vehicle_id }}" class="text-gray-500 hover:text-gray-700" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+    {{ status_badge(entry, history=not entry.is_current) }}
+    {% if not entry.applicable %}<span class="text-xs text-gray-500">{{ _('compliance.not_applicable_type') }}</span>{% endif %}
+    {% if can_edit %}
+    <div class="ml-auto flex items-center gap-2">
+        {% if entry.applicable %}
+        <a href="/compliance/{{ entry.id }}/renew" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('compliance.renew') }}</a>
+        {% endif %}
+        <a href="/compliance/{{ entry.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
+        {% if history_count > 1 %}
+        <div x-data="{ open: false }">
+            <button type="button" @click="open = true" class="fc-btn-danger">{{ _('btn.delete') }}</button>
+            <div x-show="open" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
+                <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6" role="dialog" aria-modal="true" @click.outside="open = false">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('compliance.delete_title') }}</h3>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ _('compliance.delete_choice_hint', type=_('compliance_type.' + entry.document_type), count=history_count) }}</p>
+                    <div class="mt-6 space-y-3">
+                        <form method="POST" action="/compliance/{{ entry.id }}/delete">
+                            <input type="hidden" name="scope" value="entry">
+                            <button type="submit" class="w-full text-left px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ _('compliance.delete_only_this') }}</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ _('compliance.delete_only_this_hint') }}</span>
+                            </button>
+                        </form>
+                        <form method="POST" action="/compliance/{{ entry.id }}/delete">
+                            <input type="hidden" name="scope" value="all">
+                            <button type="submit" class="w-full text-left px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg">
+                                <span class="block text-sm font-medium">{{ _('compliance.delete_all', count=history_count) }}</span>
+                                <span class="block text-xs opacity-90">{{ _('compliance.delete_all_hint') }}</span>
+                            </button>
+                        </form>
+                    </div>
+                    <button type="button" @click="open = false" class="mt-4 w-full text-center text-sm text-gray-500 hover:underline">{{ _('btn.cancel') }}</button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <form method="POST" action="/compliance/{{ entry.id }}/delete" onsubmit="return confirm({{ _('compliance.delete_confirm') | tojson | forceescape }})">
+            <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% macro field(label, value) %}<div><dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</dt><dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ value if value is not none and value != '' else '—' }}</dd></div>{% endmacro %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.vehicle') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/vehicles/{{ entry.vehicle_id }}" class="text-primary-600 hover:underline">{{ entry.vehicle.license_plate }} — {{ entry.vehicle.brand }} {{ entry.vehicle.model }}</a></dd>
+        </div>
+        {{ field(_('compliance.type'), _('compliance_type.' + entry.document_type)) }}
+        {{ field(_('compliance.start_date'), entry.start_date) }}
+        {{ field(_('compliance.end_date'), entry.end_date) }}
+        {{ field(_('compliance.amount'), money(entry.amount) if entry.amount is not none else none) }}
+        {{ field(_('compliance.provider'), entry.provider) }}
+        {% if entry.expense_id %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.linked_expense') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/expenses/{{ entry.expense_id }}" class="text-primary-600 hover:underline">{{ _('compliance.linked_expense_open') }}</a></dd>
+        </div>
+        {% endif %}
+        {{ field(_('compliance.policy_number'), entry.policy_number) }}
+        {% if entry.renewed_from_id %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.renewed_from') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/compliance/{{ entry.renewed_from_id }}" class="text-primary-600 hover:underline">{{ _('compliance.view_entry') }}</a></dd>
+        </div>
+        {% endif %}
+        {% if successor %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.renewed_by') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/compliance/{{ successor.id }}" class="text-primary-600 hover:underline">{{ successor.start_date }} — {{ successor.end_date }}</a></dd>
+        </div>
+        {% endif %}
+    </div>
+    {% if entry.notes %}
+    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.notes') }}</dt>
+        <dd class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ entry.notes }}</dd>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('compliance.attachment') }}</h3>
+    <div hx-get="/documents/gallery/compliance_document/{{ entry.id }}" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-4 text-gray-400">
+            <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </div>
+    </div>
+    {% if can_upload %}
+    {% with entity_type='compliance_document', entity_id=entry.id|string, doc_type=upload_doc_type %}
+    {% include 'components/upload.html' %}
+    {% endwith %}
+    {% endif %}
+</div>
+{% endblock %}

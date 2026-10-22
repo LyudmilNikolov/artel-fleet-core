@@ -12,9 +12,9 @@ VEHICLE_DATA = {
     "model": "Camry",
     "year": 2023,
     "color": "White",
-    "body_type": "sedan",
+    "vehicle_type": "passenger_car",
+    "department": "Test department",
     "fuel_type": "gasoline",
-    "engine_volume": 2.5,
     "transmission": "automatic",
     "seats": 5,
     "status": "active",
@@ -108,3 +108,18 @@ async def test_create_vehicle_duplicate_plate(client: AsyncClient, manager_token
         headers=auth_header(manager_token),
     )
     assert response2.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_initial_and_edited_mileage_serialize_vehicle_timestamps(client, manager_token):
+    """Mileage updates must not leave server timestamps requiring implicit async I/O."""
+    headers = auth_header(manager_token)
+    response = await client.post("/api/v1/vehicles", json={**VEHICLE_DATA, "current_mileage": 10}, headers=headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["current_mileage"] == 10
+    assert data["updated_at"]
+    response = await client.patch(f"/api/v1/vehicles/{data['id']}", json={"current_mileage": 20}, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["current_mileage"] == 20
+    assert response.json()["updated_at"]

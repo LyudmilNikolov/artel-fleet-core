@@ -1,0 +1,71 @@
+{# Filter bar shared by every report: vehicle, vehicle type group, dates (and status for maintenance), export link.
+   Usage: {% from 'components/report_filters.html' import report_filter_bar with context %}
+   Needs from the report route: filters, picker, type_filters, filter_query, filter_error, vehicle_mismatch, statuses. #}
+{% macro report_filter_bar(action, export_url, export_label, show_status=False, date_hint=None, export_class='fc-btn-export') %}
+{% set options_url = '/reports/vehicle-options' %}
+{% set options_include = '#report-type' %}
+{% set locked = false %}
+<div class="fc-card p-4 mb-6">
+    {% if filter_error %}
+    <div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ filter_error }}</div>
+    {% endif %}
+    <form method="GET" action="{{ action }}" class="flex flex-wrap items-end gap-3"
+          x-data='vehiclePicker({{ picker | tojson }}, { type: {{ (filters.vehicle_type or "") | tojson }} })'
+          @submit="if ($refs.search) $refs.search.disabled = true">
+        <div class="w-72">
+            {% include 'components/vehicle_picker.html' %}
+        </div>
+        <div class="w-48">
+            <label for="report-type" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('vehicle.vehicle_type') }}</label>
+            <select id="report-type" name="vehicle_type" x-model="type"
+                    @change="if (vehicleId && type && group !== type) clear()" class="fc-select">
+                <option value="">{{ _('vehicle.all_types') }}</option>
+                {% for t in type_filters %}<option value="{{ t }}" {{ 'selected' if filters.vehicle_type == t }}>{{ _('vehicle_type.' + t) }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="start_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.start_date') }}</label>
+            <input type="date" id="start_date" name="start_date" value="{{ filters.start_date or '' }}" class="fc-filter-date">
+        </div>
+        <div>
+            <label for="end_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.end_date') }}</label>
+            <input type="date" id="end_date" name="end_date" value="{{ filters.end_date or '' }}" class="fc-filter-date">
+        </div>
+        {% if show_status %}
+        <div class="w-44">
+            <label for="report-status" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('common.status') }}</label>
+            <select id="report-status" name="status" class="fc-select">
+                <option value="">{{ _('reports.all_statuses') }}</option>
+                {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if filters.status and filters.status.value == s }}>{{ _('status.' + s) }}</option>{% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <button type="submit" class="fc-btn-filter">{{ _('btn.filter') }}</button>
+        <a href="{{ action }}" class="fc-btn-reset">{{ _('btn.reset') }}</a>
+        <div class="ml-auto flex items-center gap-2">
+            <a href="{{ export_url }}{% if filter_query %}?{{ filter_query | urlencode }}{% endif %}" class="{{ export_class }}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                {{ export_label }}
+            </a>
+        </div>
+    </form>
+    {% if date_hint %}<p class="mt-3 text-xs text-gray-500 dark:text-gray-400">{{ date_hint }}</p>{% endif %}
+</div>
+
+{% if vehicle_mismatch %}
+<div role="status" class="mb-4 fc-notice fc-notice-warning">{{ _('reports.vehicle_type_mismatch') }}</div>
+{% endif %}
+
+{% if filter_query and not filter_error %}
+<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+    {% if filters.start_date or filters.end_date %}
+    <span>{{ _('reports.period') }}: {{ filters.start_date or _('reports.all_time') }} — {{ filters.end_date or _('reports.present') }}</span>
+    {% endif %}
+    {% if filters.vehicle_id %}<span>{{ _('picker.vehicle') }}: {{ picker.label }}</span>{% endif %}
+    {% if filters.vehicle_type %}<span>{{ _('vehicle.vehicle_type') }}: {{ _('vehicle_type.' + filters.vehicle_type) }}</span>{% endif %}
+    {% if show_status and filters.status %}<span>{{ _('common.status') }}: {{ _('status.' + filters.status.value) }}</span>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}

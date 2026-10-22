@@ -9,8 +9,8 @@ from app.models.user import User
 from app.repositories.user_repo import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.user import UserCreate, UserRead, UserUpdate
-from app.services.auth_service import AuthService
 from app.services.errors import error_detail
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -52,17 +52,16 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    service = AuthService(db)
     try:
-        user = await service.register(
+        return await UserService(db).create(
             email=data.email,
             username=data.username,
             full_name=data.full_name,
             password=data.password,
             role=data.role,
             language=data.language,
+            driver_id=data.driver_id,
         )
-        return user
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail(e))
 
@@ -80,11 +79,14 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="error.user_not_found")
 
     update_data = data.model_dump(exclude_unset=True)
-    if not update_data:
+    driver_id = update_data.pop("driver_id", None)
+    if not update_data and driver_id is None:
         return user
 
-    user = await repo.update(user, **update_data)
-    return user
+    try:
+        return await UserService(db).update(user, update_data, driver_id=driver_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail(e))
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

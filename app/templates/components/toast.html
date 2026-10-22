@@ -2,10 +2,8 @@
      x-transition:leave="transition ease-in duration-200"
      x-transition:leave-start="opacity-100 translate-x-0"
      x-transition:leave-end="opacity-0 translate-x-full"
-     class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border
-            {% if type == 'success' %}bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400
-            {% elif type == 'error' %}bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400
-            {% else %}bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400{% endif %}">
+     class="flex items-center gap-3 shadow-lg fc-notice
+            {% if type == 'success' %}fc-notice-success{% elif type == 'error' %}fc-notice-danger{% else %}fc-notice-info{% endif %}">
     <span class="text-sm">{{ message }}</span>
     <button @click="show = false" class="ml-2 opacity-60 hover:opacity-100">&times;</button>
 </div>

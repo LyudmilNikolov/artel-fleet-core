@@ -2,28 +2,46 @@
 {% block title %}{{ _('nav.audit_log') }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('nav.audit_log') }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex items-center justify-between">
-    <form method="GET" class="flex flex-wrap items-center gap-3">
-        <select name="action" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
-            <option value="">{{ _('settings.all_actions') }}</option>
-            <option value="create" {% if action_filter == 'create' %}selected{% endif %}>{{ _('audit_action.create') }}</option>
-            <option value="update" {% if action_filter == 'update' %}selected{% endif %}>{{ _('audit_action.update') }}</option>
-            <option value="delete" {% if action_filter == 'delete' %}selected{% endif %}>{{ _('audit_action.delete') }}</option>
-            <option value="login" {% if action_filter == 'login' %}selected{% endif %}>{{ _('audit_action.login') }}</option>
-            <option value="export" {% if action_filter == 'export' %}selected{% endif %}>{{ _('audit_action.export') }}</option>
-        </select>
-        <select name="entity_type" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
-            <option value="">{{ _('settings.all_entities') }}</option>
-            <option value="vehicle" {% if entity_type_filter == 'vehicle' %}selected{% endif %}>{{ _('audit_entity.vehicle') }}</option>
-            <option value="driver" {% if entity_type_filter == 'driver' %}selected{% endif %}>{{ _('audit_entity.driver') }}</option>
-            <option value="maintenance" {% if entity_type_filter == 'maintenance' %}selected{% endif %}>{{ _('audit_entity.maintenance') }}</option>
-            <option value="expense" {% if entity_type_filter == 'expense' %}selected{% endif %}>{{ _('audit_entity.expense') }}</option>
-            <option value="contract" {% if entity_type_filter == 'contract' %}selected{% endif %}>{{ _('audit_entity.contract') }}</option>
-            <option value="user" {% if entity_type_filter == 'user' %}selected{% endif %}>{{ _('audit_entity.user') }}</option>
-        </select>
-        <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+<div class="fc-card p-4 mb-6">
+    {% if filter_error %}
+    <div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ filter_error }}</div>
+    {% endif %}
+    <form method="GET" action="/settings/audit" class="flex flex-wrap items-end gap-3">
+        <div>
+            <label for="start_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.start_date') }}</label>
+            <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="fc-filter-date">
+        </div>
+        <div>
+            <label for="end_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.end_date') }}</label>
+            <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="fc-filter-date">
+        </div>
+        <div class="w-48">
+            <label for="user_id" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('settings.user') }}</label>
+            <select id="user_id" name="user_id" class="fc-select">
+                <option value="">{{ _('settings.all_users') }}</option>
+                {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if user_filter == u.id|string }}>{{ u.full_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="w-44">
+            <label for="action" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('settings.action') }}</label>
+            <select id="action" name="action" class="fc-select">
+                <option value="">{{ _('settings.all_actions') }}</option>
+                {% for a in actions %}<option value="{{ a }}" {{ 'selected' if action_filter == a }}>{{ _('audit_action.' + a) }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="w-48">
+            <label for="entity_type" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('settings.entity') }}</label>
+            <select id="entity_type" name="entity_type" class="fc-select">
+                <option value="">{{ _('settings.all_entities') }}</option>
+                {% for e in entity_types %}<option value="{{ e }}" {{ 'selected' if entity_type_filter == e }}>{{ _('audit_entity.' + e) }}</option>{% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="fc-btn-filter">{{ _('btn.filter') }}</button>
+        <a href="/settings/audit" class="fc-btn-reset">{{ _('btn.reset') }}</a>
     </form>
+    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">{{ _('settings.audit_dates_hint') }}</p>
 </div>
+
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -38,8 +56,10 @@
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for log in logs %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '—' }}</td>
+                {% set changes = log.changes or {} %}
+                {% set items = changes.items()|rejectattr('0', 'equalto', '_label')|list %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top">
+                    <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ local_dt(log.timestamp, seconds=True) }}</td>
                     <td class="px-4 py-3">
                         {% if log.user %}
                         <span class="font-medium">{{ log.user.full_name }}</span>
@@ -48,29 +68,43 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if log.action.value == 'create' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
-                            {% elif log.action.value == 'update' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
-                            {% elif log.action.value == 'delete' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
-                            {% elif log.action.value == 'login' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400
-                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                        <span class="fc-badge
+                            {% if log.action.value == 'create' %}fc-badge-success
+                            {% elif log.action.value == 'update' %}fc-badge-info
+                            {% elif log.action.value == 'delete' %}fc-badge-danger
+                            {% elif log.action.value in ('login', 'logout') %}fc-badge-purple
+                            {% else %}fc-badge-neutral{% endif %}">
                             {{ _('audit_action.' + log.action.value) }}
                         </span>
                     </td>
                     <td class="px-4 py-3">
-                        <span class="text-gray-500">{{ _('audit_entity.' + log.entity_type) }}</span>
+                        <span class="text-gray-700 dark:text-gray-300">{{ _('audit_entity.' + log.entity_type) }}</span>
+                        {% if changes.get('_label') %}
+                        <span class="block text-xs text-gray-500">{{ changes.get('_label') }}</span>
+                        {% endif %}
                         {% if log.entity_id %}
-                        <span class="text-xs text-gray-400 font-mono ml-1">{{ log.entity_id|string|truncate(8, True, '') }}</span>
+                        <span class="block text-xs text-gray-400 font-mono">{{ log.entity_id|string|truncate(8, True, '') }}</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
-                        {% if log.changes %}
-                        {{ log.changes|tojson|truncate(80) }}
-                        {% elif log.ip_address %}
-                        IP: {{ log.ip_address }}
-                        {% else %}
-                        —
+                    <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                        {% if items %}
+                        <details>
+                            <summary class="cursor-pointer select-none">{{ items|length }} {{ _('settings.fields') }}</summary>
+                            <ul class="mt-1 space-y-0.5">
+                                {% for key, value in items %}
+                                <li>
+                                    <span class="font-medium">{{ key }}</span>:
+                                    {% if value is mapping and 'new' in value %}
+                                    <span class="text-red-600 dark:text-red-400">{{ value.old if value.old is not none else '—' }}</span> →
+                                    <span class="text-green-600 dark:text-green-400">{{ value.new if value.new is not none else '—' }}</span>
+                                    {% else %}{{ value if value is not none else '—' }}{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </details>
                         {% endif %}
+                        {% if log.ip_address %}<span class="block text-gray-400">IP: {{ log.ip_address }}</span>{% endif %}
+                        {% if not items and not log.ip_address %}—{% endif %}
                     </td>
                 </tr>
                 {% else %}
@@ -79,19 +113,7 @@
             </tbody>
         </table>
     </div>
-    {% if pages > 1 %}
-    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <p class="text-sm text-gray-500">{{ total }} {{ _('settings.records_total') }}</p>
-        <div class="flex gap-1">
-            {% for p in range(1, pages+1) %}
-            {% if p == page %}
-            <span class="px-3 py-1.5 text-sm rounded-lg bg-primary-600 text-white">{{ p }}</span>
-            {% else %}
-            <a href="?page={{ p }}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if entity_type_filter %}&entity_type={{ entity_type_filter }}{% endif %}" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">{{ p }}</a>
-            {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+    <div class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">{{ total }} {{ _('settings.records_total') }}</div>
+    {% include 'components/list_pagination.html' %}
 </div>
 {% endblock %}

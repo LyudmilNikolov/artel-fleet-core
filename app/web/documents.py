@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.document import DocumentType, EntityType
 from app.services.document_service import DocumentService
+from app.services.driver_access import can_upload_scans, can_view_scans
 from app.services.errors import render_error
 from app.web.deps import get_web_user
 
@@ -19,8 +20,9 @@ router = APIRouter(prefix="/documents", tags=["web-documents"])
 ENTITY_RETURN_URLS = {
     "vehicle": "/vehicles/{id}",
     "driver": "/drivers/{id}",
+    "driver_document": "/driver-documents/{id}",
     "maintenance": "/maintenance/{id}",
-    "contract": "/contracts/{id}",
+    "compliance_document": "/compliance/{id}",
     "expense": "/expenses/{id}",
 }
 
@@ -49,6 +51,9 @@ async def upload_document(
         return HTMLResponse(
             escape(render_error(ValueError("errors.invalid_input"), request.state.locale)), status_code=400
         )
+    # Managers upload anywhere; a driver only to their own profile and their own document entries.
+    if not await can_upload_scans(db, user, etype, eid):
+        return HTMLResponse(escape(render_error(ValueError("errors.forbidden"), request.state.locale)), status_code=403)
 
     file_data = await file.read()
     service = DocumentService(db)
@@ -82,6 +87,8 @@ async def upload_document(
             "entity_type": entity_type,
             "entity_id": str(eid),
             "can_edit": user.role.value in ("admin", "fleet_manager"),
+            "viewer_id": user.id,
+            "can_delete_own": True,
             **ctx,
         },
     )
@@ -103,6 +110,9 @@ async def document_gallery(
         etype = EntityType(entity_type)
     except ValueError:
         return HTMLResponse("", status_code=400)
+
+    if not await can_view_scans(db, user, etype, entity_id):
+        return HTMLResponse("", status_code=403)
 
     service = DocumentService(db)
     documents = await service.list_for_entity(etype, entity_id)
@@ -126,6 +136,8 @@ async def document_gallery(
             "entity_type": entity_type,
             "entity_id": str(entity_id),
             "can_edit": user.role.value in ("admin", "fleet_manager"),
+            "viewer_id": user.id,
+            "can_delete_own": await can_upload_scans(db, user, etype, entity_id),
             **ctx,
         },
     )
@@ -143,6 +155,9 @@ async def download_document(
         return RedirectResponse(url="/login", status_code=302)
 
     service = DocumentService(db)
+    doc = await service.get(doc_id)
+    if doc and not await can_view_scans(db, user, doc.entity_type, doc.entity_id):
+        return RedirectResponse(url="/", status_code=302)
     url = await service.get_download_url(doc_id)
     if not url:
         return RedirectResponse(url="/", status_code=302)
@@ -157,10 +172,17 @@ async def delete_document(
 ):
     """Delete a document and return empty response for HTMX swap."""
     user = await get_web_user(request, db)
-    if not user or user.role.value not in ("admin", "fleet_manager"):
+    if not user:
         return HTMLResponse("", status_code=403)
 
     service = DocumentService(db)
+    if user.role.value not in ("admin", "fleet_manager"):
+        # A driver may remove only a file they uploaded themselves to their own record.
+        doc = await service.get(doc_id)
+        if not (
+            doc and doc.uploaded_by == user.id and await can_upload_scans(db, user, doc.entity_type, doc.entity_id)
+        ):
+            return HTMLResponse("", status_code=403)
     try:
         await service.delete(doc_id)
         await db.commit()

@@ -4,19 +4,51 @@
 {% block content %}
 <div class="mb-4 flex items-center gap-3">
     <a href="/maintenance" class="text-gray-500 hover:text-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if record.status.value == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% elif record.status.value == 'in_progress' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400{% elif record.status.value == 'scheduled' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-gray-100 text-gray-800{% endif %}">{{ _('status.' + record.status.value) }}</span>
+    <span class="fc-badge {% if record.status.value == 'completed' %}fc-badge-success{% elif record.status.value == 'in_progress' %}fc-badge-info{% elif record.status.value == 'scheduled' %}fc-badge-warning{% else %}fc-badge-neutral{% endif %}">{{ _('status.' + record.status.value) }}</span>
+    {% if can_edit %}
+    <div class="ml-auto flex items-center gap-2">
+        {% if record.status.value in ['scheduled', 'in_progress'] %}
+        <form method="POST" action="/maintenance/{{ record.id }}/complete">
+            <button type="submit" class="px-4 py-2 bg-green-500 hover:shadow-md text-white text-sm rounded-lg">{{ _('maintenance.mark_complete') }}</button>
+        </form>
+        {% endif %}
+        <a href="/maintenance/{{ record.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
+        <form method="POST" action="/maintenance/{{ record.id }}/delete" onsubmit="return confirm({{ _('maintenance.delete_confirm') | tojson | forceescape }})">
+            <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
+        </form>
+    </div>
+    {% endif %}
 </div>
 
 {# Info card #}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% macro field(label, value) %}<div><dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</dt><dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ value or '—' }}</dd></div>{% endmacro %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('maintenance.vehicle') }}</dt>
+            <dd class="mt-1 text-sm"><a href="/vehicles/{{ record.vehicle.id }}" class="text-primary-600 hover:underline">{{ record.vehicle.license_plate }} — {{ record.vehicle.brand }} {{ record.vehicle.model }}</a></dd>
+        </div>
         {{ field(_('common.type'), _('maintenance_type.' + record.type.value)) }}
         {{ field(_('maintenance.scheduled_date'), record.scheduled_date) }}
         {{ field(_('maintenance.completed_date'), record.completed_date) }}
-        {{ field(_('maintenance.cost'), money(record.cost)) }}
+        {{ field(_('maintenance.cost'), money(record.cost) if record.cost is not none else none) }}
         {{ field(_('maintenance.service_provider'), record.service_provider) }}
         {{ field(_('maintenance.mileage_at_service'), "{:,}".format(record.mileage_at_service) ~ ' km' if record.mileage_at_service else '—') }}
+        {% if record.service_item %}{{ field(_('maintenance.service_item'), _('service_item.' + record.service_item)) }}{% endif %}
+        {% if record.service_checklist %}
+        {% set names = [] %}{% for c in record.service_checklist %}{% set ignore = names.append(_('service_check.' + c)) %}{% endfor %}
+        {{ field(_('maintenance.service_checklist'), names | join(', ')) }}
+        {% endif %}
+        {% if record.type.value == 'scheduled_service' %}
+        {{ field(_('maintenance.next_service_mileage'), "{:,}".format(record.next_service_mileage) ~ ' km' if record.next_service_mileage is not none else '—') }}
+        {{ field(_('maintenance.next_service_date'), record.next_service_date) }}
+        {% endif %}
+        {% if due %}
+        <div>
+            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('maintenance.due_state') }}</dt>
+            <dd class="mt-1 text-sm">{% from 'components/service_due.html' import due_badge with context %}{{ due_badge(due) }}</dd>
+        </div>
+        {% endif %}
     </div>
     {% if record.description %}
     <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -38,7 +70,7 @@
         </div>
     </div>
 
-    {% if user.role.value in ['admin', 'fleet_manager'] %}
+    {% if can_upload %}
     {% with entity_type='maintenance', entity_id=record.id|string, doc_type='invoice' %}
     {% include 'components/upload.html' %}
     {% endwith %}

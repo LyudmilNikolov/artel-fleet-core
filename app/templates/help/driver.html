@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ _('help.driver_title') }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('help.driver_title') }}{% endblock %}
+
+{% macro heading(text) %}
+<h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">{{ text }}</h2>
+{% endmacro %}
+{% macro steps(keys) %}
+<ol class="list-decimal list-inside space-y-1 pl-2">
+    {% for k in keys %}<li>{{ _(k) }}</li>{% endfor %}
+</ol>
+{% endmacro %}
+{% macro note(key, tone='info') %}
+<div class="mt-3 fc-notice fc-notice-{{ tone }} text-xs">
+    <p>{{ _(key) }}</p>
+</div>
+{% endmacro %}
+
+{% block content %}
+{# The guide for a driver login: only what a driver can do. The full guide is for the other roles. #}
+<div class="max-w-4xl space-y-8">
+    <div class="fc-card p-8 bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border-primary-200 dark:border-primary-800">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ _('help.driver_hero_title') }}</h1>
+        <p class="mt-2 text-gray-600 dark:text-gray-300 max-w-2xl">{{ _('help.driver_hero_subtitle') }}</p>
+    </div>
+
+    <section id="profile" class="fc-card p-6 scroll-mt-24">
+        {{ heading(_('help.driver_section_profile')) }}
+        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-3">
+            <p>{{ _('help.driver_profile_p1') }}</p>
+            <p>{{ _('help.driver_profile_p2') }}</p>
+        </div>
+    </section>
+
+    <section id="documents" class="fc-card p-6 scroll-mt-24">
+        {{ heading(_('help.driver_section_documents')) }}
+        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-3">
+            <p>{{ _('help.driver_docs_p1') }}</p>
+            <div class="flex flex-wrap gap-2">
+                <span class="fc-badge fc-badge-success">{{ _('compliance_status.valid') }}</span>
+                <span class="fc-badge fc-badge-warning">{{ _('compliance_status.expiring_soon') }}</span>
+                <span class="fc-badge fc-badge-danger">{{ _('compliance_status.expired') }}</span>
+                <span class="fc-badge fc-badge-neutral">{{ _('compliance_status.no_expiry') }}</span>
+            </div>
+            {{ steps(['help.driver_docs_step1', 'help.driver_docs_step2', 'help.driver_docs_step3', 'help.driver_docs_step4']) }}
+            <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200 mt-4">{{ _('help.driver_docs_outcomes') }}</h3>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+                <li>{{ _('help.driver_docs_outcome_approved') }}</li>
+                <li>{{ _('help.driver_docs_outcome_redo') }}</li>
+                <li>{{ _('help.driver_docs_outcome_rejected') }}</li>
+            </ul>
+            {{ note('help.driver_docs_note') }}
+        </div>
+    </section>
+
+    <section id="files" class="fc-card p-6 scroll-mt-24">
+        {{ heading(_('help.driver_section_files')) }}
+        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-3">
+            <p>{{ _('help.driver_files_p1') }}</p>
+            {{ steps(['help.driver_files_step1', 'help.driver_files_step2']) }}
+            {{ note('help.driver_files_note') }}
+        </div>
+    </section>
+
+    <section id="vehicle" class="fc-card p-6 scroll-mt-24">
+        {{ heading(_('help.driver_section_vehicle')) }}
+        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-3">
+            {% if driver_scope and driver_scope.has_vehicles %}
+            <p>{{ _('help.driver_vehicle_p1') }}</p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+                <li>{{ _('help.driver_vehicle_see') }}</li>
+                <li>{{ _('help.driver_vehicle_expense') }}</li>
+                <li>{{ _('help.driver_vehicle_maintenance') }}</li>
+                <li>{{ _('help.driver_vehicle_upload') }}</li>
+            </ul>
+            {{ note('help.driver_vehicle_note', 'warning') }}
+            {% else %}
+            {{ note('help.driver_vehicle_none', 'warning') }}
+            {% endif %}
+        </div>
+    </section>
+
+    <section id="account" class="fc-card p-6 scroll-mt-24">
+        {{ heading(_('help.driver_section_account')) }}
+        <ul class="list-disc list-inside space-y-1 pl-2 text-sm text-gray-600 dark:text-gray-300">
+            <li>{{ _('help.driver_account_bell') }}</li>
+            <li>{{ _('help.driver_account_password') }}</li>
+            <li>{{ _('help.driver_account_language') }}</li>
+        </ul>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-300">
+            <p class="font-medium text-gray-900 dark:text-white">{{ _('help.tip_colors_title') }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ _('help.tip_colors_desc') }}</p>
+        </div>
+    </section>
+</div>
+{% endblock %}

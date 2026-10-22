@@ -63,6 +63,7 @@ def test_export_roundtrip():
 
 def test_report_json_keeps_decimal_strings():
     row = TCOReportRow(
+        vehicle_type="passenger_car",
         id="x",
         license_plate="A",
         brand="B",
@@ -99,15 +100,15 @@ async def test_localized_exports_keep_exact_values(monkeypatch):
     [
         ("purchase_price", "vehicle"),
         ("cost", "maintenance"),
-        ("amount", "contract"),
+        ("amount", "compliance"),
     ],
 )
 def test_other_monetary_update_limits(field, schema):
-    from app.schemas.contract import ContractUpdate
+    from app.schemas.compliance import ComplianceUpdate
     from app.schemas.maintenance import MaintenanceUpdate
     from app.schemas.vehicle import VehicleUpdate
 
-    model = {"vehicle": VehicleUpdate, "maintenance": MaintenanceUpdate, "contract": ContractUpdate}[schema]
+    model = {"vehicle": VehicleUpdate, "maintenance": MaintenanceUpdate, "compliance": ComplianceUpdate}[schema]
     assert getattr(model(**{field: "9999999999.99"}), field) == Decimal("9999999999.99")
     assert getattr(model(**{field: "0"}), field) == Decimal("0")
     assert getattr(model(**{field: None}), field) is None

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ _('nav.notifications') }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('nav.notifications') }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex gap-2 border-b border-gray-200 dark:border-gray-700">
+    {% for code, label in (('documents', _('notifications.tab_documents')), ('messages', _('notifications.tab_messages'))) %}
+    <a href="/notifications{{ '?tab=messages' if code == 'messages' }}"
+       class="px-4 py-2 text-sm font-medium -mb-px border-b-2 {{ 'border-primary-600 text-primary-700 dark:text-primary-400' if tab == code else 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300' }}">
+        {{ label }}{% if code == 'messages' and unread > 0 %} <span class="fc-badge fc-badge-info">{{ unread }}</span>{% endif %}
+    </a>
+    {% endfor %}
+</div>
+
+{% if tab == 'messages' %}
+<div class="max-w-4xl bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('notifications.tab_messages') }}</h3>
+        <button hx-post="/notifications/mark-all-read" hx-swap="none" onclick="setTimeout(() => window.location.reload(), 300)"
+                class="text-sm text-primary-600 dark:text-primary-400 hover:underline">{{ _('btn.mark_all_read') }}</button>
+    </div>
+    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for n in messages %}
+        <div class="p-4 {% if not n.is_read %}bg-blue-50/30 dark:bg-blue-900/10{% endif %}"
+             {% if not n.is_read %}hx-post="/notifications/{{ n.id }}/read" hx-swap="none" hx-trigger="click"{% endif %}>
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ n.title }}</p>
+                {% if not n.is_read %}<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></span>{% endif %}
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ n.message }}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ local_dt(n.created_at) }}</p>
+        </div>
+        {% else %}
+        <p class="p-12 text-center text-gray-500 dark:text-gray-400">{{ _('notifications.messages_empty') }}</p>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<form method="GET" action="/notifications" class="mb-6 flex flex-wrap items-center gap-3"
+      hx-get="/notifications" hx-target="#attention-table" hx-swap="innerHTML" hx-push-url="true"
+      hx-trigger="submit, change, keyup delay:400ms from:input[name=q]">
+    <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="{{ _('notifications.search_placeholder') }}"
+           class="h-10 px-4 w-64 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+    <select name="source" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+        <option value="">{{ _('notifications.filter_source') }}</option>
+        {% for s in sources %}<option value="{{ s.code }}" {% if filters.source == s.code %}selected{% endif %}>{{ _(s.label_key) }}</option>{% endfor %}
+    </select>
+    <select name="status" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+        <option value="">{{ _('notifications.filter_status') }}</option>
+        {% for s in statuses %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ _('compliance_status.' ~ s) }}</option>{% endfor %}
+    </select>
+    <select name="reminders" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+        <option value="">{{ _('notifications.filter_reminders') }}</option>
+        {% for r in reminder_filters %}<option value="{{ r }}" {% if filters.reminders == r %}selected{% endif %}>{{ _('notifications.reminders_' ~ r) }}</option>{% endfor %}
+    </select>
+    <select name="sort" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+        {% for s in sorts %}<option value="{{ s if s != 'urgency' else '' }}" {% if (filters.sort or 'urgency') == s %}selected{% endif %}>{{ _('notifications.sort_' ~ s) }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+</form>
+<div id="attention-table">
+    {% include 'notifications/partials/table.html' %}
+</div>
+{% endif %}
+{% endblock %}
