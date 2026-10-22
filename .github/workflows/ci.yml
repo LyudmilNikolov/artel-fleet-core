@@ -33,7 +33,7 @@ jobs:
       VAULT_ADDR: ""
       VAULT_TOKEN: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -65,7 +65,7 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true   # informational: read the log, upgrade what matters
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
