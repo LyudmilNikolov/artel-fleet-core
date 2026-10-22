@@ -1,5 +1,6 @@
 """Data access for per-vehicle compliance documents."""
 
+from collections.abc import Sequence
 from datetime import date
 from uuid import UUID
 
@@ -59,6 +60,7 @@ class ComplianceRepository(BaseRepository[ComplianceDocument]):
         today: date,
         window: int,
         vehicle_id: UUID | None = None,
+        vehicle_ids: Sequence[UUID] | None = None,
         q: str | None = None,
         document_type: str | None = None,
         status: str | None = None,
@@ -71,6 +73,8 @@ class ComplianceRepository(BaseRepository[ComplianceDocument]):
         conditions = []
         if vehicle_id:
             conditions.append(doc.vehicle_id == vehicle_id)
+        if vehicle_ids is not None:
+            conditions.append(doc.vehicle_id.in_(list(vehicle_ids)))
         if q:
             pattern = f"%{q.strip()}%"
             conditions.append(

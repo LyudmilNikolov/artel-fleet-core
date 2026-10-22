@@ -9,6 +9,7 @@ from app.database import get_db
 from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.services.driver_scope import UNRESTRICTED, DriverScope, driver_may_call_api, resolve_scope
 from app.utils.security import decode_token
 
 security = HTTPBearer()
@@ -32,7 +33,16 @@ async def get_current_user(
 
     resolve_locale(request, user)
     set_audit_user(user.id)
+    scope = await resolve_scope(db, user)
+    request.state.driver_scope = scope
+    if scope.restricted and not driver_may_call_api(request.url.path, request.method, scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="errors.forbidden")
     return user
+
+
+def get_driver_scope(request: Request) -> DriverScope:
+    """Visibility of the authenticated user (set by ``get_current_user``); unrestricted by default."""
+    return getattr(request.state, "driver_scope", UNRESTRICTED)
 
 
 def require_roles(*roles: UserRole):

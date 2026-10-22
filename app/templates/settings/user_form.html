@@ -9,7 +9,7 @@
 </nav>
 <div class="max-w-3xl">
     {% if error %}<div role="alert" class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
-    <form method="POST" class="fc-card p-6 space-y-6">
+    <form method="POST" class="fc-card p-6 space-y-6" x-data='{ role: {{ (form_data.get("role") or "viewer") | tojson }} }'>
         <section>
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">{{ _('settings.account_section') }}</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -44,7 +44,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="fc-label" for="role">{{ _('settings.role') }}</label>
-                    <select id="role" name="role" class="fc-select" {{ 'disabled' if is_self }}>
+                    <select id="role" name="role" x-model="role" class="fc-select" {{ 'disabled' if is_self }}>
                         {% for r in roles %}<option value="{{ r }}" {{ 'selected' if form_data.get('role') == r }}>{{ _('role.' + r) }}</option>{% endfor %}
                     </select>
                     {% if is_self %}<input type="hidden" name="role" value="{{ form_data.get('role') }}">{% endif %}
@@ -59,6 +59,21 @@
                     {% if is_self %}<input type="hidden" name="is_active" value="on">{% endif %}
                 </div>
                 {% endif %}
+                <div class="md:col-span-2" x-show="role === 'driver'" {% if form_data.get('role') != 'driver' %}style="display: none"{% endif %}>
+                    <label class="fc-label" for="driver_id">{{ _('settings.driver_profile') }}</label>
+                    {% if driver_profiles %}
+                    <select id="driver_id" name="driver_id" class="fc-select" :required="role === 'driver'">
+                        <option value="">{{ _('settings.driver_profile_choose') }}</option>
+                        {% for d in driver_profiles %}<option value="{{ d.id }}" {{ 'selected' if form_data.get('driver_id') == d.id|string }}>{{ d.full_name }}{% if d.phone %} · {{ d.phone }}{% endif %}</option>{% endfor %}
+                    </select>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ _('settings.driver_profile_hint') }}</p>
+                    {% else %}
+                    <div class="p-3 bg-yellow-50 text-yellow-800 dark:text-yellow-300 border border-gray-200 dark:border-gray-700 rounded-lg text-sm">
+                        {{ _('settings.driver_profile_none') }}
+                        <a href="/drivers/new" class="text-primary-600 underline whitespace-nowrap">{{ _('settings.driver_profile_create') }}</a>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </section>
 

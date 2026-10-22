@@ -18,7 +18,7 @@ from app.services.errors import DomainError, MileageBelowCurrentError, render_er
 from app.services.expense_service import ExpenseService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
-from app.web.deps import get_web_user, web_require_roles
+from app.web.deps import driver_scope_of, get_web_user, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
 router = APIRouter(prefix="/expenses", tags=["web-expenses"])
@@ -135,7 +135,12 @@ async def expense_list(
     except ValueError:
         types, vehicle_type = None, None
     items, total = await ExpenseService(db).list_all(
-        category=category_enum, q=q, vehicle_types=types, page=page, size=size
+        category=category_enum,
+        q=q,
+        vehicle_types=types,
+        vehicle_ids=driver_scope_of(request).vehicle_filter,
+        page=page,
+        size=size,
     )
     partial = request.headers.get("HX-Request") == "true" and request.headers.get("HX-Target") == "expense-results"
     return request.app.state.templates.TemplateResponse(
@@ -230,7 +235,7 @@ async def expense_detail(request: Request, expense_id: UUID, db: AsyncSession = 
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     expense = await ExpenseService(db).get_by_id(expense_id)
-    if not expense:
+    if not expense or not driver_scope_of(request).allows_vehicle(expense.vehicle_id):
         return RedirectResponse(url="/expenses", status_code=302)
     return request.app.state.templates.TemplateResponse(
         request=request,

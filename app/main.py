@@ -62,6 +62,7 @@ def create_app() -> FastAPI:
         lang = get_lang(request)
         return {
             "lang": lang,
+            "driver_scope": getattr(request.state, "driver_scope", None),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
             "languages": get_available_languages(),

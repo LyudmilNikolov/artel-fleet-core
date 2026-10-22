@@ -6,15 +6,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.audit_log import AuditAction
+from app.models.driver import Driver
 from app.models.user import User, UserRole
+from app.repositories.driver_repo import DriverRepository
 from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
-from app.services.auth_service import AuthService
 from app.services.errors import DomainError, render_error
+from app.services.user_service import UserService
 from app.utils.security import hash_password
 from app.web.deps import web_require_roles
 
@@ -27,7 +30,10 @@ EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USER_LANGUAGES = ("bg", "en")
 
 
-def _user_form_response(request: Request, admin: User, *, target=None, form=None, error=None, status_code=200):
+async def _user_form_response(
+    request: Request, admin: User, db: AsyncSession, *, target=None, form=None, error=None, status_code=200
+):
+    drivers = await UserService(db).linkable_drivers(target.id if target else None)
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="settings/user_form.html",
@@ -39,6 +45,7 @@ def _user_form_response(request: Request, admin: User, *, target=None, form=None
             "form_data": form or {},
             "error": error,
             "roles": [r.value for r in UserRole],
+            "driver_profiles": drivers,
             "language_choices": USER_LANGUAGES,  # not "languages": that name is a template global
             "is_self": bool(target and target.id == admin.id),
             "active_page": "users",
@@ -49,13 +56,18 @@ def _user_form_response(request: Request, admin: User, *, target=None, form=None
 
 async def _read_user_form(request: Request) -> tuple[dict, str, str]:
     raw = await request.form()
-    data = {k: str(raw.get(k) or "").strip() for k in ("username", "email", "full_name", "role", "language")}
+    data = {
+        k: str(raw.get(k) or "").strip() for k in ("username", "email", "full_name", "role", "language", "driver_id")
+    }
     data["is_active"] = "on" if raw.get("is_active") else ""
     return data, str(raw.get("password") or ""), str(raw.get("password_confirm") or "")
 
 
-def _validate_user_form(data: dict, password: str, confirm: str, *, creating: bool) -> UserRole:
-    """Raise DomainError with a specific key for the first problem; returns the chosen role."""
+def _validate_user_form(data: dict, password: str, confirm: str, *, creating: bool) -> tuple[UserRole, UUID | None]:
+    """Raise DomainError with a specific key for the first problem; returns the role and driver profile id.
+
+    The driver profile only applies to the driver role; for other roles a submitted value is ignored.
+    """
     if creating and not 3 <= len(data["username"]) <= 100:
         raise DomainError("error.user_username_invalid")
     if not data["full_name"]:
@@ -73,30 +85,37 @@ def _validate_user_form(data: dict, password: str, confirm: str, *, creating: bo
             raise DomainError("error.user_password_short")
         if password != confirm:
             raise DomainError("error.user_password_mismatch")
-    return role
+    driver_id = None
+    if role == UserRole.DRIVER and data["driver_id"]:
+        try:
+            driver_id = UUID(data["driver_id"])
+        except ValueError:
+            raise DomainError("error.driver_profile_not_found") from None
+    return role, driver_id
 
 
 @router.get("/settings/users/new")
-async def user_new_page(request: Request, user: User = Depends(require_admin)):
-    return _user_form_response(request, user, form={"role": UserRole.VIEWER.value, "language": "bg"})
+async def user_new_page(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
+    return await _user_form_response(request, user, db, form={"role": UserRole.VIEWER.value, "language": "bg"})
 
 
 @router.post("/settings/users/new")
 async def user_create(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     data, password, confirm = await _read_user_form(request)
     try:
-        role = _validate_user_form(data, password, confirm, creating=True)
-        await AuthService(db).register(
+        role, driver_id = _validate_user_form(data, password, confirm, creating=True)
+        await UserService(db).create(
             email=data["email"],
             username=data["username"],
             full_name=data["full_name"],
             password=password,
             role=role,
             language=data["language"],
+            driver_id=driver_id,
         )
     except DomainError as exc:
-        return _user_form_response(
-            request, user, form=data, error=render_error(exc, request.state.locale), status_code=422
+        return await _user_form_response(
+            request, user, db, form=data, error=render_error(exc, request.state.locale), status_code=422
         )
     return RedirectResponse(url="/settings/users", status_code=303)
 
@@ -114,8 +133,9 @@ async def user_edit_page(
         "role": target.role.value,
         "language": target.language,
         "is_active": "on" if target.is_active else "",
+        "driver_id": str(linked.id) if (linked := await DriverRepository(db).get_for_user(target.id)) else "",
     }
-    return _user_form_response(request, user, target=target, form=form)
+    return await _user_form_response(request, user, db, target=target, form=form)
 
 
 @router.post("/settings/users/{user_id}/edit")
@@ -128,27 +148,27 @@ async def user_update(
         return RedirectResponse(url="/settings/users", status_code=303)
     data, password, confirm = await _read_user_form(request)
     try:
-        role = _validate_user_form(data, password, confirm, creating=False)
+        role, driver_id = _validate_user_form(data, password, confirm, creating=False)
         is_active = bool(data["is_active"])
         if target.id == user.id and (role != target.role or not is_active):
             raise DomainError("error.user_self_locked")  # an admin cannot lock themselves out
         other = await repo.get_by_email(data["email"])
         if other and other.id != target.id:
             raise DomainError("auth.email_registered")
+        changes = {
+            "full_name": data["full_name"],
+            "email": data["email"],
+            "role": role,
+            "language": data["language"],
+            "is_active": is_active,
+        }
+        if password:
+            changes["hashed_password"] = hash_password(password)
+        await UserService(db).update(target, changes, driver_id=driver_id)
     except DomainError as exc:
-        return _user_form_response(
-            request, user, target=target, form=data, error=render_error(exc, request.state.locale), status_code=422
+        return await _user_form_response(
+            request, user, db, target=target, form=data, error=render_error(exc, request.state.locale), status_code=422
         )
-    changes = {
-        "full_name": data["full_name"],
-        "email": data["email"],
-        "role": role,
-        "language": data["language"],
-        "is_active": is_active,
-    }
-    if password:
-        changes["hashed_password"] = hash_password(password)
-    await repo.update(target, **changes)
     return RedirectResponse(url="/settings/users", status_code=303)
 
 
@@ -166,6 +186,8 @@ async def users_page(
     repo = UserRepository(db)
     items, total = await repo.list(offset=(page - 1) * size, limit=size, order_by="-created_at")
     pages = max(1, (total + size - 1) // size)
+    linked = await db.scalars(select(Driver).where(Driver.user_id.in_([u.id for u in items])))
+    driver_profiles = {d.user_id: d for d in linked.all()}
 
     return templates.TemplateResponse(
         request=request,
@@ -173,6 +195,7 @@ async def users_page(
         context={
             "request": request,
             "user": user,
+            "driver_profiles": driver_profiles,
             "users": items,
             "total": total,
             "page": page,

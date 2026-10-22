@@ -4,6 +4,7 @@ Per (vehicle, service item) the latest completed planned service is current; its
 date are compared with the vehicle's current mileage and today's date. Older records never warn.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
@@ -68,11 +69,17 @@ class ServiceDueService:
             SERVICE_ITEMS.index(view.record.service_item) if view.record.service_item in SERVICE_ITEMS else 99,
         )
 
-    async def list_due(self, status: str | None = None, vehicle_id: UUID | None = None) -> list[ServiceDueView]:
+    async def list_due(
+        self, status: str | None = None, vehicle_id: UUID | None = None, vehicle_ids: Sequence[UUID] | None = None
+    ) -> list[ServiceDueView]:
         """Current planned services, most urgent first; optionally only one status."""
         if status is not None and status not in DUE_STATUSES:
             raise DomainError("errors.invalid_input")
-        views = [v for v in await self._views(vehicle_id) if status is None or v.status == status]
+        views = [
+            v
+            for v in await self._views(vehicle_id)
+            if (status is None or v.status == status) and (vehicle_ids is None or v.vehicle.id in vehicle_ids)
+        ]
         return sorted(views, key=self._urgency)
 
     async def for_vehicle(self, vehicle_id: UUID) -> list[ServiceDueView]:

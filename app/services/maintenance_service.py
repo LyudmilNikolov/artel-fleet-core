@@ -149,6 +149,7 @@ class MaintenanceService:
         status: MaintenanceStatus | Sequence[MaintenanceStatus] | None = None,
         q: str | None = None,
         vehicle_types: Sequence[VehicleType] | None = None,
+        vehicle_ids: Sequence[UUID] | None = None,
         when: str | None = None,
         today: date | None = None,
         page: int = 1,
@@ -165,6 +166,8 @@ class MaintenanceService:
         today = today or _today()
         rec = MaintenanceRecord
         conditions = []
+        if vehicle_ids is not None:
+            conditions.append(rec.vehicle_id.in_(list(vehicle_ids)))
         statuses = [status] if isinstance(status, MaintenanceStatus) else list(status or [])
         if statuses:
             conditions.append(rec.status.in_(statuses))

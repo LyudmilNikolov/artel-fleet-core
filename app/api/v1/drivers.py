@@ -61,7 +61,10 @@ async def create_driver(
     data: DriverCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_fleet_manager)
 ):
     service = DriverService(db)
-    return await service.create(data)
+    try:
+        return await service.create(data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=error_detail(e))
 
 
 @router.patch("/{driver_id}", response_model=DriverRead)

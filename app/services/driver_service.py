@@ -7,6 +7,7 @@ from app.config import settings
 from app.models.document import Document, EntityType
 from app.models.driver import Driver, DriverStatus
 from app.models.driver_document import DriverDocument
+from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
 from app.repositories.driver_repo import DriverRepository
 from app.schemas.driver import DriverCreate, DriverUpdate
@@ -21,7 +22,16 @@ class DriverService:
         self.repo = DriverRepository(session)
 
     async def create(self, data: DriverCreate) -> Driver:
-        """Create a driver. Licence and other documents are added afterwards as driver documents."""
+        """Create a driver. Licence and other documents are added afterwards as driver documents.
+
+        A ``user_id`` (API) must belong to an existing driver-role login that has no profile yet.
+        """
+        if data.user_id is not None:
+            user = await self.session.get(User, data.user_id)
+            if user is None or user.role != UserRole.DRIVER:
+                raise DomainError("error.driver_login_invalid")
+            if await self.repo.get_for_user(user.id) is not None:
+                raise DomainError("error.driver_login_taken")
         return await self.repo.create(**data.model_dump())
 
     async def update(self, driver_id: UUID, data: DriverUpdate) -> Driver:
@@ -73,6 +83,31 @@ class DriverService:
             select(Vehicle).where(Vehicle.assigned_driver_id == driver_id).order_by(Vehicle.license_plate)
         )
         return list(result.all())
+
+    async def assign_vehicle(self, driver_id: UUID, vehicle_id: UUID) -> Vehicle:
+        """Assign a vehicle to a driver (moving it from another driver if needed).
+
+        A driver may have several vehicles; a terminated driver cannot be assigned any.
+        """
+        driver = await self.repo.get_by_id(driver_id)
+        if not driver:
+            raise DomainError("error.driver_not_found")
+        if driver.status == DriverStatus.TERMINATED:
+            raise DomainError("error.driver_terminated_assign")
+        vehicle = await self.session.get(Vehicle, vehicle_id)
+        if not vehicle:
+            raise DomainError("error.vehicle_not_found")
+        vehicle.assigned_driver_id = driver.id
+        await self.session.flush()
+        return vehicle
+
+    async def unassign_vehicle(self, driver_id: UUID, vehicle_id: UUID) -> None:
+        """Remove the driver's assignment from a vehicle; the vehicle must currently belong to this driver."""
+        vehicle = await self.session.get(Vehicle, vehicle_id)
+        if not vehicle or vehicle.assigned_driver_id != driver_id:
+            raise DomainError("error.vehicle_not_assigned")
+        vehicle.assigned_driver_id = None
+        await self.session.flush()
 
     async def delete(self, driver_id: UUID) -> None:
         """Delete a driver with its document entries, uploaded files and stored objects.

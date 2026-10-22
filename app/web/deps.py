@@ -9,6 +9,7 @@ from app.database import get_db
 from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.services.driver_scope import UNRESTRICTED, DriverScope, driver_may_open, resolve_scope
 
 
 class WebRedirectException(HTTPException):
@@ -35,7 +36,18 @@ async def get_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> 
         return None
     resolve_locale(request, user)
     set_audit_user(user.id)
+    scope = await resolve_scope(db, user)
+    request.state.driver_scope = scope
+    if scope.restricted and not driver_may_open(request.url.path, request.method, scope):
+        if request.headers.get("HX-Request") == "true":
+            raise HTTPException(status_code=403, detail="errors.forbidden")
+        raise WebRedirectException(scope.home)  # a driver only has their profile and assigned vehicles
     return user
+
+
+def driver_scope_of(request: Request) -> DriverScope:
+    """Visibility of the logged-in user, set by ``get_web_user`` (unrestricted for everyone but drivers)."""
+    return getattr(request.state, "driver_scope", UNRESTRICTED)
 
 
 async def require_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:

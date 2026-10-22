@@ -124,7 +124,18 @@ async def test_validation_errors(client, db_session, manager_token):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", [UserRole.VIEWER, UserRole.DRIVER])
+async def test_driver_role_has_no_access_to_vehicle_documents(client, db_session, manager_token):
+    """Drivers only reach their own profile and assigned vehicles (see tests/test_web/test_driver_access.py)."""
+    vehicle = await make_vehicle(db_session)
+    created = (await client.post(BASE, json=body(vehicle.id), headers=auth_header(manager_token))).json()
+    headers = auth_header(await token_for(db_session, UserRole.DRIVER))
+    assert (await client.get(BASE, headers=headers)).status_code == 403
+    assert (await client.get(f"{BASE}/{created['id']}", headers=headers)).status_code == 403
+    assert (await client.post(BASE, json=body(vehicle.id), headers=headers)).status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", [UserRole.VIEWER])
 async def test_read_only_roles(client, db_session, manager_token, role):
     vehicle = await make_vehicle(db_session)
     created = (await client.post(BASE, json=body(vehicle.id), headers=auth_header(manager_token))).json()

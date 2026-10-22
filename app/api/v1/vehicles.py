@@ -3,13 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_fleet_manager
+from app.api.deps import get_current_user, get_driver_scope, require_fleet_manager
 from app.database import get_db
 from app.models.user import User
 from app.models.vehicle import FuelType, VehicleStatus, VehicleType
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
+from app.services.driver_scope import DriverScope
 from app.services.errors import error_detail
 from app.services.vehicle_service import VehicleService
 
@@ -28,9 +29,11 @@ async def list_vehicles(
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
+    scope: DriverScope = Depends(get_driver_scope),
 ):
     service = VehicleService(db)
     items, total = await service.list_vehicles(
+        vehicle_ids=scope.vehicle_filter,
         q=q,
         status=status,
         brand=brand,
@@ -59,10 +62,11 @@ async def get_vehicle(
     vehicle_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
+    scope: DriverScope = Depends(get_driver_scope),
 ):
     service = VehicleService(db)
     vehicle = await service.get_by_id(vehicle_id)
-    if not vehicle:
+    if not vehicle or not scope.allows_vehicle(vehicle.id):
         raise HTTPException(status_code=404, detail="error.vehicle_not_found")
     return vehicle
 

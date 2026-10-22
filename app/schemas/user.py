@@ -14,6 +14,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
     role: UserRole = UserRole.VIEWER
     language: Literal["bg", "en"] = "bg"
+    driver_id: UUID | None = None  # required for role "driver": the driver profile this login belongs to
 
 
 class UserUpdate(BaseModel):
@@ -22,6 +23,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
     language: Literal["bg", "en"] | None = None
+    driver_id: UUID | None = None  # driver profile to link (role "driver")
 
     @field_validator("language")
     @classmethod

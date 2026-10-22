@@ -19,7 +19,7 @@ from app.services.maintenance_service import PENDING_STATUSES, MaintenanceServic
 from app.services.service_due_service import ServiceDueService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, vehicle_type_filter
-from app.web.deps import get_web_user, web_require_roles
+from app.web.deps import driver_scope_of, get_web_user, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
 router = APIRouter(prefix="/maintenance", tags=["web-maintenance"])
@@ -146,7 +146,13 @@ async def maintenance_list(
     except ValueError:
         types, vehicle_type = None, None
     items, total = await MaintenanceService(db).list_all(
-        status=statuses, q=q, vehicle_types=types, when=when, page=page, size=size
+        status=statuses,
+        q=q,
+        vehicle_types=types,
+        vehicle_ids=driver_scope_of(request).vehicle_filter,
+        when=when,
+        page=page,
+        size=size,
     )
     partial = request.headers.get("HX-Request") == "true" and request.headers.get("HX-Target") == "maintenance-results"
     return request.app.state.templates.TemplateResponse(
@@ -178,7 +184,7 @@ async def service_due_list(request: Request, status: str | None = None, db: Asyn
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     status = status if status in DUE_STATUSES else None
-    views = await ServiceDueService(db).list_due(status)
+    views = await ServiceDueService(db).list_due(status, vehicle_ids=driver_scope_of(request).vehicle_filter)
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="maintenance/due.html",
@@ -251,7 +257,7 @@ async def maintenance_detail(request: Request, record_id: UUID, db: AsyncSession
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     record = await MaintenanceService(db).get_by_id(record_id)
-    if not record:
+    if not record or not driver_scope_of(request).allows_vehicle(record.vehicle_id):
         return RedirectResponse(url="/maintenance", status_code=302)
     return request.app.state.templates.TemplateResponse(
         request=request,

@@ -42,6 +42,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         fuel_type: str | None = None,
         vehicle_type: str | Sequence[str] | None = None,
         department: str | None = None,
+        ids: Sequence | None = None,
         offset: int = 0,
         limit: int = 50,
         order_by: str = "-created_at",
@@ -53,6 +54,10 @@ class VehicleRepository(BaseRepository[Vehicle]):
         if search is not None:
             query = query.where(search)
             count_query = count_query.where(search)
+
+        if ids is not None:  # restrict to these vehicles (a driver's assigned ones); empty means none
+            query = query.where(Vehicle.id.in_(list(ids)))
+            count_query = count_query.where(Vehicle.id.in_(list(ids)))
 
         for attr, val in [
             ("status", status),

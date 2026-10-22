@@ -177,11 +177,14 @@ class VehicleService:
         fuel_type: str | None = None,
         vehicle_type: str | Sequence[str] | None = None,
         department: str | None = None,
+        vehicle_ids: Sequence | None = None,
         page: int = 1,
         size: int = 50,
         order_by: str = "-created_at",
     ) -> tuple[list[Vehicle], int]:
+        """Vehicles matching the filters; ``vehicle_ids`` restricts to those vehicles (a driver's assigned ones)."""
         return await self.repo.search(
+            ids=vehicle_ids,
             q=q,
             status=status,
             brand=brand,

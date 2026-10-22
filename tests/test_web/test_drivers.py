@@ -158,8 +158,11 @@ async def test_licences_tab_partial_and_number_masking(client, db_session, fleet
     await client.get("/logout")
     await login(client, me_user.username)
     assert "777788889999" in (await client.get(f"/drivers/{mine.id}/tab/licences")).text
-    assert (await client.get(f"/drivers/{driver.id}/tab/licences")).status_code == 403
-    assert (await client.get(f"/drivers/{uuid4()}/tab/licences")).status_code == 404
+    # another driver's tab is closed: a redirect to the own profile (403 for HTMX requests)
+    other = await client.get(f"/drivers/{driver.id}/tab/licences")
+    assert other.status_code == 302 and other.headers["location"] == f"/drivers/{mine.id}"
+    assert (await client.get(f"/drivers/{driver.id}/tab/licences", headers={"HX-Request": "true"})).status_code == 403
+    assert (await client.get(f"/drivers/{uuid4()}/tab/licences")).status_code == 302
 
 
 @pytest.mark.asyncio
@@ -289,13 +292,16 @@ async def test_list_badges_filter_and_dashboard_widget(client, db_session, fleet
 
 
 @pytest.mark.asyncio
-async def test_driver_role_list_hides_document_state(client, db_session):
+async def test_driver_role_cannot_list_other_drivers(client, db_session):
     me_user, _ = await make_user(db_session, UserRole.DRIVER)
+    mine = await make_driver(db_session, "Mine", user_id=me_user.id)
     other = await make_driver(db_session, "Other")
     await add_entry(db_session, other, "id_card", end=TODAY - timedelta(days=3))
     await login(client, me_user.username)
-    page = await client.get("/drivers")
-    assert page.status_code == 200 and "1 expired" not in page.text and 'name="doc_status"' not in page.text
+    for path in ("/drivers", f"/drivers/{other.id}"):
+        page = await client.get(path)
+        assert page.status_code == 302 and page.headers["location"] == f"/drivers/{mine.id}", path
+    assert (await client.get(f"/drivers/{mine.id}")).status_code == 200
 
 
 @pytest.mark.asyncio

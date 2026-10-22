@@ -3,7 +3,7 @@
 {% block page_title %}{{ driver.full_name }}{% endblock %}
 {% block content %}
 <div class="mb-4 flex items-center gap-3">
-    <a href="/drivers" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+    {% if not (driver_scope and driver_scope.restricted) %}<a href="/drivers" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>{% endif %}
     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if driver.status.value == 'active' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% elif driver.status.value == 'on_leave' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-gray-100 text-gray-800{% endif %}">{{ _('status.' + driver.status.value) }}</span>
     {% if can_edit %}
     <a href="/drivers/{{ driver.id }}/edit" class="ml-auto px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.edit') }}</a>
@@ -53,11 +53,40 @@
             {{ field(_('driver.department'), driver.department) }}
             {{ field(_('driver.hire_date'), driver.hire_date) }}
             {{ field(_('common.status'), _('status.' + driver.status.value)) }}
+            {% if can_edit %}
+            <div class="md:col-span-2 lg:col-span-3">
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('driver.login_account') }}</dt>
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {% if login_user %}{{ login_user.username }} ({{ login_user.email }}){% else %}<span class="text-gray-500">{{ _('driver.no_login') }}</span>{% endif %}
+                </dd>
+            </div>
+            {% endif %}
             <div class="md:col-span-2 lg:col-span-3">
                 <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('driver.assigned_vehicles') }}</dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                    {% for v in vehicles %}<a href="/vehicles/{{ v.id }}" class="inline-block mr-3 text-primary-600 hover:underline">{{ v.license_plate }} — {{ v.brand }} {{ v.model }}</a>{% else %}—{% endfor %}
+                    {% for v in vehicles %}
+                    <span class="inline-flex items-center gap-1 mr-3">
+                        <a href="/vehicles/{{ v.id }}" class="text-primary-600 hover:underline">{{ v.license_plate }} — {{ v.brand }} {{ v.model }}</a>
+                        {% if can_edit %}
+                        <form method="POST" action="/drivers/{{ driver.id }}/vehicles/{{ v.id }}/unassign" class="inline" onsubmit="return confirm({{ _('driver.confirm_unassign') | tojson | forceescape }})">
+                            <button type="submit" class="text-xs text-red-600 hover:underline" title="{{ _('driver.unassign') }}" aria-label="{{ _('driver.unassign') }}">&times;</button>
+                        </form>
+                        {% endif %}
+                    </span>
+                    {% else %}—{% endfor %}
                 </dd>
+                {% if can_edit and driver.status.value != 'terminated' %}
+                <form method="POST" action="/drivers/{{ driver.id }}/vehicles" class="mt-3 flex flex-wrap items-end gap-3"
+                      x-data='vehiclePicker({{ picker | tojson }})' @submit="if ($refs.search) $refs.search.disabled = true">
+                    <div class="w-80">
+                        {% set options_url = '/drivers/' ~ driver.id ~ '/vehicle-options' %}
+                        {% set locked = false %}
+                        {% include 'components/vehicle_picker.html' %}
+                    </div>
+                    <button type="submit" class="fc-btn-filter" :disabled="!vehicleId">{{ _('driver.assign_vehicle') }}</button>
+                </form>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ _('driver.assign_hint') }}</p>
+                {% endif %}
             </div>
         </div>
         {% if driver.notes %}
@@ -77,7 +106,7 @@
                 <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
             </div>
         </div>
-        {% if can_edit %}
+        {% if can_upload %}
         {% with entity_type='driver', entity_id=driver.id|string, doc_type='other' %}
         {% include 'components/upload.html' %}
         {% endwith %}

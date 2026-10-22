@@ -4,6 +4,7 @@ Status is computed from end_date and never stored. Per (vehicle, type) the entry
 the latest end_date is current; older entries are history and never raise warnings.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
@@ -96,6 +97,7 @@ class ComplianceService:
         self,
         *,
         vehicle_id: UUID | None = None,
+        vehicle_ids: Sequence[UUID] | None = None,
         q: str | None = None,
         document_type: str | None = None,
         status: str | None = None,
@@ -110,6 +112,7 @@ class ComplianceService:
             today=self.today,
             window=self.window,
             vehicle_id=vehicle_id,
+            vehicle_ids=vehicle_ids,
             q=q,
             document_type=document_type,
             status=status,

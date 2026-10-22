@@ -42,6 +42,10 @@
                             {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
                             {{ _('role.' + u.role.value) }}
                         </span>
+                        {% if u.role.value == 'driver' %}
+                        {% set profile = driver_profiles.get(u.id) %}
+                        <div class="mt-1 text-xs {{ 'text-gray-500' if profile else 'text-red-600' }}">{% if profile %}<a href="/drivers/{{ profile.id }}" class="hover:underline">{{ profile.full_name }}</a>{% else %}{{ _('settings.driver_profile_missing') }}{% endif %}</div>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3">
                         {% if u.is_active %}

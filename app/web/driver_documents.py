@@ -12,7 +12,13 @@ from app.driver_document_rules import DRIVER_DOCUMENT_TYPES, DRIVING_LICENCE_CAT
 from app.models.driver import Driver
 from app.models.user import User, UserRole
 from app.schemas.driver_document import DriverDocumentCreate, DriverDocumentRenew, DriverDocumentUpdate
-from app.services.driver_access import can_read_driver_documents, can_see_numbers, can_view_scans_of
+from app.services.driver_access import (
+    can_edit_driver_documents,
+    can_read_driver_documents,
+    can_see_numbers,
+    can_view_scans_of,
+    is_manager,
+)
 from app.services.driver_document_service import DriverDocumentService
 from app.services.errors import DomainError, render_error
 from app.web.deps import get_web_user, web_require_roles
@@ -124,24 +130,29 @@ async def driver_document_new(
     driver_id: str | None = None,
     document_type: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_manager),
 ):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     driver = await _driver(db, driver_id)
     if not driver:
         return RedirectResponse(url="/drivers", status_code=302)
-    return await _render_form(
-        request, user, driver, mode="create", form_data={"document_type": document_type}
-    )
+    if not can_edit_driver_documents(user, driver):
+        return RedirectResponse(url="/", status_code=302)
+    return await _render_form(request, user, driver, mode="create", form_data={"document_type": document_type})
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def driver_document_create(
-    request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
-):
+async def driver_document_create(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     raw = _submitted(await request.form())
     driver = await _driver(db, raw.get("driver_id"))
     if not driver:
         return RedirectResponse(url="/drivers", status_code=302)
+    if not can_edit_driver_documents(user, driver):
+        return RedirectResponse(url="/", status_code=302)
     try:
         view = await DriverDocumentService(db).create(DriverDocumentCreate(**raw), user.id)
     except (ValidationError, DomainError) as exc:
@@ -169,7 +180,11 @@ async def driver_document_detail(request: Request, entry_id: UUID, db: AsyncSess
             request,
             user,
             entry=view,
-            shown_number=view.document_number if can_see_numbers(user, view.driver) else mask_number(view.document_number),
+            can_edit=can_edit_driver_documents(user, view.driver),
+            can_delete=is_manager(user),
+            shown_number=view.document_number
+            if can_see_numbers(user, view.driver)
+            else mask_number(view.document_number),
             can_view_scans=can_view_scans_of(user, view.driver),
             successor=await service.successor(entry_id),
             history_count=await service.history_count(entry_id),
@@ -179,25 +194,31 @@ async def driver_document_detail(request: Request, entry_id: UUID, db: AsyncSess
 
 
 @router.get("/{entry_id}/edit", response_class=HTMLResponse)
-async def driver_document_edit(
-    request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
-):
+async def driver_document_edit(request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     source = await DriverDocumentService(db).get(entry_id)
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
+    if not can_edit_driver_documents(user, source.driver):
+        return RedirectResponse(url="/", status_code=302)
     form_data = {name: getattr(source, name) for name in FORM_FIELDS}
     form_data["document_type"] = source.document_type
     return await _render_form(request, user, source.driver, mode="edit", form_data=form_data, source=source)
 
 
 @router.post("/{entry_id}/edit", response_class=HTMLResponse)
-async def driver_document_update(
-    request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
-):
+async def driver_document_update(request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     service = DriverDocumentService(db)
     source = await service.get(entry_id)
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
+    if not can_edit_driver_documents(user, source.driver):
+        return RedirectResponse(url="/", status_code=302)
     raw = _submitted(await request.form())
     values = {name: raw.get(name) for name in FORM_FIELDS}
     try:
@@ -206,31 +227,44 @@ async def driver_document_update(
         error, field_errors = _errors(exc, request.state.locale)
         raw["document_type"] = source.document_type
         return await _render_form(
-            request, user, source.driver, mode="edit", form_data=raw, source=source, error=error, field_errors=field_errors
+            request,
+            user,
+            source.driver,
+            mode="edit",
+            form_data=raw,
+            source=source,
+            error=error,
+            field_errors=field_errors,
         )
     return RedirectResponse(url=f"/driver-documents/{entry_id}", status_code=302)
 
 
 @router.get("/{entry_id}/renew", response_class=HTMLResponse)
-async def driver_document_renew_form(
-    request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
-):
+async def driver_document_renew_form(request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     service = DriverDocumentService(db)
     source = await service.get(entry_id)
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
+    if not can_edit_driver_documents(user, source.driver):
+        return RedirectResponse(url="/", status_code=302)
     form_data = {**service.renewal_proposal(source), "document_type": source.document_type}
     return await _render_form(request, user, source.driver, mode="renew", form_data=form_data, source=source)
 
 
 @router.post("/{entry_id}/renew", response_class=HTMLResponse)
-async def driver_document_renew(
-    request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
-):
+async def driver_document_renew(request: Request, entry_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     service = DriverDocumentService(db)
     source = await service.get(entry_id)
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
+    if not can_edit_driver_documents(user, source.driver):
+        return RedirectResponse(url="/", status_code=302)
     raw = _submitted(await request.form())
     try:
         # The form always sends every field, so number and categories are taken as submitted (blank clears).
@@ -239,7 +273,14 @@ async def driver_document_renew(
         error, field_errors = _errors(exc, request.state.locale)
         raw["document_type"] = source.document_type
         return await _render_form(
-            request, user, source.driver, mode="renew", form_data=raw, source=source, error=error, field_errors=field_errors
+            request,
+            user,
+            source.driver,
+            mode="renew",
+            form_data=raw,
+            source=source,
+            error=error,
+            field_errors=field_errors,
         )
     return RedirectResponse(url=f"/driver-documents/{view.id}", status_code=302)
 

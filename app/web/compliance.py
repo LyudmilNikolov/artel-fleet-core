@@ -17,7 +17,7 @@ from app.schemas.compliance import ComplianceCreate, ComplianceRenew, Compliance
 from app.services.compliance_service import ComplianceService
 from app.services.errors import DomainError, render_error
 from app.vehicle_rules import ComplianceType, compliance_types_for
-from app.web.deps import get_web_user, web_require_roles
+from app.web.deps import driver_scope_of, get_web_user, web_require_roles
 
 router = APIRouter(prefix="/compliance", tags=["web-compliance"])
 require_manager = web_require_roles(UserRole.ADMIN, UserRole.FLEET_MANAGER)
@@ -66,6 +66,7 @@ async def compliance_list(
         document_type=document_type,
         status=status,
         current_only=not include_history,
+        vehicle_ids=driver_scope_of(request).vehicle_filter,
         page=page,
         size=size,
     )
@@ -217,7 +218,7 @@ async def compliance_detail(request: Request, entry_id: UUID, db: AsyncSession =
         return RedirectResponse(url="/login", status_code=302)
     service = ComplianceService(db)
     view = await service.get(entry_id)
-    if not view:
+    if not view or not driver_scope_of(request).allows_vehicle(view.vehicle_id):
         return RedirectResponse(url="/compliance", status_code=302)
     return request.app.state.templates.TemplateResponse(
         request=request,

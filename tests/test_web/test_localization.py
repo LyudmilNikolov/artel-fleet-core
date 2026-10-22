@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.database import get_db
 from app.main import create_app
+from app.models.user import UserRole
 from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
@@ -16,7 +17,7 @@ from app.services.auth_service import AuthService
 
 @pytest.fixture
 async def locale_client(monkeypatch):
-    user = SimpleNamespace(id=uuid4(), language="en", is_active=True)
+    user = SimpleNamespace(id=uuid4(), language="en", is_active=True, role=UserRole.ADMIN)
 
     async def update(instance, **changes):
         for key, value in changes.items():

@@ -1,5 +1,5 @@
 {# Document gallery component — shows uploaded files with preview/download/delete #}
-{# Variables: documents, entity_type, entity_id, can_edit #}
+{# Variables: documents, entity_type, entity_id, can_edit; optional can_delete_own + viewer_id (a driver removes their own uploads) #}
 
 <div id="doc-gallery" class="space-y-3">
     {% if documents %}
@@ -48,7 +48,7 @@
             </div>
 
             {# Delete button (visible on hover) #}
-            {% if can_edit %}
+            {% if can_edit or (can_delete_own and viewer_id is defined and doc.uploaded_by == viewer_id) %}
             <button hx-delete="/documents/{{ doc.id }}"
                     hx-target="#doc-{{ doc.id }}"
                     hx-swap="outerHTML"

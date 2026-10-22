@@ -113,11 +113,14 @@ class ExpenseService:
         category: ExpenseCategory | None = None,
         q: str | None = None,
         vehicle_types: Sequence[VehicleType] | None = None,
+        vehicle_ids: Sequence[UUID] | None = None,
         page: int = 1,
         size: int = 50,
     ) -> tuple[list[Expense], int]:
-        """List expenses, newest first; filter by category and by vehicle (search text and vehicle type)."""
+        """List expenses, newest first; filter by category, vehicle (search text, type) or ``vehicle_ids``."""
         conditions = []
+        if vehicle_ids is not None:
+            conditions.append(Expense.vehicle_id.in_(list(vehicle_ids)))
         if category:
             conditions.append(Expense.category == category)
         search = vehicle_search_condition(q)

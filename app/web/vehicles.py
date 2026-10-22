@@ -30,7 +30,7 @@ from app.vehicle_rules import (
     type_group_of,
     vehicle_type_filter,
 )
-from app.web.deps import get_web_user
+from app.web.deps import driver_scope_of, get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
 
@@ -70,6 +70,7 @@ async def vehicle_list(
         vehicle_type=types,
         fuel_type=fuel_type,
         department=department or None,
+        vehicle_ids=driver_scope_of(request).vehicle_filter,
         page=page,
         size=size,
     )
@@ -187,6 +188,8 @@ async def vehicle_form_new(request: Request, db: AsyncSession = Depends(get_db))
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    if user.role.value not in ("admin", "fleet_manager"):
+        return RedirectResponse(url="/vehicles", status_code=303)
     return await render_form(request, db, user)
 
 
@@ -195,6 +198,8 @@ async def vehicle_create(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    if user.role.value not in ("admin", "fleet_manager"):
+        return RedirectResponse(url="/vehicles", status_code=303)
     return await save_form(request, db, user)
 
 
@@ -206,7 +211,7 @@ async def vehicle_detail(request: Request, vehicle_id: UUID, db: AsyncSession = 
 
     service = VehicleService(db)
     vehicle = await service.get_by_id(vehicle_id)
-    if not vehicle:
+    if not vehicle or not driver_scope_of(request).allows_vehicle(vehicle.id):
         return RedirectResponse(url="/vehicles", status_code=302)
 
     return request.app.state.templates.TemplateResponse(
@@ -228,6 +233,8 @@ async def vehicle_form_edit(request: Request, vehicle_id: UUID, db: AsyncSession
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    if user.role.value not in ("admin", "fleet_manager"):
+        return RedirectResponse(url="/vehicles", status_code=303)
     vehicle = await VehicleService(db).get_by_id(vehicle_id)
     if not vehicle:
         return RedirectResponse(url="/vehicles", status_code=302)
@@ -239,6 +246,8 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    if user.role.value not in ("admin", "fleet_manager"):
+        return RedirectResponse(url="/vehicles", status_code=303)
     vehicle = await VehicleService(db).get_by_id(vehicle_id)
     if not vehicle:
         return RedirectResponse(url="/vehicles", status_code=302)
@@ -271,6 +280,8 @@ async def vehicle_tab_mileage(
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
+    if not driver_scope_of(request).allows_vehicle(vehicle_id):
+        return HTMLResponse("", status_code=403)
     service = MileageService(db)
     logs = await service.get_history(vehicle_id, limit=50)
     templates = request.app.state.templates
@@ -291,6 +302,8 @@ async def vehicle_tab_maintenance(
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
+    if not driver_scope_of(request).allows_vehicle(vehicle_id):
+        return HTMLResponse("", status_code=403)
     service = MaintenanceService(db)
     records, total = await service.list_for_vehicle(vehicle_id, limit=30)
     templates = request.app.state.templates
@@ -318,6 +331,8 @@ async def vehicle_tab_expenses(
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
+    if not driver_scope_of(request).allows_vehicle(vehicle_id):
+        return HTMLResponse("", status_code=403)
     service = ExpenseService(db)
     records, total = await service.list_for_vehicle(vehicle_id, limit=30)
     templates = request.app.state.templates
@@ -345,6 +360,8 @@ async def vehicle_tab_compliance(
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
+    if not driver_scope_of(request).allows_vehicle(vehicle_id):
+        return HTMLResponse("", status_code=403)
     vehicle = await VehicleService(db).get_by_id(vehicle_id)
     if not vehicle:
         return HTMLResponse("", status_code=404)

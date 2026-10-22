@@ -10,7 +10,7 @@
     <div class="ml-auto flex items-center gap-2">
         <a href="/driver-documents/{{ entry.id }}/renew" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('driver_doc.renew') }}</a>
         <a href="/driver-documents/{{ entry.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
-        {% if history_count > 1 %}
+        {% if can_delete %}{% if history_count > 1 %}
         <div x-data="{ open: false }">
             <button type="button" @click="open = true" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
             <div x-show="open" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
@@ -41,7 +41,7 @@
         <form method="POST" action="/driver-documents/{{ entry.id }}/delete" onsubmit="return confirm({{ _('driver_doc.delete_confirm') | tojson | forceescape }})">
             <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
         </form>
-        {% endif %}
+        {% endif %}{% endif %}
     </div>
     {% endif %}
 </div>

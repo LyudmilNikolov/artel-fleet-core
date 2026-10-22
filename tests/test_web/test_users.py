@@ -10,7 +10,7 @@ NEW = {
     "username": "newdriver",
     "full_name": "New Driver",
     "email": "newdriver@example.com",
-    "role": "driver",
+    "role": "fleet_manager",
     "language": "en",
     "password": "secret-123",
     "password_confirm": "secret-123",
@@ -61,7 +61,7 @@ async def test_admin_creates_user_who_can_log_in(client, db_session, admin_user)
     created = await client.post("/settings/users/new", data=NEW, follow_redirects=False)
     assert created.status_code == 303 and created.headers["location"] == "/settings/users"
     user = await user_named(db_session, "newdriver")
-    assert user.role == UserRole.DRIVER and user.language == "en" and user.is_active
+    assert user.role == UserRole.FLEET_MANAGER and user.language == "en" and user.is_active
     assert user.hashed_password != NEW["password"]
     # audit: who created the account, and no password material
     entry = await db_session.scalar(select(AuditLog).where(AuditLog.entity_id == user.id))

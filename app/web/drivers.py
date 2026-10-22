@@ -10,12 +10,20 @@ from app.driver_document_rules import mask_number
 from app.models.driver import DriverStatus
 from app.models.user import User, UserRole
 from app.repositories.base import BaseRepository
+from app.repositories.user_repo import UserRepository
 from app.schemas.driver import DriverCreate, DriverUpdate
-from app.services.driver_access import can_read_driver_documents, can_see_numbers, can_view_scans_of
+from app.services.driver_access import (
+    can_edit_driver_documents,
+    can_read_driver_documents,
+    can_see_numbers,
+    can_view_scans_of,
+)
 from app.services.driver_document_service import DriverDocumentService
 from app.services.driver_service import DriverService
 from app.services.errors import DomainError, render_error
+from app.services.vehicle_service import VehicleService
 from app.web.deps import get_web_user, web_require_roles
+from app.web.pickers import option_rows, picker_state
 
 router = APIRouter(prefix="/drivers", tags=["web-drivers"])
 require_manager = web_require_roles(UserRole.ADMIN, UserRole.FLEET_MANAGER)
@@ -116,6 +124,47 @@ async def driver_create(request: Request, db: AsyncSession = Depends(get_db), us
     return RedirectResponse(url=f"/drivers/{driver.id}", status_code=302)
 
 
+@router.get("/{driver_id}/vehicle-options", response_class=HTMLResponse)
+async def driver_vehicle_options(
+    request: Request,
+    driver_id: UUID,
+    q: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
+    """HTMX partial for the vehicle picker on the driver page."""
+    vehicles = await VehicleService(db).picker_options(q)
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="components/vehicle_picker_options.html",
+        context=_ctx(request, user, options=option_rows(vehicles)),
+    )
+
+
+@router.post("/{driver_id}/vehicles")
+async def driver_assign_vehicle(
+    request: Request, driver_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
+):
+    """Assign a vehicle to the driver (the driver then sees that vehicle when logged in)."""
+    form = await request.form()
+    try:
+        await DriverService(db).assign_vehicle(driver_id, UUID(str(form.get("vehicle_id") or "")))
+    except (DomainError, ValueError):
+        pass  # an invalid choice leaves the assignments unchanged
+    return RedirectResponse(url=f"/drivers/{driver_id}", status_code=303)
+
+
+@router.post("/{driver_id}/vehicles/{vehicle_id}/unassign")
+async def driver_unassign_vehicle(
+    driver_id: UUID, vehicle_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
+):
+    try:
+        await DriverService(db).unassign_vehicle(driver_id, vehicle_id)
+    except DomainError:
+        pass
+    return RedirectResponse(url=f"/drivers/{driver_id}", status_code=303)
+
+
 @router.get("/{driver_id}", response_class=HTMLResponse)
 async def driver_detail(request: Request, driver_id: UUID, db: AsyncSession = Depends(get_db)):
     user = await get_web_user(request, db)
@@ -126,7 +175,9 @@ async def driver_detail(request: Request, driver_id: UUID, db: AsyncSession = De
     if not driver:
         return RedirectResponse(url="/drivers", status_code=302)
     can_docs = can_read_driver_documents(user, driver)
-    alerts = (await DriverDocumentService(db).alert_counts_by_driver([driver.id])).get(driver.id, {}) if can_docs else {}
+    alerts = (
+        (await DriverDocumentService(db).alert_counts_by_driver([driver.id])).get(driver.id, {}) if can_docs else {}
+    )
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="drivers/detail.html",
@@ -135,9 +186,12 @@ async def driver_detail(request: Request, driver_id: UUID, db: AsyncSession = De
             user,
             driver=driver,
             vehicles=await service.assigned_vehicles(driver.id),
+            login_user=await UserRepository(db).get_by_id(driver.user_id) if driver.user_id else None,
+            picker=picker_state(None),
             alerts=alerts,
             can_docs=can_docs,
             can_scans=can_view_scans_of(user, driver),
+            can_upload=can_edit_driver_documents(user, driver),
             can_edit=user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
         ),
     )
@@ -164,7 +218,7 @@ async def driver_tab_licences(request: Request, driver_id: UUID, db: AsyncSessio
             user,
             summary=summary,
             number=lambda value: value if full_numbers else mask_number(value),
-            can_edit=user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
+            can_edit=can_edit_driver_documents(user, driver),
         ),
     )
 
@@ -189,7 +243,9 @@ async def driver_update(
         return RedirectResponse(url="/drivers", status_code=302)
     form = await request.form()
     values = _form_values(form)
-    update_data = {k: v for k, v in values.items() if v is not None or k in ("phone", "email", "hire_date", "department", "notes")}
+    update_data = {
+        k: v for k, v in values.items() if v is not None or k in ("phone", "email", "hire_date", "department", "notes")
+    }
     status = form.get("status")
     if status:
         update_data["status"] = status
