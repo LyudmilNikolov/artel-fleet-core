@@ -36,6 +36,7 @@ class UUIDPrimaryKey:
 from app.models.user import User  # noqa: E402, F401
 from app.models.driver import Driver  # noqa: E402, F401
 from app.models.driver_document import DriverDocument  # noqa: E402, F401
+from app.models.driver_document_change import DriverDocumentChange  # noqa: E402, F401
 from app.models.vehicle import Vehicle  # noqa: E402, F401
 from app.models.mileage import MileageLog  # noqa: E402, F401
 from app.models.document import Document  # noqa: E402, F401

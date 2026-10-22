@@ -50,6 +50,24 @@ def driver_scope_of(request: Request) -> DriverScope:
     return getattr(request.state, "driver_scope", UNRESTRICTED)
 
 
+def can_contribute(request: Request, user: User) -> bool:
+    """Managers add expenses, maintenance and files anywhere; a driver only with an assigned vehicle."""
+    return user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER) or driver_scope_of(request).may_contribute
+
+
+def vehicle_choice_for(request: Request, vehicle_id: str | None) -> str | None:
+    """The vehicle a form starts with. A driver only gets one of their own (their only vehicle if they have one)."""
+    scope = driver_scope_of(request)
+    if not scope.restricted:
+        return vehicle_id
+    try:
+        if vehicle_id and UUID(vehicle_id) in scope.vehicle_ids:
+            return vehicle_id
+    except ValueError:
+        pass
+    return str(scope.vehicle_ids[0]) if len(scope.vehicle_ids) == 1 else None
+
+
 async def require_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     """Require authenticated user, redirect to login if not."""
     user = await get_web_user(request, db)

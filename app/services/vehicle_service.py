@@ -14,6 +14,7 @@ from app.models.vehicle import Vehicle, VehicleStatus
 from app.repositories.vehicle_repo import VehicleRepository, vehicle_search_condition
 from app.schemas.mileage import MileageCreate
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
+from app.services.driver_service import check_driver_has_no_other_vehicle
 from app.services.errors import DomainError
 from app.services.mileage_service import MileageService
 from app.utils.s3 import get_s3_client
@@ -23,6 +24,7 @@ from app.vehicle_rules import (
     MILEAGE_TYPES,
     TECHNICAL_FIELDS,
     VehicleType,
+    can_assign_to_driver,
     validate_applicability,
 )
 
@@ -64,6 +66,10 @@ class VehicleService:
     async def create(self, data: VehicleCreate, user_id: UUID | None = None) -> Vehicle:
         values = data.model_dump()
         await self._department(values["department"])
+        if values.get("assigned_driver_id"):
+            if not can_assign_to_driver(values["vehicle_type"]):
+                raise DomainError("error.vehicle_not_assignable")
+            await check_driver_has_no_other_vehicle(self.session, values["assigned_driver_id"], None)
         mileage = values.pop("current_mileage")
         forklift = values["vehicle_type"] == VehicleType.FORKLIFT
         for attempt in range(5):
@@ -102,6 +108,16 @@ class VehicleService:
             raise DomainError(str(exc)) from exc
         if "department" in values:
             await self._department(values["department"])
+        if not can_assign_to_driver(kind):
+            if values.get("assigned_driver_id"):
+                raise DomainError("error.vehicle_not_assignable")
+            if changed:  # becoming a trailer / forklift ends any driver assignment
+                values["assigned_driver_id"] = None
+        new_driver = values.get("assigned_driver_id")
+        if new_driver and new_driver != vehicle.assigned_driver_id:
+            if vehicle.assigned_driver_id is not None:
+                raise DomainError("error.vehicle_already_assigned")  # unassign first, never take it over
+            await check_driver_has_no_other_vehicle(self.session, new_driver, vehicle.id)
         supplied_plate = values.get("license_plate")
         generate = changed and kind == VehicleType.FORKLIFT
         if (
@@ -155,7 +171,9 @@ class VehicleService:
                 raise self._integrity_error(exc) from exc
         raise DomainError("error.vehicle_identifier_retry")
 
-    async def picker_options(self, q: str | None, limit: int = 20, vehicle_types=None) -> list[Vehicle]:
+    async def picker_options(
+        self, q: str | None, limit: int = 20, vehicle_types=None, vehicle_ids=None, unassigned_only: bool = False
+    ) -> list[Vehicle]:
         """Vehicles for the searchable picker, matched by plate, VIN, brand or model; optionally one type group."""
         query = select(Vehicle)
         search = vehicle_search_condition(q)
@@ -163,6 +181,10 @@ class VehicleService:
             query = query.where(search)
         if vehicle_types:
             query = query.where(Vehicle.vehicle_type.in_(list(vehicle_types)))
+        if vehicle_ids is not None:  # a driver only picks their assigned vehicles
+            query = query.where(Vehicle.id.in_(list(vehicle_ids)))
+        if unassigned_only:  # vehicles that already have a driver are not offered for assignment
+            query = query.where(Vehicle.assigned_driver_id.is_(None))
         return list((await self.session.scalars(query.order_by(Vehicle.license_plate).limit(limit))).all())
 
     async def get_by_id(self, vehicle_id: UUID) -> Vehicle | None:

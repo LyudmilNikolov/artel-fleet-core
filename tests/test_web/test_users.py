@@ -179,3 +179,40 @@ async def test_password_fields_have_show_hide_toggle(client, db_session, admin_u
         assert page.text.count('class="fc-password-toggle"') == fields, path
         assert page.text.count('class="fc-password-wrap"') == fields, path
     assert ("Show password" if lang == "en" else "Покажи паролата") in (await client.get("/profile")).text
+
+
+def visible_text(html: str) -> str:
+    """Text a person would read on the page (no tags, scripts or attribute values)."""
+    from html.parser import HTMLParser
+
+    class Collector(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.skip, self.parts = 0, []
+
+        def handle_starttag(self, tag, attrs):
+            self.skip += tag in ("script", "style")
+
+        def handle_endtag(self, tag):
+            self.skip -= tag in ("script", "style")
+
+        def handle_data(self, data):
+            if not self.skip and data.strip():
+                self.parts.append(data.strip())
+
+    collector = Collector()
+    collector.feed(html)
+    return " | ".join(collector.parts)
+
+
+@pytest.mark.asyncio
+async def test_user_forms_show_no_stray_markup_or_script_text(client, db_session, admin_user):
+    """Regression: a broken x-init attribute once leaked `fill()); $watch(...)` text into the form."""
+    await db_session.commit()
+    await login(client)
+    await client.get("/set-language/en")
+    for path in ("/settings/users/new", f"/settings/users/{admin_user.id}/edit"):
+        text = visible_text((await client.get(path)).text)
+        for fragment in ("fill()", "$watch", "$data", "=>", "x-init", "'>"):
+            assert fragment not in text, (path, fragment)
+        assert "Access" in text and "Role" in text

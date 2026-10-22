@@ -8,7 +8,13 @@
 {% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
 {% block content %}
 <div class="max-w-3xl">
-    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
+    {% if resubmitting and revision_note %}
+    <div role="status" class="mb-4 fc-notice fc-notice-warning"><span class="font-medium">{{ _('driver_doc.revision_note') }}:</span> {{ revision_note }}</div>
+    {% endif %}
+    {% if needs_approval %}
+    <div class="mb-4 fc-notice fc-notice-warning">{{ _('driver_doc.needs_approval') }}</div>
+    {% endif %}
     {% if mode == 'renew' %}
     <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">{{ _('driver_doc.renew_hint') }}</p>
     {% endif %}
@@ -74,7 +80,7 @@
         <p class="text-xs text-gray-500 dark:text-gray-400">{{ _('driver_doc.attachment_after_save') }}</p>
         {% endif %}
         <div class="flex items-center gap-3">
-            <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
+            <button type="submit" class="fc-btn-primary">{{ _('driver_doc.submit_for_approval') if needs_approval else _('btn.save') }}</button>
             <a href="{{ '/driver-documents/' ~ source.id if source else '/drivers/' ~ driver.id ~ '#licences' }}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
         </div>
     </form>

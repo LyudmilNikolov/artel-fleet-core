@@ -1,5 +1,13 @@
 {# Licences & Documents tab: current entry per type, then full history. #}
 {% from 'components/compliance_status.html' import status_badge, missing_badge with context %}
+{% from 'components/driver_changes.html' import change_cards with context %}
+{% if pending_changes or revision_changes %}
+<div class="p-4 space-y-3 border-b border-gray-200 dark:border-gray-700">
+    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ _('driver_doc.pending_section') }}</h4>
+    {{ change_cards(pending_changes, manager=is_manager, next_url='/drivers/' ~ summary.driver.id ~ '#licences') }}
+    {{ change_cards(revision_changes, driver_view=not is_manager) }}
+</div>
+{% endif %}
 <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead>

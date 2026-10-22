@@ -5,12 +5,12 @@
 {% block content %}
 <div class="mb-4 flex flex-wrap items-center gap-3">
     <a href="/expenses" class="text-gray-500 hover:text-gray-700" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
-    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ _('expense_category.' + expense.category.value) }}</span>
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium fc-badge-neutral">{{ _('expense_category.' + expense.category.value) }}</span>
     {% if can_edit %}
     <div class="ml-auto flex items-center gap-2">
         <a href="/expenses/{{ expense.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
         <form method="POST" action="/expenses/{{ expense.id }}/delete" onsubmit="return confirm({{ (_('expense.delete_confirm_linked') if expense.compliance_document else _('expense.delete_confirm')) | tojson | forceescape }})">
-            <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+            <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
         </form>
     </div>
     {% endif %}
@@ -54,7 +54,7 @@
             <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         </div>
     </div>
-    {% if can_edit %}
+    {% if can_upload %}
     {% with entity_type='expense', entity_id=expense.id|string, doc_type='invoice' %}
     {% include 'components/upload.html' %}
     {% endwith %}

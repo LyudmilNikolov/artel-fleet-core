@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
-from app.models.driver import DriverStatus
+from app.models.driver import Driver, DriverStatus
 from app.models.user import User, UserRole
 from tests.conftest import auth_header
 from tests.test_web.test_driver_access import bearer, login, make_driver, make_driver_login, make_vehicle  # noqa: F401
@@ -228,17 +228,21 @@ async def test_manager_assigns_and_removes_vehicles(client, db_session, admin_us
     await db_session.refresh(vehicle)
     assert vehicle.assigned_driver_id == one.id
     assert "CA7777VV" in (await client.get(f"/drivers/{one.id}")).text
-    # assigning it to another driver moves it
+    # a vehicle that has a driver is not taken over by another driver; it must be unassigned first
+    await client.post(f"/drivers/{two.id}/vehicles", data={"vehicle_id": str(vehicle.id)})
+    await db_session.refresh(vehicle)
+    assert vehicle.assigned_driver_id == one.id
+    # a driver cannot remove a vehicle that is not theirs
+    await client.post(f"/drivers/{two.id}/vehicles/{vehicle.id}/unassign")
+    await db_session.refresh(vehicle)
+    assert vehicle.assigned_driver_id == one.id
+    await client.post(f"/drivers/{one.id}/vehicles/{vehicle.id}/unassign")
+    await db_session.refresh(vehicle)
+    assert vehicle.assigned_driver_id is None
+    # once free it can go to the other driver
     await client.post(f"/drivers/{two.id}/vehicles", data={"vehicle_id": str(vehicle.id)})
     await db_session.refresh(vehicle)
     assert vehicle.assigned_driver_id == two.id
-    # a driver cannot remove a vehicle that is not theirs
-    await client.post(f"/drivers/{one.id}/vehicles/{vehicle.id}/unassign")
-    await db_session.refresh(vehicle)
-    assert vehicle.assigned_driver_id == two.id
-    await client.post(f"/drivers/{two.id}/vehicles/{vehicle.id}/unassign")
-    await db_session.refresh(vehicle)
-    assert vehicle.assigned_driver_id is None
     # invalid input changes nothing
     assert (
         await client.post(f"/drivers/{one.id}/vehicles", data={"vehicle_id": "nope"}, follow_redirects=False)
@@ -282,3 +286,342 @@ async def test_assigning_a_vehicle_gives_the_driver_access_and_it_is_audited(cli
     await client.get("/logout")
     await login(client, "mia")
     assert "CA9999MM" in (await client.get("/vehicles")).text
+
+
+# --- a driver login takes its name and email from the driver profile ---------------------------------------
+
+
+async def profile(db, name="Georgi Petrov", email="georgi@fleet.test"):
+    driver = Driver(id=uuid4(), full_name=name, email=email, status=DriverStatus.ACTIVE)
+    db.add(driver)
+    await db.flush()
+    return driver
+
+
+@pytest.mark.asyncio
+async def test_form_carries_profile_data_for_prefill(client, db_session, admin_user):
+    with_email = await profile(db_session, "With Email", "with@fleet.test")
+    without = await profile(db_session, "No Email", None)
+    await db_session.commit()
+    await admin_login(client)
+    page = await client.get("/settings/users/new")
+    assert "With Email" in page.text and "with@fleet.test" in page.text  # profile data for the form
+    assert str(with_email.id) in page.text and str(without.id) in page.text
+    assert ":readonly=" in page.text and 'name="username"' in page.text
+
+
+@pytest.mark.asyncio
+async def test_driver_login_takes_name_and_email_from_the_profile(client, db_session, admin_user):
+    driver = await profile(db_session)
+    await db_session.commit()
+    await admin_login(client)
+    created = await client.post(
+        "/settings/users/new",
+        data=form(driver.id, full_name="Typed Name", email="typed@other.test"),
+        follow_redirects=False,
+    )
+    assert created.status_code == 303
+    user = await user_named(db_session, "newdriver")
+    await db_session.refresh(driver)
+    assert (user.full_name, user.email) == ("Georgi Petrov", "georgi@fleet.test")  # what was typed is ignored
+    assert driver.email == "georgi@fleet.test"  # the profile is unchanged
+
+
+@pytest.mark.asyncio
+async def test_profile_without_email_gets_the_entered_one(client, db_session, admin_user):
+    driver = await profile(db_session, "No Mail", None)
+    await db_session.commit()
+    await admin_login(client)
+    # an email is required when the profile has none
+    missing = await client.post("/settings/users/new", data=form(driver.id, email=""))
+    assert missing.status_code == 422 and "valid email" in missing.text
+    assert await user_named(db_session, "newdriver") is None
+    await db_session.refresh(driver)
+    assert driver.email is None
+    created = await client.post(
+        "/settings/users/new", data=form(driver.id, email="entered@fleet.test"), follow_redirects=False
+    )
+    assert created.status_code == 303
+    user = await user_named(db_session, "newdriver")
+    await db_session.refresh(driver)
+    assert user.email == "entered@fleet.test" and user.full_name == "No Mail"
+    assert driver.email == "entered@fleet.test"  # the profile is updated too
+
+
+@pytest.mark.asyncio
+async def test_failed_creation_changes_nothing_on_the_profile(client, db_session, admin_user, viewer_user):
+    driver = await profile(db_session, "Clash", None)
+    await db_session.commit()
+    await admin_login(client)
+    taken_email = await client.post("/settings/users/new", data=form(driver.id, email=viewer_user.email))
+    assert taken_email.status_code == 422 and "already registered" in taken_email.text
+    taken_name = await client.post(
+        "/settings/users/new", data=form(driver.id, username="testviewer", email="x@fleet.test")
+    )
+    assert taken_name.status_code == 422 and "already taken" in taken_name.text
+    await db_session.refresh(driver)
+    assert driver.email is None and driver.user_id is None
+
+
+@pytest.mark.asyncio
+async def test_editing_a_driver_login_keeps_profile_values_and_username_can_change(client, db_session, admin_user):
+    driver = await profile(db_session, "Edit Me", None)
+    other = await make_driver_login(db_session, await profile(db_session, "Someone", "someone@fleet.test"), "someone")
+    await db_session.commit()
+    await admin_login(client)
+    await client.post("/settings/users/new", data=form(driver.id, email="first@fleet.test"))
+    user = await user_named(db_session, "newdriver")
+    page = await client.get(f"/settings/users/{user.id}/edit")
+    assert 'name="username"' in page.text and "disabled" not in page.text.split('name="username"')[0][-200:]
+    base = {"language": "en", "role": "driver", "driver_id": str(driver.id), "is_active": "on"}
+    # the typed name / email are ignored: the profile (which now has the email) is the source
+    changed = await client.post(
+        f"/settings/users/{user.id}/edit",
+        data={**base, "username": "renamed_driver", "full_name": "Hacked", "email": "hacked@fleet.test"},
+        follow_redirects=False,
+    )
+    assert changed.status_code == 303
+    await db_session.refresh(user)
+    assert (user.username, user.full_name, user.email) == ("renamed_driver", "Edit Me", "first@fleet.test")
+    # usernames stay unique
+    clash = await client.post(f"/settings/users/{user.id}/edit", data={**base, "username": other.username})
+    assert clash.status_code == 422 and "already taken" in clash.text
+    short = await client.post(f"/settings/users/{user.id}/edit", data={**base, "username": "ab"})
+    assert short.status_code == 422
+    await db_session.refresh(user)
+    assert user.username == "renamed_driver"
+
+
+@pytest.mark.asyncio
+async def test_other_roles_keep_free_name_and_email_and_driver_switch_takes_profile(
+    client, db_session, admin_user, viewer_user
+):
+    driver = await profile(db_session, "Profile Name", "profile@fleet.test")
+    await db_session.commit()
+    await admin_login(client)
+    free = await client.post(
+        "/settings/users/new",
+        data=form("", role="viewer", username="free", full_name="Free Name", email="free@fleet.test"),
+    )
+    assert free.status_code in (302, 303)
+    free_user = await user_named(db_session, "free")
+    assert (free_user.full_name, free_user.email) == ("Free Name", "free@fleet.test")
+    base = {"language": "en", "is_active": "on", "full_name": "V", "email": viewer_user.email}
+    await client.post(
+        f"/settings/users/{viewer_user.id}/edit", data={**base, "role": "driver", "driver_id": str(driver.id)}
+    )
+    await db_session.refresh(viewer_user)
+    assert (viewer_user.full_name, viewer_user.email) == ("Profile Name", "profile@fleet.test")
+
+
+@pytest.mark.asyncio
+async def test_api_driver_login_takes_profile_values(client, db_session, admin_token, admin_user):
+    driver = await profile(db_session, "Api Profile", "apiprofile@fleet.test")
+    await db_session.commit()
+    created = await client.post(
+        "/api/v1/users",
+        json={
+            "email": "typed@x.test",
+            "username": "apiuser",
+            "full_name": "Typed",
+            "password": "secret-123",
+            "role": "driver",
+            "driver_id": str(driver.id),
+        },
+        headers=auth_header(admin_token),
+    )
+    assert created.status_code == 201, created.text
+    assert (created.json()["full_name"], created.json()["email"]) == ("Api Profile", "apiprofile@fleet.test")
+
+
+# --- only trucks and cars can be assigned to a driver --------------------------------------------------------
+
+
+async def vehicle_of(db, kind, plate=None):
+    from app.schemas.vehicle import VehicleCreate
+    from app.services.vehicle_service import VehicleService
+
+    return await VehicleService(db).create(
+        VehicleCreate(
+            vehicle_type=kind,
+            license_plate=None if kind == "forklift" else plate or "CA" + uuid4().hex[:6].upper(),
+            brand="Brand",
+            model="Model",
+            department="Test department",
+        )
+    )
+
+
+KINDS = ("tractor_unit", "van", "passenger_car", "container_semi_trailer", "curtain_side_semi_trailer", "forklift")
+ASSIGNABLE = {"tractor_unit", "van", "passenger_car"}
+
+
+def test_the_rule_lives_in_one_place():
+    from app.vehicle_rules import DRIVER_ASSIGNABLE_TYPES, can_assign_to_driver
+
+    assert {t.value for t in DRIVER_ASSIGNABLE_TYPES} == ASSIGNABLE
+    assert {k for k in KINDS if can_assign_to_driver(k)} == ASSIGNABLE
+
+
+@pytest.mark.asyncio
+async def test_the_assign_picker_only_offers_trucks_and_cars(client, db_session, admin_user):
+    driver = await make_driver(db_session, "Picker Driver")
+    plates = {}
+    for kind in KINDS:
+        v = await vehicle_of(
+            db_session, kind, f"PK{len(plates)}0000{kind[:2].upper()}"[:10] if kind != "forklift" else None
+        )
+        plates[kind] = v.license_plate
+    await db_session.commit()
+    await admin_login(client)
+    options = (await client.get(f"/drivers/{driver.id}/vehicle-options")).text
+    for kind in KINDS:
+        assert (plates[kind] in options) == (kind in ASSIGNABLE), kind
+    assert "trailers or forklifts" in (await client.get(f"/drivers/{driver.id}")).text
+
+
+@pytest.mark.asyncio
+async def test_trailers_and_forklifts_cannot_be_assigned_even_by_a_crafted_request(client, db_session, admin_user):
+    vehicles = {kind: await vehicle_of(db_session, kind) for kind in KINDS}
+    drivers = {kind: await make_driver(db_session, f"Crafted {kind}") for kind in KINDS}  # one driver each
+    await db_session.commit()
+    await admin_login(client)
+    for kind, v in vehicles.items():
+        await client.post(f"/drivers/{drivers[kind].id}/vehicles", data={"vehicle_id": str(v.id)})
+        await db_session.refresh(v)
+        assert (v.assigned_driver_id == drivers[kind].id) == (kind in ASSIGNABLE), kind
+
+
+@pytest.mark.asyncio
+async def test_vehicle_api_applies_the_same_rule(client, db_session, manager_token, fleet_manager_user):
+    driver = await make_driver(db_session, "Api Driver")
+    await db_session.commit()
+    headers = auth_header(manager_token)
+    base = {"brand": "B", "model": "M", "department": "Test department"}
+    from app.config import settings  # noqa: F401  (departments are configured by the test fixtures)
+
+    trailer = await client.post(
+        "/api/v1/vehicles",
+        json={
+            **base,
+            "vehicle_type": "container_semi_trailer",
+            "license_plate": "TR1111AA",
+            "assigned_driver_id": str(driver.id),
+        },
+        headers=headers,
+    )
+    assert trailer.status_code == 400 and "trucks and cars" in str(trailer.json())
+    truck = await client.post(
+        "/api/v1/vehicles",
+        json={
+            **base,
+            "vehicle_type": "tractor_unit",
+            "license_plate": "TK1111AA",
+            "assigned_driver_id": str(driver.id),
+        },
+        headers=headers,
+    )
+    assert truck.status_code == 201 and truck.json()["assigned_driver_id"] == str(driver.id)
+    # a truck that becomes a trailer is no longer assigned; assigning a trailer through an update is refused
+    to_trailer = await client.patch(
+        f"/api/v1/vehicles/{truck.json()['id']}", json={"vehicle_type": "container_semi_trailer"}, headers=headers
+    )
+    assert to_trailer.status_code == 200 and to_trailer.json()["assigned_driver_id"] is None
+    refused = await client.patch(
+        f"/api/v1/vehicles/{truck.json()['id']}", json={"assigned_driver_id": str(driver.id)}, headers=headers
+    )
+    assert refused.status_code == 400
+
+
+# --- one driver, one vehicle ---------------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_vehicles_that_have_a_driver_are_not_offered(client, db_session, admin_user):
+    taken_by, other = await make_driver(db_session, "Has A Vehicle"), await make_driver(db_session, "Looking")
+    await make_vehicle(db_session, "CA1000TT", taken_by)
+    await make_vehicle(db_session, "CA2000FF")
+    await db_session.commit()
+    await admin_login(client)
+    options = (await client.get(f"/drivers/{other.id}/vehicle-options")).text
+    assert "CA2000FF" in options and "CA1000TT" not in options
+    assert "CA1000TT" not in (await client.get(f"/drivers/{other.id}/vehicle-options?q=1000")).text
+
+
+@pytest.mark.asyncio
+async def test_a_driver_with_a_vehicle_cannot_get_a_second_one(client, db_session, admin_user):
+    driver = await make_driver(db_session, "One Only")
+    mine = await make_vehicle(db_session, "CA3000MM", driver)
+    second = await make_vehicle(db_session, "CA4000SS")
+    await db_session.commit()
+    await admin_login(client)
+    page = await client.get(f"/drivers/{driver.id}")
+    assert "CA3000MM" in page.text and "only one vehicle" in page.text
+    assert (
+        f'hx-get="/drivers/{driver.id}/vehicle-options"' not in page.text and "Assign vehicle" not in page.text
+    )  # no form
+    # a crafted request is refused as well
+    await client.post(f"/drivers/{driver.id}/vehicles", data={"vehicle_id": str(second.id)})
+    await db_session.refresh(second)
+    await db_session.refresh(mine)
+    assert second.assigned_driver_id is None and mine.assigned_driver_id == driver.id
+    # after removing the current one the form is back and a new vehicle can be assigned
+    await client.post(f"/drivers/{driver.id}/vehicles/{mine.id}/unassign")
+    assert "Assign vehicle" in (await client.get(f"/drivers/{driver.id}")).text
+    await client.post(f"/drivers/{driver.id}/vehicles", data={"vehicle_id": str(second.id)})
+    await db_session.refresh(second)
+    assert second.assigned_driver_id == driver.id
+
+
+@pytest.mark.asyncio
+async def test_the_database_itself_refuses_two_vehicles_for_one_driver(db_session):
+    from sqlalchemy.exc import IntegrityError
+
+    driver = await make_driver(db_session, "Race")
+    first = await make_vehicle(db_session, "CA5000RR", driver)
+    second = await make_vehicle(db_session, "CA6000RR")
+    second.assigned_driver_id = driver.id
+    with pytest.raises(IntegrityError):
+        await db_session.flush()
+    await db_session.rollback()
+    assert first is not None
+
+
+@pytest.mark.asyncio
+async def test_vehicle_api_keeps_one_driver_one_vehicle(client, db_session, manager_token, fleet_manager_user):
+    driver, other = await make_driver(db_session, "Api One"), await make_driver(db_session, "Api Two")
+    await db_session.commit()
+    headers = auth_header(manager_token)
+    base = {"brand": "B", "model": "M", "department": "Test department", "vehicle_type": "tractor_unit"}
+    first = await client.post(
+        "/api/v1/vehicles",
+        json={**base, "license_plate": "AP1111AA", "assigned_driver_id": str(driver.id)},
+        headers=headers,
+    )
+    assert first.status_code == 201
+    # the same driver on a second vehicle is refused
+    dup = await client.post(
+        "/api/v1/vehicles",
+        json={**base, "license_plate": "AP2222AA", "assigned_driver_id": str(driver.id)},
+        headers=headers,
+    )
+    assert dup.status_code == 400 and "only one" in str(dup.json())
+    spare = await client.post("/api/v1/vehicles", json={**base, "license_plate": "AP3333AA"}, headers=headers)
+    assert (
+        await client.patch(
+            f"/api/v1/vehicles/{spare.json()['id']}", json={"assigned_driver_id": str(driver.id)}, headers=headers
+        )
+    ).status_code == 400
+    # a vehicle that has a driver is not handed to someone else, but can be released first
+    taken = await client.patch(
+        f"/api/v1/vehicles/{first.json()['id']}", json={"assigned_driver_id": str(other.id)}, headers=headers
+    )
+    assert taken.status_code == 400 and "already has a driver" in str(taken.json())
+    released = await client.patch(
+        f"/api/v1/vehicles/{first.json()['id']}", json={"assigned_driver_id": None}, headers=headers
+    )
+    assert released.status_code == 200 and released.json()["assigned_driver_id"] is None
+    given = await client.patch(
+        f"/api/v1/vehicles/{first.json()['id']}", json={"assigned_driver_id": str(other.id)}, headers=headers
+    )
+    assert given.status_code == 200 and given.json()["assigned_driver_id"] == str(other.id)

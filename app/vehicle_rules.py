@@ -219,3 +219,13 @@ def vehicle_display_label(vehicle) -> str:
     if getattr(vehicle.vehicle_type, "value", vehicle.vehicle_type) == VehicleType.FORKLIFT:
         return f"{vehicle.brand} {vehicle.model} · {vehicle.license_plate}"
     return f"{vehicle.license_plate} — {vehicle.brand} {vehicle.model}"
+
+
+# Vehicles a driver can be assigned: trucks (tractor units) and cars (vans, passenger cars). Trailers and forklifts
+# are not driven on their own, so they cannot be assigned; a trailer option may come later.
+DRIVER_ASSIGNABLE_TYPES = (VehicleType.TRACTOR_UNIT, VehicleType.VAN, VehicleType.PASSENGER_CAR)
+
+
+def can_assign_to_driver(vehicle_type) -> bool:
+    """True when a vehicle of this type may be assigned to a driver."""
+    return str(getattr(vehicle_type, "value", vehicle_type)) in {t.value for t in DRIVER_ASSIGNABLE_TYPES}

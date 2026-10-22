@@ -10,11 +10,11 @@ from app.models.vehicle import FuelType, TransmissionType, VehicleStatus, Vehicl
 from app.repositories.base import BaseRepository
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
 from app.services.compliance_service import ComplianceService
-from app.services.service_due_service import ServiceDueService
 from app.services.errors import DomainError, render_error
 from app.services.expense_service import ExpenseService
 from app.services.maintenance_service import MaintenanceService
 from app.services.mileage_service import MileageService
+from app.services.service_due_service import ServiceDueService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import (
     APPLICABLE,
@@ -30,7 +30,7 @@ from app.vehicle_rules import (
     type_group_of,
     vehicle_type_filter,
 )
-from app.web.deps import driver_scope_of, get_web_user
+from app.web.deps import can_contribute, driver_scope_of, get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
 
@@ -222,6 +222,7 @@ async def vehicle_detail(request: Request, vehicle_id: UUID, db: AsyncSession = 
             "user": user,
             "active_page": "vehicles",
             "vehicle": vehicle,
+            "can_upload": can_contribute(request, user),
             "applicable_fields": sorted(APPLICABLE[vehicle.vehicle_type]),
             **request.app.state.template_globals(request),
         },

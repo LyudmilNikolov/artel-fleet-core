@@ -4,15 +4,18 @@
 {% block content %}
 <div class="mb-4 flex items-center gap-3">
     {% if not (driver_scope and driver_scope.restricted) %}<a href="/drivers" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>{% endif %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if driver.status.value == 'active' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% elif driver.status.value == 'on_leave' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-gray-100 text-gray-800{% endif %}">{{ _('status.' + driver.status.value) }}</span>
+    <span class="fc-badge {% if driver.status.value == 'active' %}fc-badge-success{% elif driver.status.value == 'on_leave' %}fc-badge-warning{% else %}fc-badge-neutral{% endif %}">{{ _('status.' + driver.status.value) }}</span>
     {% if can_edit %}
     <a href="/drivers/{{ driver.id }}/edit" class="ml-auto px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.edit') }}</a>
     <form method="POST" action="/drivers/{{ driver.id }}/delete" onsubmit="return confirm({{ _('driver.confirm_delete') | tojson | forceescape }})">
-        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+        <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
     </form>
     {% endif %}
 </div>
 
+{% if submitted %}
+<div role="status" class="mb-4 fc-notice fc-notice-success">{{ _('driver_doc.submitted') }}</div>
+{% endif %}
 {% set tabs = [('info', 'driver_doc.tab_info')] %}
 {% if can_scans %}{% set tabs = tabs + [('files', 'driver_doc.tab_files')] %}{% endif %}
 {% if can_docs %}{% set tabs = tabs + [('licences', 'driver_doc.tab_licences')] %}{% endif %}
@@ -41,8 +44,8 @@
         {% if can_docs and (alerts.get('expired') or alerts.get('expiring_soon')) %}
         <a href="#licences" class="mb-6 flex flex-wrap items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/20 text-sm">
             <span class="font-medium text-gray-800 dark:text-gray-200">{{ _('driver_doc.attention') }}:</span>
-            {% if alerts.get('expired') %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">{{ _('driver_doc.summary_expired', count=alerts.get('expired')) }}</span>{% endif %}
-            {% if alerts.get('expiring_soon') %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">{{ _('driver_doc.summary_expiring', count=alerts.get('expiring_soon')) }}</span>{% endif %}
+            {% if alerts.get('expired') %}<span class="fc-badge fc-badge-danger">{{ _('driver_doc.summary_expired', count=alerts.get('expired')) }}</span>{% endif %}
+            {% if alerts.get('expiring_soon') %}<span class="fc-badge fc-badge-warning">{{ _('driver_doc.summary_expiring', count=alerts.get('expiring_soon')) }}</span>{% endif %}
         </a>
         {% endif %}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -75,7 +78,9 @@
                     </span>
                     {% else %}—{% endfor %}
                 </dd>
-                {% if can_edit and driver.status.value != 'terminated' %}
+                {% if can_edit and has_vehicle %}
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ _('driver.one_vehicle_hint') }}</p>
+                {% elif can_edit and driver.status.value != 'terminated' %}
                 <form method="POST" action="/drivers/{{ driver.id }}/vehicles" class="mt-3 flex flex-wrap items-end gap-3"
                       x-data='vehiclePicker({{ picker | tojson }})' @submit="if ($refs.search) $refs.search.disabled = true">
                     <div class="w-80">

@@ -8,7 +8,7 @@
 {% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
 {% block content %}
 <div class="max-w-3xl">
-    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
     {% if mode == 'renew' %}
     <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">{{ _('compliance.renew_hint', start=source.start_date, end=source.end_date) }}</p>
     {% endif %}

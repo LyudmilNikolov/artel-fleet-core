@@ -35,11 +35,11 @@
                     </td>
                     <td class="px-4 py-3 text-gray-500">{{ u.email }}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if u.role.value == 'admin' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
-                            {% elif u.role.value == 'fleet_manager' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
-                            {% elif u.role.value == 'driver' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
-                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                        <span class="fc-badge
+                            {% if u.role.value == 'admin' %}fc-badge-danger
+                            {% elif u.role.value == 'fleet_manager' %}fc-badge-info
+                            {% elif u.role.value == 'driver' %}fc-badge-success
+                            {% else %}fc-badge-neutral{% endif %}">
                             {{ _('role.' + u.role.value) }}
                         </span>
                         {% if u.role.value == 'driver' %}
@@ -49,9 +49,9 @@
                     </td>
                     <td class="px-4 py-3">
                         {% if u.is_active %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{{ _('status.active') }}</span>
+                        <span class="fc-badge fc-badge-success">{{ _('status.active') }}</span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">{{ _('status.inactive') }}</span>
+                        <span class="fc-badge fc-badge-neutral">{{ _('status.inactive') }}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '—' }}</td>

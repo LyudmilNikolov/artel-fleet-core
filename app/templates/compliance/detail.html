@@ -15,7 +15,7 @@
         <a href="/compliance/{{ entry.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
         {% if history_count > 1 %}
         <div x-data="{ open: false }">
-            <button type="button" @click="open = true" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+            <button type="button" @click="open = true" class="fc-btn-danger">{{ _('btn.delete') }}</button>
             <div x-show="open" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
                 <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6" role="dialog" aria-modal="true" @click.outside="open = false">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('compliance.delete_title') }}</h3>
@@ -42,7 +42,7 @@
         </div>
         {% else %}
         <form method="POST" action="/compliance/{{ entry.id }}/delete" onsubmit="return confirm({{ _('compliance.delete_confirm') | tojson | forceescape }})">
-            <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+            <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
         </form>
         {% endif %}
     </div>
@@ -96,7 +96,7 @@
             <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         </div>
     </div>
-    {% if can_edit %}
+    {% if can_upload %}
     {% with entity_type='compliance_document', entity_id=entry.id|string, doc_type=upload_doc_type %}
     {% include 'components/upload.html' %}
     {% endwith %}

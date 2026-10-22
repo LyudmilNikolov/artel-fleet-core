@@ -38,6 +38,11 @@ class DriverScope:
         return not self.restricted or (vehicle_id is not None and vehicle_id in self.vehicle_ids)
 
     @property
+    def may_contribute(self) -> bool:
+        """A driver with an assigned vehicle may add expenses, maintenance and files for it."""
+        return self.restricted and self.has_vehicles
+
+    @property
     def vehicle_filter(self) -> tuple[UUID, ...] | None:
         """Vehicle ids to filter queries by, or None for no restriction."""
         return self.vehicle_ids if self.restricted else None
@@ -88,6 +93,19 @@ _VEHICLE_PAGES = tuple(
         rf"^/documents/{_UUID}/download$",
     )
 )
+# With an assigned vehicle a driver may also add expenses and maintenance records (the handlers check that the
+# vehicle is one of theirs). Editing, completing and deleting stay with managers.
+_VEHICLE_WRITE_RULES = tuple(
+    (method, re.compile(pattern))
+    for method, pattern in (
+        ("GET", r"^/expenses/new$"),
+        ("POST", r"^/expenses/new$"),
+        ("GET", r"^/expenses/vehicle-options$"),
+        ("GET", r"^/maintenance/new$"),
+        ("POST", r"^/maintenance/new$"),
+        ("GET", r"^/maintenance/vehicle-options$"),
+    )
+)
 _DRIVER_DOCUMENT_PAGE = re.compile(rf"^/driver-documents/{_UUID}$")
 # A driver manages their own documents: add / edit / renew entries, upload and remove their own scans.
 # The handlers check that the record belongs to this driver.
@@ -98,6 +116,9 @@ _OWN_DOCUMENT_RULES = tuple(
         ("POST", r"^/driver-documents/new$"),
         ("GET", rf"^/driver-documents/{_UUID}/(edit|renew)$"),
         ("POST", rf"^/driver-documents/{_UUID}/(edit|renew)$"),
+        ("POST", rf"^/driver-documents/changes/{_UUID}/cancel$"),
+        ("GET", rf"^/driver-documents/changes/{_UUID}/resubmit$"),
+        ("POST", rf"^/driver-documents/changes/{_UUID}/resubmit$"),
         ("POST", r"^/documents/upload$"),
         ("DELETE", rf"^/documents/{_UUID}$"),
         ("GET", rf"^/documents/gallery/(driver|driver_document)/{_UUID}$"),
@@ -112,6 +133,8 @@ def driver_may_open(path: str, method: str, scope: DriverScope) -> bool:
     if any(path == p or path.startswith(p + "/") for p in _ACCOUNT_PREFIXES):
         return True
     if scope.driver_id and any(m == method and p.match(path) for m, p in _OWN_DOCUMENT_RULES):
+        return True
+    if scope.has_vehicles and any(m == method and p.match(path) for m, p in _VEHICLE_WRITE_RULES):
         return True
     if method not in ("GET", "HEAD"):
         return False

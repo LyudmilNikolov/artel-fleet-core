@@ -69,14 +69,12 @@ async def vehicle_of_entity(session: AsyncSession, entity_type: EntityType, enti
 
 
 async def can_upload_scans(session: AsyncSession, user: User, entity_type: EntityType, entity_id: UUID) -> bool:
-    """Managers upload anywhere; a driver only scans of their own record or of their own document entries."""
+    """Managers upload anywhere; a driver only to their own record and to their assigned vehicle's records."""
     if is_manager(user):
         return True
-    return (
-        user.role == UserRole.DRIVER
-        and entity_type in DRIVER_ENTITY_TYPES
-        and await can_view_scans(session, user, entity_type, entity_id)
-    )
+    # A driver uploads where they may also read: their own profile and documents, and the files of their
+    # assigned vehicle (the vehicle itself, its expenses, maintenance and documents).
+    return user.role == UserRole.DRIVER and await can_view_scans(session, user, entity_type, entity_id)
 
 
 async def can_view_scans(session: AsyncSession, user: User, entity_type: EntityType, entity_id: UUID) -> bool:

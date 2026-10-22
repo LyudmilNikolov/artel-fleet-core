@@ -4,7 +4,7 @@
 {% block content %}
 <div class="fc-card p-4 mb-6">
     {% if filter_error %}
-    <div role="alert" class="mb-4 px-4 py-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800">{{ filter_error }}</div>
+    <div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ filter_error }}</div>
     {% endif %}
     <form method="GET" action="/settings/audit" class="flex flex-wrap items-end gap-3">
         <div>
@@ -68,12 +68,12 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if log.action.value == 'create' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
-                            {% elif log.action.value == 'update' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
-                            {% elif log.action.value == 'delete' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
-                            {% elif log.action.value in ('login', 'logout') %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400
-                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                        <span class="fc-badge
+                            {% if log.action.value == 'create' %}fc-badge-success
+                            {% elif log.action.value == 'update' %}fc-badge-info
+                            {% elif log.action.value == 'delete' %}fc-badge-danger
+                            {% elif log.action.value in ('login', 'logout') %}fc-badge-purple
+                            {% else %}fc-badge-neutral{% endif %}">
                             {{ _('audit_action.' + log.action.value) }}
                         </span>
                     </td>

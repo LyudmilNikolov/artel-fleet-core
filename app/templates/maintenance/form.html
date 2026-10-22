@@ -5,7 +5,7 @@
 {% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
 {% block content %}
 <div class="max-w-3xl">
-    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
     <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
           x-data='vehiclePicker({{ picker | tojson }}, { status: {{ (form_data.get("status") or "scheduled") | tojson }}, type: {{ (form_data.get("type") or "scheduled_service") | tojson }}, serviceItem: {{ (form_data.get("service_item") or "") | tojson }}, checks: {{ (form_data.get("service_checklist") or []) | tojson }}, itemLabels: {{ item_labels | tojson }} })'>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

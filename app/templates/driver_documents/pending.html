@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from 'components/driver_changes.html' import change_cards with context %}
+{% block title %}{{ _('driver_doc.pending_title') }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('driver_doc.pending_title') }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl">
+    <nav class="mb-4 text-sm"><a href="/drivers" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">&larr; {{ _('nav.drivers') }}</a></nav>
+    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ _('driver_doc.pending_hint') }}</p>
+    {% if error %}<div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
+    <div class="space-y-4">
+        {{ change_cards(changes, manager=True, next_url='/driver-documents/pending', show_driver=True) }}
+        {% if not changes %}
+        <div class="fc-card p-8 text-center text-gray-400">{{ _('driver_doc.pending_none') }}</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

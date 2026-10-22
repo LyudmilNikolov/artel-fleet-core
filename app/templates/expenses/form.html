@@ -6,7 +6,7 @@
 {% set linked = expense and expense.compliance_document %}
 {% block content %}
 <div class="max-w-3xl">
-    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
     <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
           x-data='vehiclePicker({{ picker | tojson }}, { category: {{ (form_data.get("category") or "other") | tojson }}, documentCategories: {{ document_values | tojson }}, enforce: {{ 'false' if expense else 'true' }}, initialCategory: {{ (expense.category.value if expense else '') | tojson }} })'
           x-effect="if (enforce && documentCategories.includes(category) && !docTypes.includes(category)) category = 'other'; if (blocked.includes(category) && category !== initialCategory) category = 'other'">

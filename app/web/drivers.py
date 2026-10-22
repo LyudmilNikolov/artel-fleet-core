@@ -17,11 +17,14 @@ from app.services.driver_access import (
     can_read_driver_documents,
     can_see_numbers,
     can_view_scans_of,
+    is_manager,
 )
+from app.services.driver_document_change_service import DriverDocumentChangeService
 from app.services.driver_document_service import DriverDocumentService
 from app.services.driver_service import DriverService
 from app.services.errors import DomainError, render_error
 from app.services.vehicle_service import VehicleService
+from app.vehicle_rules import DRIVER_ASSIGNABLE_TYPES
 from app.web.deps import get_web_user, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -105,6 +108,9 @@ async def driver_list(
             doc_status=doc_status,
             statuses=DriverStatus,
             can_edit=user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
+            pending_changes=await DriverDocumentChangeService(db).pending_count()
+            if user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER)
+            else 0,
         ),
     )
 
@@ -133,7 +139,7 @@ async def driver_vehicle_options(
     user: User = Depends(require_manager),
 ):
     """HTMX partial for the vehicle picker on the driver page."""
-    vehicles = await VehicleService(db).picker_options(q)
+    vehicles = await VehicleService(db).picker_options(q, vehicle_types=DRIVER_ASSIGNABLE_TYPES, unassigned_only=True)
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="components/vehicle_picker_options.html",
@@ -174,6 +180,7 @@ async def driver_detail(request: Request, driver_id: UUID, db: AsyncSession = De
     driver = await service.get_by_id(driver_id)
     if not driver:
         return RedirectResponse(url="/drivers", status_code=302)
+    vehicles = await service.assigned_vehicles(driver.id)
     can_docs = can_read_driver_documents(user, driver)
     alerts = (
         (await DriverDocumentService(db).alert_counts_by_driver([driver.id])).get(driver.id, {}) if can_docs else {}
@@ -185,13 +192,15 @@ async def driver_detail(request: Request, driver_id: UUID, db: AsyncSession = De
             request,
             user,
             driver=driver,
-            vehicles=await service.assigned_vehicles(driver.id),
+            vehicles=vehicles,
+            has_vehicle=bool(vehicles),
             login_user=await UserRepository(db).get_by_id(driver.user_id) if driver.user_id else None,
             picker=picker_state(None),
             alerts=alerts,
             can_docs=can_docs,
             can_scans=can_view_scans_of(user, driver),
             can_upload=can_edit_driver_documents(user, driver),
+            submitted=request.session.pop("submitted_for", None) == str(driver.id),
             can_edit=user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
         ),
     )
@@ -209,6 +218,7 @@ async def driver_tab_licences(request: Request, driver_id: UUID, db: AsyncSessio
     if not can_read_driver_documents(user, driver):
         return HTMLResponse("", status_code=403)
     summary = await DriverDocumentService(db).summary_for_driver(driver)
+    changes = DriverDocumentChangeService(db)
     full_numbers = can_see_numbers(user, driver)
     return request.app.state.templates.TemplateResponse(
         request=request,
@@ -217,6 +227,10 @@ async def driver_tab_licences(request: Request, driver_id: UUID, db: AsyncSessio
             request,
             user,
             summary=summary,
+            pending_changes=await changes.list_pending(driver.id) if full_numbers else [],
+            revision_changes=await changes.list_revisions(driver.id) if full_numbers else [],
+            is_manager=is_manager(user),
+            viewer_id=user.id,
             number=lambda value: value if full_numbers else mask_number(value),
             can_edit=can_edit_driver_documents(user, driver),
         ),

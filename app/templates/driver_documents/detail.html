@@ -3,6 +3,9 @@
 {% block title %}{{ _('driver_document_type.' + entry.document_type) }} — {{ entry.driver.full_name }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('driver_document_type.' + entry.document_type) }} — {{ entry.driver.full_name }}{% endblock %}
 {% block content %}
+{% if pending_change %}
+<div role="status" class="mb-4 fc-notice fc-notice-warning">{{ _('driver_doc.entry_pending') }}</div>
+{% endif %}
 <div class="mb-4 flex flex-wrap items-center gap-3">
     <a href="/drivers/{{ entry.driver_id }}#licences" class="text-gray-500 hover:text-gray-700" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
     {{ status_badge(entry, history=not entry.is_current) }}
@@ -12,7 +15,7 @@
         <a href="/driver-documents/{{ entry.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
         {% if can_delete %}{% if history_count > 1 %}
         <div x-data="{ open: false }">
-            <button type="button" @click="open = true" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+            <button type="button" @click="open = true" class="fc-btn-danger">{{ _('btn.delete') }}</button>
             <div x-show="open" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
                 <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6" role="dialog" aria-modal="true" @click.outside="open = false">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('driver_doc.delete_title') }}</h3>
@@ -39,7 +42,7 @@
         </div>
         {% else %}
         <form method="POST" action="/driver-documents/{{ entry.id }}/delete" onsubmit="return confirm({{ _('driver_doc.delete_confirm') | tojson | forceescape }})">
-            <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('btn.delete') }}</button>
+            <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
         </form>
         {% endif %}{% endif %}
     </div>

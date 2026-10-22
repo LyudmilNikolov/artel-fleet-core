@@ -18,7 +18,7 @@ from app.services.errors import DomainError, MileageBelowCurrentError, render_er
 from app.services.expense_service import ExpenseService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
-from app.web.deps import driver_scope_of, get_web_user, web_require_roles
+from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
 router = APIRouter(prefix="/expenses", tags=["web-expenses"])
@@ -46,6 +46,9 @@ def _ctx(request: Request, user: User, **values) -> dict:
         "user": user,
         "active_page": "expenses",
         "can_edit": user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
+        # an assigned driver adds expenses and uploads receipts for their own vehicle only
+        "can_add": can_contribute(request, user),
+        "can_upload": can_contribute(request, user),
         **values,
         **request.app.state.template_globals(request),
     }
@@ -87,7 +90,7 @@ async def _render_form(
             legacy_category=expense.category
             if expense and expense.category.value in RETIRED_EXPENSE_CATEGORIES
             else None,
-            document_categories=DOCUMENT_CATEGORY_LIST,
+            document_categories=[] if driver_scope_of(request).restricted else DOCUMENT_CATEGORY_LIST,
             document_values=sorted(DOCUMENT_CATEGORIES),
             error=error,
             mileage_warning=mileage_warning,
@@ -169,7 +172,7 @@ async def vehicle_options(request: Request, q: str | None = None, db: AsyncSessi
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
-    vehicles = await VehicleService(db).picker_options(q)
+    vehicles = await VehicleService(db).picker_options(q, vehicle_ids=driver_scope_of(request).vehicle_filter)
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="components/vehicle_picker_options.html",
@@ -183,8 +186,13 @@ async def expense_form_new(
     vehicle_id: str | None = None,
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_manager),
 ):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if not can_contribute(request, user):
+        return RedirectResponse(url="/", status_code=302)
+    vehicle_id = vehicle_choice_for(request, vehicle_id)
     form_data = {
         "vehicle_id": vehicle_id,
         "category": category if category in {c.value for c in ExpenseCategory} else "other",
@@ -194,16 +202,28 @@ async def expense_form_new(
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def expense_create(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)):
+async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if not can_contribute(request, user):
+        return RedirectResponse(url="/", status_code=302)
+    scope = driver_scope_of(request)
     raw = _submitted(await request.form())
     try:
         if not raw.get("vehicle_id"):
             raise DomainError("error.expense_vehicle_required")
         category = raw.get("category") or "other"
+        if scope.restricted:  # a driver adds expenses for their own vehicle, never insurance / inspection documents
+            if vehicle_choice_for(request, raw["vehicle_id"]) != raw["vehicle_id"]:
+                raise DomainError("errors.forbidden")
+            if is_document_category(category):
+                raise DomainError("error.expense_driver_category")
         if is_document_category(category) and not (raw.get("valid_from") and raw.get("valid_until")):
             raise DomainError("error.expense_document_dates_required")
         data = ExpenseCreate(
             vehicle_id=raw.get("vehicle_id"),
+            driver_id=scope.driver_id if scope.restricted else None,
             category=category,
             amount=raw.get("amount") or 0,
             currency=raw.get("currency", "EUR"),

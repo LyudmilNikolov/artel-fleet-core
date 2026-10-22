@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.driver_document_rules import DRIVER_DOCUMENT_TYPES, DRIVING_LICENCE_CATEGORIES, mask_number
 from app.models.driver import Driver
+from app.models.driver_document_change import ChangeAction, DriverDocumentChange
 from app.models.user import User, UserRole
 from app.schemas.driver_document import DriverDocumentCreate, DriverDocumentRenew, DriverDocumentUpdate
 from app.services.driver_access import (
@@ -19,6 +20,7 @@ from app.services.driver_access import (
     can_view_scans_of,
     is_manager,
 )
+from app.services.driver_document_change_service import DriverDocumentChangeService
 from app.services.driver_document_service import DriverDocumentService
 from app.services.errors import DomainError, render_error
 from app.web.deps import get_web_user, web_require_roles
@@ -92,8 +94,10 @@ async def _render_form(
     source=None,
     error: str | None = None,
     field_errors: dict | None = None,
+    action_url: str | None = None,
+    revision_note: str | None = None,
 ):
-    action = "/driver-documents/new" if mode == "create" else f"/driver-documents/{source.id}/{mode}"
+    action = action_url or ("/driver-documents/new" if mode == "create" else f"/driver-documents/{source.id}/{mode}")
     selected = str(form_data.get("document_type") or "")
     return request.app.state.templates.TemplateResponse(
         request=request,
@@ -113,6 +117,9 @@ async def _render_form(
             selected_type=selected,
             error=error,
             field_errors=field_errors or {},
+            needs_approval=not is_manager(user),
+            resubmitting=action_url is not None,
+            revision_note=revision_note,
         ),
     )
 
@@ -154,6 +161,9 @@ async def driver_document_create(request: Request, db: AsyncSession = Depends(ge
     if not can_edit_driver_documents(user, driver):
         return RedirectResponse(url="/", status_code=302)
     try:
+        if not is_manager(user):  # a driver proposes; a manager approves before anything changes
+            await _submit_change(db, user, ChangeAction.CREATE, driver, raw, document_type=raw.get("document_type"))
+            return _submitted_redirect(request, driver)
         view = await DriverDocumentService(db).create(DriverDocumentCreate(**raw), user.id)
     except (ValidationError, DomainError) as exc:
         error, field_errors = _errors(exc, request.state.locale)
@@ -161,6 +171,157 @@ async def driver_document_create(request: Request, db: AsyncSession = Depends(ge
             request, user, driver, mode="create", form_data=raw, error=error, field_errors=field_errors
         )
     return RedirectResponse(url=f"/driver-documents/{view.id}", status_code=302)
+
+
+# --- approval of driver-proposed changes (declared before the /{entry_id} routes) ---------------------------
+
+
+async def _submit_change(db, user, action, driver, raw, *, document_type=None, entry_id=None):
+    values = {n: raw.get(n) for n in FORM_FIELDS}
+    await DriverDocumentChangeService(db).submit(
+        action=action,
+        driver_id=driver.id,
+        requested_by=user.id,
+        values=values,
+        document_type=document_type,
+        entry_id=entry_id,
+    )
+
+
+def _submitted_redirect(request: Request, driver: Driver) -> RedirectResponse:
+    """Back to the driver's documents with a message that is shown once (not tied to the URL)."""
+    request.session["submitted_for"] = str(driver.id)
+    return RedirectResponse(url=f"/drivers/{driver.id}#licences", status_code=303)
+
+
+def _next_url(value: str | None, default: str) -> str:
+    """Only local paths are accepted as a return address."""
+    return value if value and value.startswith("/") and not value.startswith("//") else default
+
+
+@router.get("/pending", response_class=HTMLResponse)
+async def pending_changes(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)):
+    """Driver-proposed changes waiting for approval."""
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="driver_documents/pending.html",
+        context=_ctx(request, user, changes=await DriverDocumentChangeService(db).list_pending()),
+    )
+
+
+@router.post("/changes/{change_id}/approve")
+async def approve_change(
+    request: Request, change_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
+):
+    service = DriverDocumentChangeService(db)
+    next_url = _next_url((await request.form()).get("next"), "/driver-documents/pending")
+    try:
+        await service.approve(change_id, user.id)
+    except (ValidationError, DomainError) as exc:  # rules are checked before anything is written
+        error, _ = _errors(exc, request.state.locale)
+        return request.app.state.templates.TemplateResponse(
+            request=request,
+            name="driver_documents/pending.html",
+            status_code=422,
+            context=_ctx(request, user, changes=await service.list_pending(), error=error),
+        )
+    return RedirectResponse(url=next_url, status_code=303)
+
+
+@router.post("/changes/{change_id}/request-changes")
+async def request_changes(
+    request: Request, change_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
+):
+    """Send a request back to the driver with a note; they correct and resubmit it, or delete it."""
+    form = await request.form()
+    try:
+        await DriverDocumentChangeService(db).request_changes(change_id, user.id, str(form.get("note") or ""))
+    except DomainError:
+        pass
+    return RedirectResponse(url=_next_url(form.get("next"), "/driver-documents/pending"), status_code=303)
+
+
+@router.post("/changes/{change_id}/reject")
+async def reject_change(
+    request: Request, change_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
+):
+    """Refuse a request: it is deleted and the driver sees nothing about it again."""
+    form = await request.form()
+    try:
+        await DriverDocumentChangeService(db).reject(change_id, user.id)
+    except DomainError:
+        pass
+    return RedirectResponse(url=_next_url(form.get("next"), "/driver-documents/pending"), status_code=303)
+
+
+@router.get("/changes/{change_id}/resubmit", response_class=HTMLResponse)
+async def resubmit_form(request: Request, change_id: UUID, db: AsyncSession = Depends(get_db)):
+    """The driver opens a request the manager sent back, prefilled with what they proposed."""
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    change = await _own_revision(db, user, change_id)
+    if change is None:
+        return RedirectResponse(url="/", status_code=302)
+    return await _render_resubmit(request, db, user, change, {**change.payload, "document_type": change.document_type})
+
+
+@router.post("/changes/{change_id}/resubmit", response_class=HTMLResponse)
+async def resubmit_change(request: Request, change_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    change = await _own_revision(db, user, change_id)
+    if change is None:
+        return RedirectResponse(url="/", status_code=302)
+    raw = _submitted(await request.form())
+    try:
+        await DriverDocumentChangeService(db).resubmit(change_id, user.id, {n: raw.get(n) for n in FORM_FIELDS})
+    except (ValidationError, DomainError) as exc:
+        error, field_errors = _errors(exc, request.state.locale)
+        raw["document_type"] = change.document_type
+        return await _render_resubmit(request, db, user, change, raw, error=error, field_errors=field_errors)
+    return _submitted_redirect(request, await db.get(Driver, change.driver_id))
+
+
+async def _own_revision(db: AsyncSession, user: User, change_id: UUID):
+    """The change when it was sent back to this user; otherwise None."""
+    change = await DriverDocumentChangeService(db).get(change_id)
+    if change is None or change.requested_by != user.id or change.status != "revision":
+        return None
+    return change
+
+
+async def _render_resubmit(request, db, user, change, form_data, *, error=None, field_errors=None):
+    driver = await db.get(Driver, change.driver_id)
+    source = await DriverDocumentService(db).get(change.entry_id) if change.entry_id else None
+    return await _render_form(
+        request,
+        user,
+        driver,
+        mode=change.action,
+        form_data=form_data,
+        source=source,
+        error=error,
+        field_errors=field_errors,
+        action_url=f"/driver-documents/changes/{change.id}/resubmit",
+        revision_note=change.decision_note or "",
+    )
+
+
+@router.post("/changes/{change_id}/cancel")
+async def cancel_change(request: Request, change_id: UUID, db: AsyncSession = Depends(get_db)):
+    """The driver who asked withdraws a pending request."""
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    change = await db.get(DriverDocumentChange, change_id)
+    target = f"/drivers/{change.driver_id}#licences" if change else "/"
+    try:
+        await DriverDocumentChangeService(db).cancel(change_id, user.id)
+    except DomainError:
+        pass
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.get("/{entry_id}", response_class=HTMLResponse)
@@ -182,6 +343,7 @@ async def driver_document_detail(request: Request, entry_id: UUID, db: AsyncSess
             entry=view,
             can_edit=can_edit_driver_documents(user, view.driver),
             can_delete=is_manager(user),
+            pending_change=await DriverDocumentChangeService(db).pending_for_entry(entry_id),
             shown_number=view.document_number
             if can_see_numbers(user, view.driver)
             else mask_number(view.document_number),
@@ -222,6 +384,9 @@ async def driver_document_update(request: Request, entry_id: UUID, db: AsyncSess
     raw = _submitted(await request.form())
     values = {name: raw.get(name) for name in FORM_FIELDS}
     try:
+        if not is_manager(user):
+            await _submit_change(db, user, ChangeAction.EDIT, source.driver, raw, entry_id=entry_id)
+            return _submitted_redirect(request, source.driver)
         await service.update(entry_id, DriverDocumentUpdate(**values), user.id)
     except (ValidationError, DomainError) as exc:
         error, field_errors = _errors(exc, request.state.locale)
@@ -267,6 +432,9 @@ async def driver_document_renew(request: Request, entry_id: UUID, db: AsyncSessi
         return RedirectResponse(url="/", status_code=302)
     raw = _submitted(await request.form())
     try:
+        if not is_manager(user):
+            await _submit_change(db, user, ChangeAction.RENEW, source.driver, raw, entry_id=entry_id)
+            return _submitted_redirect(request, source.driver)
         # The form always sends every field, so number and categories are taken as submitted (blank clears).
         view = await service.renew(entry_id, DriverDocumentRenew(**{n: raw.get(n) for n in FORM_FIELDS}), user.id)
     except (ValidationError, DomainError) as exc:

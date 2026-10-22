@@ -2,7 +2,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Index, Integer, Numeric, String, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -72,6 +72,13 @@ class Vehicle(Base, UUIDPrimaryKey, TimestampMixin):
     operating_hours: Mapped[Decimal | None] = mapped_column(Numeric(10, 1))
 
     __table_args__ = (
+        # one driver, one vehicle: a driver cannot be assigned to two vehicles (a vehicle has one driver by design)
+        Index(
+            "uq_vehicles_assigned_driver",
+            "assigned_driver_id",
+            unique=True,
+            postgresql_where=text("assigned_driver_id IS NOT NULL"),
+        ),
         CheckConstraint("year IS NULL OR year BETWEEN 1900 AND 2100", name="vehicle_year_bounds"),
         CheckConstraint("axle_count IS NULL OR axle_count BETWEEN 1 AND 20", name="vehicle_axle_count_bounds"),
         CheckConstraint("seats IS NULL OR seats BETWEEN 1 AND 100", name="vehicle_seats_bounds"),

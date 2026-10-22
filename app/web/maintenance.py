@@ -6,8 +6,8 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
 from app.config import settings
+from app.database import get_db
 from app.maintenance_rules import DUE_STATUSES, SERVICE_CHECKLIST, SERVICE_ITEMS
 from app.models.maintenance import MaintenanceStatus, MaintenanceType
 from app.models.user import User, UserRole
@@ -19,7 +19,7 @@ from app.services.maintenance_service import PENDING_STATUSES, MaintenanceServic
 from app.services.service_due_service import ServiceDueService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, vehicle_type_filter
-from app.web.deps import driver_scope_of, get_web_user, web_require_roles
+from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
 router = APIRouter(prefix="/maintenance", tags=["web-maintenance"])
@@ -48,6 +48,9 @@ def _ctx(request: Request, user: User, **values) -> dict:
         "user": user,
         "active_page": "maintenance",
         "can_edit": user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
+        # an assigned driver adds maintenance and uploads invoices for their own vehicle only
+        "can_add": can_contribute(request, user),
+        "can_upload": can_contribute(request, user),
         **values,
         **request.app.state.template_globals(request),
     }
@@ -198,7 +201,7 @@ async def vehicle_options(request: Request, q: str | None = None, db: AsyncSessi
     user = await get_web_user(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
-    vehicles = await VehicleService(db).picker_options(q)
+    vehicles = await VehicleService(db).picker_options(q, vehicle_ids=driver_scope_of(request).vehicle_filter)
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="components/vehicle_picker_options.html",
@@ -211,19 +214,29 @@ async def maintenance_form_new(
     request: Request,
     vehicle_id: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_manager),
 ):
-    return await _render_form(request, db, user, form_data={"vehicle_id": vehicle_id, "status": "scheduled"})
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if not can_contribute(request, user):
+        return RedirectResponse(url="/", status_code=302)
+    form_data = {"vehicle_id": vehicle_choice_for(request, vehicle_id), "status": "scheduled"}
+    return await _render_form(request, db, user, form_data=form_data)
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def maintenance_create(
-    request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
-):
+async def maintenance_create(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if not can_contribute(request, user):
+        return RedirectResponse(url="/", status_code=302)
     raw = _submitted(await request.form())
     try:
         if not raw.get("vehicle_id"):
             raise DomainError("error.maintenance_vehicle_required")
+        if driver_scope_of(request).restricted and vehicle_choice_for(request, raw["vehicle_id"]) != raw["vehicle_id"]:
+            raise DomainError("errors.forbidden")  # a driver only reports maintenance for their own vehicle
         data = MaintenanceCreate(
             vehicle_id=raw.get("vehicle_id"),
             type=raw.get("type") or "scheduled_service",

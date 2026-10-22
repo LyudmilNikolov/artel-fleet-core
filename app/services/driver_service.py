@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -14,6 +15,16 @@ from app.schemas.driver import DriverCreate, DriverUpdate
 from app.services.errors import DomainError
 from app.services.validity import utc_today
 from app.utils.s3 import get_s3_client
+from app.vehicle_rules import can_assign_to_driver
+
+
+async def check_driver_has_no_other_vehicle(session: AsyncSession, driver_id: UUID, vehicle_id: UUID | None) -> None:
+    """Raise ``error.driver_has_vehicle`` when the driver is already assigned to a different vehicle."""
+    query = select(Vehicle.id).where(Vehicle.assigned_driver_id == driver_id)
+    if vehicle_id is not None:
+        query = query.where(Vehicle.id != vehicle_id)
+    if await session.scalar(query.limit(1)) is not None:
+        raise DomainError("error.driver_has_vehicle")
 
 
 class DriverService:
@@ -85,9 +96,10 @@ class DriverService:
         return list(result.all())
 
     async def assign_vehicle(self, driver_id: UUID, vehicle_id: UUID) -> Vehicle:
-        """Assign a vehicle to a driver (moving it from another driver if needed).
+        """Assign a vehicle to a driver.
 
-        A driver may have several vehicles; a terminated driver cannot be assigned any.
+        One driver has one vehicle and one vehicle has one driver: a vehicle that already has a driver (or a driver
+        that already has a vehicle) must be unassigned first. A terminated driver cannot be assigned one.
         """
         driver = await self.repo.get_by_id(driver_id)
         if not driver:
@@ -97,8 +109,18 @@ class DriverService:
         vehicle = await self.session.get(Vehicle, vehicle_id)
         if not vehicle:
             raise DomainError("error.vehicle_not_found")
+        if not can_assign_to_driver(vehicle.vehicle_type):
+            raise DomainError("error.vehicle_not_assignable")
+        if vehicle.assigned_driver_id == driver.id:
+            return vehicle  # already theirs
+        if vehicle.assigned_driver_id is not None:
+            raise DomainError("error.vehicle_already_assigned")  # never taken from another driver
+        await check_driver_has_no_other_vehicle(self.session, driver.id, vehicle.id)
         vehicle.assigned_driver_id = driver.id
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:  # two requests raced; the unique index decides
+            raise DomainError("error.driver_has_vehicle") from exc
         return vehicle
 
     async def unassign_vehicle(self, driver_id: UUID, vehicle_id: UUID) -> None:
@@ -118,7 +140,9 @@ class DriverService:
         driver = await self.repo.get_by_id(driver_id)
         if not driver:
             raise DomainError("error.driver_not_found")
-        entry_ids = list((await self.session.scalars(select(DriverDocument.id).where(DriverDocument.driver_id == driver.id))).all())
+        entry_ids = list(
+            (await self.session.scalars(select(DriverDocument.id).where(DriverDocument.driver_id == driver.id))).all()
+        )
         related = [(EntityType.DRIVER, [driver.id]), (EntityType.DRIVER_DOCUMENT, entry_ids)]
         documents = []
         for kind, ids in related:

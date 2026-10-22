@@ -27,7 +27,7 @@
     </form>
     <div class="flex items-center gap-3 ml-auto">
         <a href="/maintenance/due" class="h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{{ _('maintenance.service_due') }}</a>
-        {% if can_edit %}
+        {% if can_add %}
         <a href="/maintenance/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium whitespace-nowrap">+ {{ _('maintenance.add') }}</a>
         {% endif %}
     </div>

@@ -8,7 +8,6 @@
                     <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('vehicle.vin') }}</th>
                     <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
                     <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('vehicle.current_mileage') }}</th>
-                    <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -20,22 +19,19 @@
                     </td>
                     <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ v.vin or '—' }}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if v.status.value == 'active' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
-                            {% elif v.status.value == 'in_maintenance' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400
-                            {% elif v.status.value == 'decommissioned' %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400
-                            {% else %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+                        <span class="fc-badge
+                            {% if v.status.value == 'active' %}fc-badge-success
+                            {% elif v.status.value == 'in_maintenance' %}fc-badge-warning
+                            {% elif v.status.value == 'decommissioned' %}fc-badge-neutral
+                            {% else %}fc-badge-info{% endif %}">
                             {{ _('status.' + v.status.value) }}
                         </span>
                     </td>
                     <td class="px-4 py-3 text-right font-mono">{{ "{:,}".format(v.current_mileage) if v.current_mileage is not none else "—" }}</td>
-                    <td class="px-4 py-3">
-                        <a href="/vehicles/{{ v.id }}" class="text-primary-600 hover:text-primary-800 text-sm">{{ _('btn.edit') }}</a>
-                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td>
+                    <td colspan="4" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

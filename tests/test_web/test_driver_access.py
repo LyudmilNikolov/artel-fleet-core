@@ -158,18 +158,26 @@ def test_policy_with_vehicles_adds_read_only_vehicle_pages():
     for path in (
         "/vehicles/new",
         f"/vehicles/{vid}/edit",
-        "/expenses/new",
-        "/maintenance/new",
         "/compliance/new",
-        "/expenses/vehicle-options",
         "/reports",
         "/",
         "/drivers",
         "/documents/upload",
     ):
         assert not driver_may_open(path, "GET", scope), path
-    for path in ("/vehicles/new", f"/vehicles/{vid}/delete", "/expenses/new"):
+    for path in ("/vehicles/new", f"/vehicles/{vid}/delete", "/compliance/new", f"/expenses/{uuid4()}/edit"):
         assert not driver_may_open(path, "POST", scope), path
+    # with an assigned vehicle a driver may add expenses and maintenance (and pick from their vehicles)
+    for method, path in (
+        ("GET", "/expenses/new"),
+        ("POST", "/expenses/new"),
+        ("GET", "/expenses/vehicle-options"),
+        ("GET", "/maintenance/new"),
+        ("POST", "/maintenance/new"),
+        ("GET", "/maintenance/vehicle-options"),
+    ):
+        assert driver_may_open(path, method, scope), (method, path)
+        assert not driver_may_open(path, method, DriverScope(restricted=True, driver_id=did)), (method, path)
 
 
 def test_policy_lets_a_driver_manage_their_own_documents():
@@ -293,7 +301,6 @@ async def test_driver_cannot_write_anything(client, db_session, world):
         ("post", "/vehicles/new", {"license_plate": "ZZ"}),
         ("post", f"/vehicles/{vid}/edit", {"brand": "X"}),
         ("post", f"/vehicles/{vid}/delete", {}),
-        ("post", "/expenses/new", {}),
         ("post", f"/drivers/{world['drivers']['a'].id}/vehicles", {"vehicle_id": str(world["vehicles"]["b"].id)}),
         ("post", "/settings/users/new", {}),
     ):
@@ -367,7 +374,7 @@ async def test_driver_with_vehicle_sees_only_that_vehicle(client, world):
         "/drivers",
         f"/drivers/{world['drivers']['b'].id}",
         "/vehicles/new",
-        "/expenses/new",
+        "/compliance/new",
         f"/vehicles/{va.id}/edit",
     ):
         assert (await get(client, path)).headers["location"] == own, path

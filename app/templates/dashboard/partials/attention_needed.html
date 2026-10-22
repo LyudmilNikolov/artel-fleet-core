@@ -2,7 +2,7 @@
     <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('dashboard.attention_needed') }}</h3>
         {% if data.total_alerts > 0 %}
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <span class="fc-badge fc-badge-danger">
             {{ data.total_alerts }}
         </span>
         {% endif %}

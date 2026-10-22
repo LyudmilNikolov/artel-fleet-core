@@ -1,7 +1,6 @@
 """Web routes for admin settings: users and audit log."""
 
 import datetime as dt
-import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -17,7 +16,7 @@ from app.repositories.driver_repo import DriverRepository
 from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
 from app.services.errors import DomainError, render_error
-from app.services.user_service import UserService
+from app.services.user_service import UserService, valid_email
 from app.utils.security import hash_password
 from app.web.deps import web_require_roles
 
@@ -26,7 +25,6 @@ router = APIRouter()
 require_admin = web_require_roles(UserRole.ADMIN)
 
 
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USER_LANGUAGES = ("bg", "en")
 
 
@@ -46,12 +44,22 @@ async def _user_form_response(
             "error": error,
             "roles": [r.value for r in UserRole],
             "driver_profiles": drivers,
+            "profiles_map": {str(d.id): {"full_name": d.full_name, "email": d.email or ""} for d in drivers},
             "language_choices": USER_LANGUAGES,  # not "languages": that name is a template global
             "is_self": bool(target and target.id == admin.id),
             "active_page": "users",
             **request.app.state.template_globals(request),
         },
     )
+
+
+async def _fill_from_profile(db: AsyncSession, data: dict, target: User | None = None) -> None:
+    """A driver login takes its name and email from the driver profile (the form fields are locked)."""
+    profile = await UserService(db).profile_for_form(data["role"], data["driver_id"], target)
+    if profile is not None:
+        data["full_name"] = profile.full_name
+        if profile.email:
+            data["email"] = profile.email
 
 
 async def _read_user_form(request: Request) -> tuple[dict, str, str]:
@@ -68,11 +76,11 @@ def _validate_user_form(data: dict, password: str, confirm: str, *, creating: bo
 
     The driver profile only applies to the driver role; for other roles a submitted value is ignored.
     """
-    if creating and not 3 <= len(data["username"]) <= 100:
+    if (creating or data["username"]) and not 3 <= len(data["username"]) <= 100:
         raise DomainError("error.user_username_invalid")
     if not data["full_name"]:
         raise DomainError("error.user_name_required")
-    if not EMAIL_PATTERN.match(data["email"]) or len(data["email"]) > 255:
+    if not valid_email(data["email"]):
         raise DomainError("error.user_email_invalid")
     if data["language"] not in USER_LANGUAGES:
         raise DomainError("errors.invalid_input")
@@ -102,6 +110,7 @@ async def user_new_page(request: Request, db: AsyncSession = Depends(get_db), us
 @router.post("/settings/users/new")
 async def user_create(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     data, password, confirm = await _read_user_form(request)
+    await _fill_from_profile(db, data)
     try:
         role, driver_id = _validate_user_form(data, password, confirm, creating=True)
         await UserService(db).create(
@@ -134,7 +143,12 @@ async def user_edit_page(
         "language": target.language,
         "is_active": "on" if target.is_active else "",
         "driver_id": str(linked.id) if (linked := await DriverRepository(db).get_for_user(target.id)) else "",
+        "username": target.username,
     }
+    if linked:  # the profile is the source of a driver login's name and email
+        form["full_name"] = linked.full_name
+        if linked.email:
+            form["email"] = linked.email
     return await _user_form_response(request, user, db, target=target, form=form)
 
 
@@ -147,14 +161,12 @@ async def user_update(
     if not target:
         return RedirectResponse(url="/settings/users", status_code=303)
     data, password, confirm = await _read_user_form(request)
+    await _fill_from_profile(db, data, target)
     try:
         role, driver_id = _validate_user_form(data, password, confirm, creating=False)
         is_active = bool(data["is_active"])
         if target.id == user.id and (role != target.role or not is_active):
             raise DomainError("error.user_self_locked")  # an admin cannot lock themselves out
-        other = await repo.get_by_email(data["email"])
-        if other and other.id != target.id:
-            raise DomainError("auth.email_registered")
         changes = {
             "full_name": data["full_name"],
             "email": data["email"],
@@ -162,9 +174,11 @@ async def user_update(
             "language": data["language"],
             "is_active": is_active,
         }
+        if data["username"]:
+            changes["username"] = data["username"]
         if password:
             changes["hashed_password"] = hash_password(password)
-        await UserService(db).update(target, changes, driver_id=driver_id)
+        await UserService(db).update(target, changes, driver_id=driver_id)  # also keeps username / email unique
     except DomainError as exc:
         return await _user_form_response(
             request, user, db, target=target, form=data, error=render_error(exc, request.state.locale), status_code=422
@@ -211,6 +225,7 @@ AUDIT_ENTITY_TYPES = (
     "vehicle",
     "driver",
     "driver_document",
+    "driver_document_change",
     "maintenance",
     "expense",
     "compliance_document",

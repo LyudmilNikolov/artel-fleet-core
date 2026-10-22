@@ -4,7 +4,7 @@
 {% block content %}
 {% macro errors(name) %}{% if field_errors.get(name) %}<p class="text-sm text-red-600">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
 <div class="max-w-3xl">
-{% if error %}<div role="alert" class="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">{{ error }}</div>{% endif %}
+{% if error %}<div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
 {% if not departments %}<p role="alert" class="mb-4">{{ _('vehicle.configure_departments') }}</p>{% endif %}
 <form method="POST" class="fc-card p-6 space-y-6" x-data='{
     kind: {{ form_data.get("vehicle_type", "tractor_unit") | tojson }},

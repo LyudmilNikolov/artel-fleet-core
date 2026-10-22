@@ -4,7 +4,7 @@
 {% macro value(name) %}{% if form_data and name in form_data %}{{ form_data[name] if form_data[name] is not none else '' }}{% elif driver %}{{ driver[name] if driver[name] is not none else '' }}{% endif %}{% endmacro %}
 {% block content %}
 <div class="max-w-3xl">
-    {% if error %}<div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{{ error }}</div>{% endif %}
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
     <form method="POST" class="fc-card p-6 space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

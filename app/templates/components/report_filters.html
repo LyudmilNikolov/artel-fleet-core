@@ -7,7 +7,7 @@
 {% set locked = false %}
 <div class="fc-card p-4 mb-6">
     {% if filter_error %}
-    <div role="alert" class="mb-4 px-4 py-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800">{{ filter_error }}</div>
+    <div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ filter_error }}</div>
     {% endif %}
     <form method="GET" action="{{ action }}" class="flex flex-wrap items-end gap-3"
           x-data='vehiclePicker({{ picker | tojson }}, { type: {{ (filters.vehicle_type or "") | tojson }} })'
@@ -55,7 +55,7 @@
 </div>
 
 {% if vehicle_mismatch %}
-<div role="status" class="mb-4 px-4 py-3 rounded-lg text-sm bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800">{{ _('reports.vehicle_type_mismatch') }}</div>
+<div role="status" class="mb-4 fc-notice fc-notice-warning">{{ _('reports.vehicle_type_mismatch') }}</div>
 {% endif %}
 
 {% if filter_query and not filter_error %}
