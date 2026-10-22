@@ -8,6 +8,7 @@ from app.models.document import Document, DocumentType, EntityType
 from app.models.driver_document import DriverDocument
 from app.services.errors import DomainError
 from app.utils.s3 import ALLOWED_MIME_TYPES, MAX_FILE_SIZE, get_s3_client
+from app.utils.upload_validation import check_content, sanitize_filename
 
 
 class DocumentService:
@@ -33,6 +34,8 @@ class DocumentService:
             raise DomainError("error.file_type", mime_type=mime_type)
         if len(file_data) > MAX_FILE_SIZE:
             raise DomainError("error.file_too_large")
+        mime_type = check_content(mime_type, file_data)  # the content must really be what is claimed
+        filename = sanitize_filename(filename)
 
         s3 = get_s3_client()
         folder = f"{entity_type.value}/{entity_id}"
@@ -62,7 +65,7 @@ class DocumentService:
         if not doc:
             return None
         s3 = get_s3_client()
-        return s3.get_presigned_url(doc.s3_key)
+        return s3.get_presigned_url(doc.s3_key, filename=doc.filename, mime_type=doc.mime_type)
 
     async def list_for_entity(self, entity_type: EntityType, entity_id: UUID) -> list[Document]:
         result = await self.session.execute(

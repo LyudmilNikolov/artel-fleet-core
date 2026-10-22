@@ -50,7 +50,7 @@ async def test_login_logout_and_export_are_audited(client: AsyncClient, db_sessi
     await db_session.commit()
     await login(client)
     assert (await client.get("/reports/export/tco.xlsx?vehicle_type=van")).status_code == 200
-    await client.get("/logout")
+    await client.post("/logout")
     rows = list((await db_session.scalars(select(AuditLog).order_by(AuditLog.timestamp))).all())
     wanted = {AuditAction.LOGIN, AuditAction.EXPORT, AuditAction.LOGOUT}
     by_action = {r.action: r for r in rows if r.action in wanted}

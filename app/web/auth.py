@@ -10,6 +10,11 @@ from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.errors import render_error
+from app.utils import rate_limit
+from app.utils.client_ip import request_ip
+from app.utils.rate_limit import RateLimitedError
+from app.utils.security import password_fingerprint
+from app.web.csrf import rotate_token
 from app.web.deps import get_web_user
 
 router = APIRouter(tags=["web-auth"])
@@ -26,6 +31,16 @@ async def login_page(request: Request, user=Depends(get_web_user)):
     )
 
 
+def _login_error(request: Request, message: str, status_code: int, headers: dict | None = None):
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="auth/login.html",
+        context={"request": request, "error": message, **request.app.state.template_globals(request)},
+        status_code=status_code,
+        headers=headers,
+    )
+
+
 @router.post("/login", response_class=HTMLResponse)
 async def login_submit(
     request: Request,
@@ -33,40 +48,45 @@ async def login_submit(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
+    ip = request_ip(request)
+    try:
+        rate_limit.limiter.check(ip, username)
+    except RateLimitedError as blocked:
+        message = request.app.state.get_translation(
+            "auth.too_many_attempts", request, minutes=-(-blocked.retry_after // 60)
+        )
+        return _login_error(request, message, 429, {"Retry-After": str(blocked.retry_after)})
     service = AuthService(db)
     try:
         user, _, _ = await service.authenticate(username, password)
-        request.session["user_id"] = str(user.id)
-        language = request.session.get("lang")
-        if language in SUPPORTED_LANGUAGES:
-            await UserRepository(db).update(user, language=language)
-        else:
-            language = normalize_language(user.language)
-        request.session["lang"] = language
-        resolve_locale(request, user)
-        set_audit_user(user.id)
-        await AuditService(db).log(
-            user_id=user.id,
-            action=AuditAction.LOGIN,
-            entity_type="session",
-            entity_id=user.id,
-            changes={"channel": "web"},
-        )
-        return RedirectResponse(url="/", status_code=302)
     except ValueError:
-        return request.app.state.templates.TemplateResponse(
-            request=request,
-            name="auth/login.html",
-            context={
-                "request": request,
-                "error": request.app.state.get_translation("auth.invalid_credentials", request),
-                **request.app.state.template_globals(request),
-            },
-            status_code=401,
-        )
+        rate_limit.limiter.failure(ip, username)
+        return _login_error(request, request.app.state.get_translation("auth.invalid_credentials", request), 401)
+    rate_limit.limiter.success(ip, username)
+    # A fresh session on every login (no session fixation), carrying only the language choice
+    language = request.session.get("lang")
+    request.session.clear()
+    if language in SUPPORTED_LANGUAGES:
+        await UserRepository(db).update(user, language=language)
+    else:
+        language = normalize_language(user.language)
+    request.session["lang"] = language
+    request.session["user_id"] = str(user.id)
+    request.session["pv"] = password_fingerprint(user.hashed_password)
+    rotate_token(request)
+    resolve_locale(request, user)
+    set_audit_user(user.id)
+    await AuditService(db).log(
+        user_id=user.id,
+        action=AuditAction.LOGIN,
+        entity_type="session",
+        entity_id=user.id,
+        changes={"channel": "web"},
+    )
+    return RedirectResponse(url="/", status_code=302)
 
 
-@router.get("/logout")
+@router.post("/logout")
 async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_web_user(request, db)
     if user:
@@ -139,6 +159,10 @@ async def profile_submit(request: Request, db: AsyncSession = Depends(get_db)):
         service = AuthService(db)
         try:
             await service.change_password(user.id, current_password, new_password)
+            await db.refresh(user)
+            # this browser stays signed in; every other session and token of the user stops working
+            request.session["pv"] = password_fingerprint(user.hashed_password)
+            rotate_token(request)
             success = request.app.state.get_translation("toast.saved", request)
         except ValueError as e:
             error = render_error(e, request.state.locale)

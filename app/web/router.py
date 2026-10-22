@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.web.auth import router as auth_router
+from app.web.csrf import csrf_protect
 from app.web.compliance import router as compliance_router
 from app.web.dashboard import router as dashboard_router
 from app.web.documents import router as documents_router
@@ -15,7 +16,7 @@ from app.web.settings import router as settings_router
 from app.web.help import router as help_router
 from app.web.vehicles import router as vehicles_router
 
-web_router = APIRouter()
+web_router = APIRouter(dependencies=[Depends(csrf_protect)])
 
 web_router.include_router(auth_router)
 web_router.include_router(dashboard_router)

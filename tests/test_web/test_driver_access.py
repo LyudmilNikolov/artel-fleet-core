@@ -15,7 +15,7 @@ from app.schemas.vehicle import VehicleCreate
 from app.services.driver_scope import DriverScope, driver_may_call_api, driver_may_open, resolve_scope
 from app.services.user_service import UserService
 from app.services.vehicle_service import VehicleService
-from app.utils.security import create_access_token
+from app.utils.security import create_access_token, password_fingerprint
 
 
 async def make_vehicle(db, plate, driver=None):
@@ -418,7 +418,7 @@ async def test_legacy_driver_login_without_profile_sees_only_account_pages(clien
 async def test_managers_and_viewers_are_not_restricted(client, db_session, world, fleet_manager_user, viewer_user):
     await db_session.commit()
     for username in ("testmanager", "testviewer"):
-        await client.get("/logout")
+        await client.post("/logout")
         assert (await client.post("/login", data={"username": username, "password": "testpass123"})).status_code == 302
         page = await client.get("/vehicles")
         assert "CA1111AA" in page.text and "CB2222BB" in page.text
@@ -437,7 +437,7 @@ async def test_vehicle_forms_are_for_managers_only(client, db_session, viewer_us
 
 
 def bearer(user):
-    return {"Authorization": "Bearer " + create_access_token(user.id, user.role.value)}
+    return {"Authorization": "Bearer " + create_access_token(user.id, user.role.value, password_fingerprint(user.hashed_password))}
 
 
 @pytest.mark.asyncio

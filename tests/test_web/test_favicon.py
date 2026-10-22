@@ -32,5 +32,5 @@ async def test_app_name_follows_the_language(client, admin_user):
     assert ">Автопарк</span>" in bg and ">FleetCore</span>" not in bg and "<title>" in bg
     en = (await client.get("/vehicles?lang=en")).text
     assert ">FleetCore</span>" in en
-    await client.get("/logout")
+    await client.post("/logout")
     assert "<h1 class=\"text-2xl font-bold text-gray-900 dark:text-white\">Автопарк</h1>" in (await client.get("/login?lang=bg")).text

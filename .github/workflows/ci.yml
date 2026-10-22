@@ -1,0 +1,73 @@
+name: CI
+
+# Runs on every pull request and on master. A merge should only happen when this is green.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fleetcore
+          POSTGRES_PASSWORD: fleetcore
+          POSTGRES_DB: fleetcore_ci_test   # the test suite refuses database names without "test"
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fleetcore"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://fleetcore:fleetcore@localhost:5432/fleetcore_ci_test
+      TEST_DATABASE_URL_SYNC: postgresql+psycopg2://fleetcore:fleetcore@localhost:5432/fleetcore_ci_test
+      DATABASE_URL: postgresql+asyncpg://fleetcore:fleetcore@localhost:5432/fleetcore_ci_test
+      DATABASE_URL_SYNC: postgresql+psycopg2://fleetcore:fleetcore@localhost:5432/fleetcore_ci_test
+      SECRET_KEY: ci-only-secret-key-never-used-anywhere-else
+      VAULT_ADDR: ""
+      VAULT_TOKEN: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+      - name: System libraries (PDF/QR rendering)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangocairo-1.0-0 \
+            libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core
+      - name: Install
+        run: |
+          pip install "bcrypt==4.0.1"
+          pip install -c requirements.txt -e ".[dev]"
+      - name: Migrations apply and match the models
+        run: |
+          alembic upgrade head
+          alembic check
+      - name: Tests
+        run: pytest -q
+      - name: Lint (informational until the existing findings are cleaned up)
+        continue-on-error: true
+        run: ruff check app tests
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true   # informational: read the log, upgrade what matters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt

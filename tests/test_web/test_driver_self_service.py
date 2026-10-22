@@ -26,7 +26,7 @@ class FakeS3:
         self.objects[key] = data
         return key
 
-    def get_presigned_url(self, key):
+    def get_presigned_url(self, key, **kwargs):
         return f"http://files.test/{key}"
 
     def delete_file(self, key):
@@ -100,7 +100,7 @@ async def changes_for(db, driver=None):
 
 
 async def manager_login(client, username="testmanager"):
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await client.post("/login", data={"username": username, "password": "testpass123"})).status_code == 302
 
 
@@ -233,7 +233,7 @@ async def test_manager_asks_to_redo_and_the_driver_corrects_and_resubmits(client
     assert change.status == "revision" and change.decision_note == "Photo is unreadable, please renew"
     assert pair["entry"].document_number == "BG1234567"  # nothing applied
     assert "Nothing is waiting" in (await client.get("/driver-documents/pending")).text  # off the manager's list
-    await client.get("/logout")
+    await client.post("/logout")
 
     await login(client, "mine")
     note = await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id))
@@ -289,7 +289,7 @@ async def test_rejecting_deletes_the_request_and_it_is_never_mentioned_again(
     assert pair["entry"].document_number == "BG1234567"
     # the driver is told nothing and sees nothing
     assert await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id)) is None
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mine")
     tab = await client.get(f"/drivers/{pair['mine'].id}/tab/licences")
     assert "WRONG-1" not in tab.text and "Waiting for approval" not in tab.text and "Changes requested" not in tab.text
@@ -311,7 +311,7 @@ async def test_driver_can_delete_a_request_that_was_sent_back(client, db_session
     [change] = await changes_for(db_session, pair["mine"])
     change_id = change.id
     await client.post(f"/driver-documents/changes/{change_id}/request-changes", data={"note": "redo"})
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mine")
     deleted = await client.post(f"/driver-documents/changes/{change_id}/cancel", follow_redirects=False)
     assert deleted.status_code == 303
@@ -330,7 +330,7 @@ async def test_sent_back_requests_belong_to_their_driver(client, db_session, pai
     [theirs] = await changes_for(db_session, pair["other"])
     theirs_id = theirs.id
     await client.post(f"/driver-documents/changes/{theirs_id}/request-changes", data={"note": "redo"})
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mine")
     forms = await client.get(f"/driver-documents/changes/{theirs_id}/resubmit", follow_redirects=False)
     assert forms.status_code == 302 and forms.headers["location"] == "/"
@@ -353,14 +353,14 @@ async def test_a_new_proposal_replaces_an_old_request_for_changes(client, db_ses
     [old] = await changes_for(db_session, pair["mine"])
     old_id = old.id
     await client.post(f"/driver-documents/changes/{old_id}/request-changes", data={"note": "redo"})
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mine")
     assert (await submit_edit(client, pair["entry"], "NEWER-9")).status_code == 303
     assert await db_session.get(DriverDocumentChange, old_id) is None
     [current] = await changes_for(db_session, pair["mine"])
     assert current.status == "pending" and current.payload["document_number"] == "NEWER-9"
     # a request that was sent back can no longer be approved by anyone
-    await client.get("/logout")
+    await client.post("/logout")
     await manager_login(client)
     assert (await client.post(f"/driver-documents/changes/{old_id}/approve")).status_code == 422
 
@@ -397,7 +397,7 @@ async def test_driver_edit_and_renewal_apply_only_after_approval(client, db_sess
     await db_session.refresh(entry)
     assert entry.document_number == "BG7654321"
     # a renewal: the old entry stays as history
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mine")
     await client.post(
         f"/driver-documents/{entry.id}/renew",
@@ -442,7 +442,7 @@ async def test_driver_can_cancel_their_request_but_not_decide_or_cancel_others(
         data={"driver_id": str(pair["other"].id), "document_type": "psycho_test", "document_number": "P1"},
     )
     [theirs] = await changes_for(db_session, pair["other"])
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mine")
     # no way to approve or reject, and no way to withdraw somebody else's request
     for action in ("approve", "reject"):
@@ -490,7 +490,7 @@ async def test_pending_changes_do_not_affect_alerts_or_other_roles(client, db_se
         f"/driver-documents/{pair['entry'].id}/renew",
         data={"document_number": "N", "categories": "B", "start_date": str(date.today()), "end_date": "2050-01-01"},
     )
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await client.post("/login", data={"username": "testviewer", "password": "testpass123"})).status_code == 302
     tab = await client.get(f"/drivers/{pair['mine'].id}/tab/licences")
     assert "Waiting for approval" not in tab.text  # only the driver and managers see requests

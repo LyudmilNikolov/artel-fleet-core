@@ -84,7 +84,7 @@ async def test_driver_login_is_linked_to_the_profile_and_can_sign_in(client, db_
     assert "Peter Driver" in listing.text  # the profile is shown under the role
     assert f"/drivers/{driver.id}" in (await client.get(f"/drivers/{driver.id}")).text
     assert "newdriver" in (await client.get(f"/drivers/{driver.id}")).text  # login account on the profile
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "newdriver", "secret-123")
     home = await client.get("/", follow_redirects=False)
     assert home.headers["location"] == f"/drivers/{driver.id}"
@@ -283,7 +283,7 @@ async def test_assigning_a_vehicle_gives_the_driver_access_and_it_is_audited(cli
     assignment = [e for e in entries if "assigned_driver_id" in (e.changes or {})]
     assert len(assignment) == 1 and assignment[0].user_id == admin_user.id
     assert assignment[0].changes["assigned_driver_id"] == {"old": None, "new": str(driver.id)}
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "mia")
     assert "CA9999MM" in (await client.get("/vehicles")).text
 

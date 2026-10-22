@@ -7,6 +7,8 @@ wherever the request's database session flushes (even in a copied task context).
 from contextvars import ContextVar
 from uuid import UUID
 
+from app.utils.client_ip import client_ip
+
 _context: ContextVar[dict | None] = ContextVar("audit_context", default=None)
 
 
@@ -37,7 +39,10 @@ class AuditContextMiddleware:
         token = _context.set(
             {
                 "user_id": None,
-                "ip_address": client[0] if client else None,
+                "ip_address": client_ip(
+                    {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in (scope.get("headers") or [])},
+                    client[0] if client else None,
+                ),
                 "user_agent": (headers.get(b"user-agent") or b"").decode("latin-1")[:500] or None,
             }
         )

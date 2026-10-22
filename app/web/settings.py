@@ -17,6 +17,7 @@ from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
 from app.services.errors import DomainError, render_error
 from app.services.user_service import UserService, valid_email
+from app.utils.password_policy import validate_password
 from app.utils.security import hash_password
 from app.web.deps import web_require_roles
 
@@ -89,8 +90,7 @@ def _validate_user_form(data: dict, password: str, confirm: str, *, creating: bo
     except ValueError:
         raise DomainError("errors.invalid_input") from None
     if creating or password:
-        if not 6 <= len(password) <= 128:
-            raise DomainError("error.user_password_short")
+        validate_password(password, data["username"] or None)
         if password != confirm:
             raise DomainError("error.user_password_mismatch")
     driver_id = None

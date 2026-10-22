@@ -13,11 +13,12 @@ from app.models.user import UserRole
 from app.repositories.user_repo import UserRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
+from tests.conftest import _session_cookie, _session_csrf_token
 
 
 @pytest.fixture
 async def locale_client(monkeypatch):
-    user = SimpleNamespace(id=uuid4(), language="en", is_active=True, role=UserRole.ADMIN)
+    user = SimpleNamespace(id=uuid4(), language="en", is_active=True, role=UserRole.ADMIN, hashed_password="hash")
 
     async def update(instance, **changes):
         for key, value in changes.items():
@@ -34,7 +35,18 @@ async def locale_client(monkeypatch):
         yield None
 
     app.dependency_overrides[get_db] = no_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    holder = {}
+
+    async def add_csrf(request):  # like the browser script: send the session's CSRF token on unsafe requests
+        if request.method == "POST":
+            token = _session_csrf_token(_session_cookie(holder["client"]))
+            if token:
+                request.headers["X-CSRF-Token"] = token
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test", event_hooks={"request": [add_csrf]}
+    ) as client:
+        holder["client"] = client
         yield client, user
 
 
@@ -47,7 +59,7 @@ async def test_browser_defaults_and_explicit_english_survives_login_logout(local
     assert '<html lang="en"' in (await client.get("/login")).text
     await client.post("/login", data={"username": "test", "password": "pass"})
     assert user.language == "en"
-    await client.get("/logout")
+    await client.post("/logout")
     assert '<html lang="en"' in (await client.get("/login")).text
 
 
@@ -55,7 +67,7 @@ async def test_browser_defaults_and_explicit_english_survives_login_logout(local
 async def test_saved_english_without_session_selection(locale_client):
     client, _ = locale_client
     await client.post("/login", data={"username": "test", "password": "pass"})
-    await client.get("/logout")
+    await client.post("/logout")
     assert '<html lang="en"' in (await client.get("/login")).text
 
 
@@ -83,10 +95,10 @@ async def test_query_override_is_local_and_validation_is_translated(locale_clien
 @pytest.mark.asyncio
 async def test_anonymous_logout_does_not_override_saved_english(locale_client):
     client, user = locale_client
-    await client.get("/logout")
+    await client.post("/logout")
     await client.post("/login", data={"username": "test", "password": "pass"})
     assert user.language == "en"
-    await client.get("/logout")
+    await client.post("/logout")
     assert '<html lang="en"' in (await client.get("/login")).text
 
 
@@ -107,7 +119,7 @@ async def test_stale_anonymous_session_then_saved_english_login(locale_client):
     assert '<html lang="bg"' in page.text
     await client.post("/login", data={"username": "test", "password": "pass"})
     assert user.language == "en"
-    await client.get("/logout")
+    await client.post("/logout")
     assert '<html lang="en"' in (await client.get("/login")).text
 
 

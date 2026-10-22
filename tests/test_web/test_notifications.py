@@ -119,7 +119,7 @@ async def test_bell_for_every_role_and_driver_scope(client, db_session, admin_us
     for username in ("testadmin", "testmanager", "testviewer"):
         await login(client, username)
         assert bell_state((await client.get("/notifications/bell")).text)[0] == 4, username
-        await client.get("/logout")
+        await client.post("/logout")
 
     await make_driver_login(db_session, mine, "mydriver")
     await login(client, "mydriver", "driver-pass-1")
@@ -255,7 +255,7 @@ async def test_item_page_redirects_for_valid_history_unknown_and_out_of_scope(cl
         response = await client.get(path)
         assert response.status_code == 302 and response.headers["location"] == "/notifications", path
     assert (await client.get(f"/notifications/item/driver_document/{theirs.id}")).status_code == 200
-    await client.get("/logout")
+    await client.post("/logout")
 
     await make_driver_login(db_session, mine, "scoped")
     await login(client, "scoped", "driver-pass-1")

@@ -11,6 +11,8 @@ from app.models.user import User
 from app.services.document_service import DocumentService
 from app.services.driver_access import can_view_scans
 from app.services.errors import error_detail
+from app.utils.s3 import MAX_FILE_SIZE
+from app.utils.upload_validation import read_limited
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -25,8 +27,8 @@ async def upload_document(
     user: User = Depends(require_fleet_manager),
 ):
     service = DocumentService(db)
-    file_data = await file.read()
     try:
+        file_data = await read_limited(file, MAX_FILE_SIZE)  # stops reading above the size limit
         doc = await service.upload(
             file_data=file_data,
             filename=file.filename or "unknown",

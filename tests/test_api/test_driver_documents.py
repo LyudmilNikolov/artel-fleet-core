@@ -9,7 +9,7 @@ from app.models.document import Document, DocumentType, EntityType
 from app.models.driver import Driver
 from app.models.user import User, UserRole
 from app.services.validity import local_today
-from app.utils.security import create_access_token, hash_password
+from app.utils.security import create_access_token, password_fingerprint, hash_password
 from tests.conftest import auth_header
 
 BASE = "/api/v1/driver-documents"
@@ -37,7 +37,7 @@ async def make_user(db, role: UserRole):
     )
     db.add(user)
     await db.flush()
-    return user, create_access_token(user.id, user.role.value)
+    return user, create_access_token(user.id, user.role.value, password_fingerprint(user.hashed_password))
 
 
 def body(driver_id, **kw):

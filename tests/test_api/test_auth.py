@@ -53,22 +53,28 @@ async def test_get_me_unauthenticated(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_register_new_user(client: AsyncClient, admin_token: str):
-    """POST /api/v1/auth/register creates a new user and returns 201."""
+@pytest.mark.parametrize("headers", [None, "admin"])
+async def test_public_registration_endpoint_is_gone(client: AsyncClient, db_session, admin_token: str, headers):
+    """There is no self-registration: anyone (even with role=admin in the body) must not be able to create users."""
+    from sqlalchemy import func, select
+
+    from app.models.user import User
+
+    before = await db_session.scalar(select(func.count()).select_from(User))
     response = await client.post(
         "/api/v1/auth/register",
         json={
-            "email": "newuser@test.com",
-            "username": "newuser",
-            "full_name": "New User",
+            "email": "intruder@test.com",
+            "username": "intruder",
+            "full_name": "Intruder",
             "password": "securepass123",
-            "role": "viewer",
+            "role": "admin",
             "language": "en",
         },
-        headers=auth_header(admin_token),
+        headers=auth_header(admin_token) if headers else None,
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["username"] == "newuser"
-    assert data["email"] == "newuser@test.com"
-    assert data["role"] == "viewer"
+    assert response.status_code in (404, 405)
+    assert await db_session.scalar(select(func.count()).select_from(User)) == before
+    assert "/auth/register" not in (await client.get("/openapi.json")).text
+
+

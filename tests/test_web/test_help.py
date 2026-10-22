@@ -142,7 +142,7 @@ async def test_driver_with_a_vehicle_also_gets_the_vehicle_steps(client, world, 
 async def test_managers_and_viewers_still_get_the_full_guide(client, db_session, fleet_manager_user, viewer_user):
     await db_session.commit()
     for username in ("testmanager", "testviewer"):
-        await client.get("/logout")
+        await client.post("/logout")
         assert (await client.post("/login", data={"username": username, "password": "testpass123"})).status_code == 302
         await client.get("/set-language/en")
         text = visible_text((await client.get("/help")).text)

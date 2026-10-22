@@ -202,7 +202,7 @@ async def test_a_driver_without_a_vehicle_and_other_roles_cannot_contribute(clie
         "/documents/upload", files=files, data={"entity_type": "vehicle", "entity_id": str(va.id), "doc_type": "other"}
     )
     assert denied.status_code == 403
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await client.post("/login", data={"username": "testviewer", "password": "testpass123"})).status_code == 302
     for path in ("/expenses/new", "/maintenance/new"):
         assert (await get(client, path)).headers["location"] == "/"

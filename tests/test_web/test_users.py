@@ -66,7 +66,7 @@ async def test_admin_creates_user_who_can_log_in(client, db_session, admin_user)
     # audit: who created the account, and no password material
     entry = await db_session.scalar(select(AuditLog).where(AuditLog.entity_id == user.id))
     assert entry.user_id == admin_user.id and entry.changes["hashed_password"] == "***"
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await login(client, "newdriver", "secret-123")).status_code == 302
 
 
@@ -74,7 +74,7 @@ async def test_admin_creates_user_who_can_log_in(client, db_session, admin_user)
 @pytest.mark.parametrize(
     ("override", "message"),
     [
-        ({"password": "abc", "password_confirm": "abc"}, "6 to 128"),
+        ({"password": "abc", "password_confirm": "abc"}, "10 to 128"),
         ({"password_confirm": "different"}, "do not match"),
         ({"email": "not-an-email"}, "valid email"),
         ({"username": "ab"}, "3 to 100"),
@@ -111,13 +111,13 @@ async def test_edit_changes_profile_and_password_is_optional(client, db_session,
     assert (await client.post(f"/settings/users/{viewer_user.id}/edit", data=form)).status_code == 303
     await db_session.refresh(viewer_user)
     assert (viewer_user.full_name, viewer_user.role, viewer_user.language) == ("Renamed", UserRole.FLEET_MANAGER, "bg")
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await login(client, "testviewer")).status_code == 302  # empty password kept the old one
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client)
     reset = {**form, "password": "brand-new-1", "password_confirm": "brand-new-1"}
     assert (await client.post(f"/settings/users/{viewer_user.id}/edit", data=reset)).status_code == 303
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await login(client, "testviewer")).status_code == 401
     assert (await login(client, "testviewer", "brand-new-1")).status_code == 302
 
@@ -128,7 +128,7 @@ async def test_deactivated_user_cannot_log_in(client, db_session, admin_user, vi
     await login(client)
     form = {"full_name": "V", "email": viewer_user.email, "role": "viewer", "language": "en"}  # no is_active -> off
     assert (await client.post(f"/settings/users/{viewer_user.id}/edit", data=form)).status_code == 303
-    await client.get("/logout")
+    await client.post("/logout")
     assert (await login(client, "testviewer")).status_code == 401
 
 
