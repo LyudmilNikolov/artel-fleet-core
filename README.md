@@ -303,10 +303,29 @@ app/
 `app/driver_document_rules.py`, planned service items in `app/maintenance_rules.py`, notification sources and
 defaults in `app/notification_rules.py`. Adding a type means one entry there plus translations; no migration.
 
+## Deployment and updates
+
+Production uses `docker-compose.prod.yml` and a private `.env.production` (no Vault dev mode). Releases are git
+tags (`v1.2.0`) built into one image, shown by `GET /api/v1/health`. UI, logic and database changes all ship the
+same way, and scripts handle the safe order:
+
+```bash
+export FLEET_ENV=production
+./scripts/update.sh v1.3.0     # backup, build, migrate, start, health check
+./scripts/rollback.sh          # back to the previous version
+./scripts/backup.sh manual     # database + uploaded files
+./scripts/restore.sh --verify <dump>   # prove a backup can be restored
+```
+
+Nightly backups (cron) are rotated automatically: the newest 14 plus one per month for 6 months. See
+[the deployment guide](docs/deployment.md) for the first deployment, the HTTPS proxy, off-site copies and the
+checklist.
+
 ## More documentation
 
 | Document | Topic |
 |----------|-------|
+| [deployment.md](docs/deployment.md) | Production deployment, updates, rollback, backups and restore |
 | [vehicle-workflow.md](docs/vehicle-workflow.md) | Vehicle types, mileage rules, guarded deployment |
 | [compliance-documents.md](docs/compliance-documents.md) | Vehicle documents and deadlines |
 | [driver-documents.md](docs/driver-documents.md) | Driver documents, access rules, test setup |
