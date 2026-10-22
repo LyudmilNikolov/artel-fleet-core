@@ -37,6 +37,7 @@ vault kv put secret/fleetcore \
     MINIO_SECRET_KEY="minioadmin" \
     MINIO_BUCKET="fleetcore" \
     MINIO_USE_SSL="false" \
+    APP_BASE_URL="${APP_BASE_URL:-http://localhost:8000}" \
     SMTP_HOST="${SMTP_HOST:-}" \
     SMTP_PORT="${SMTP_PORT:-587}" \
     SMTP_USER="${SMTP_USER:-}" \
