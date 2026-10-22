@@ -1,4 +1,7 @@
-# Deployment, updates and backups
+# Deployment, updates and backups (own server)
+
+> Using Sevalla instead? Follow [deploy-sevalla.md](deploy-sevalla.md). This guide is for a Linux server you run
+> yourself with Docker Compose.
 
 How to run FleetCore on a server, ship new versions safely (UI only, logic, or together with the database), and
 keep backups you can really restore.

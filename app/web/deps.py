@@ -10,6 +10,7 @@ from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.services.driver_scope import UNRESTRICTED, DriverScope, driver_may_open, resolve_scope
+from app.utils.security import password_fingerprint
 
 
 class WebRedirectException(HTTPException):
@@ -28,6 +29,14 @@ async def get_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> 
     repo = UserRepository(db)
     user = await repo.get_by_id(UUID(user_id))
     if not user or not user.is_active:
+        language = request.session.get("lang")
+        request.session.clear()
+        if language in ("bg", "en"):
+            request.session["lang"] = language
+        resolve_locale(request)
+        return None
+    if request.session.get("pv") != password_fingerprint(user.hashed_password):
+        # the password changed (or the session is from before this check): sign this browser out
         language = request.session.get("lang")
         request.session.clear()
         if language in ("bg", "en"):

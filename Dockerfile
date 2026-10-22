@@ -17,18 +17,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependency files first for layer caching
-COPY pyproject.toml .
+COPY pyproject.toml requirements.txt ./
 
 # Install dependencies (non-editable, then copy source)
 RUN pip install --no-cache-dir pip setuptools wheel hatchling \
     && pip install --no-cache-dir "bcrypt==4.0.1" \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir -c requirements.txt .
 
 # Copy application source
 COPY . .
 
 # Re-install in editable mode now that source is present
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -c requirements.txt -e .
 
 # Copy entrypoint
 COPY docker-entrypoint.sh /docker-entrypoint.sh
@@ -38,7 +38,12 @@ RUN chmod +x /docker-entrypoint.sh
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
 
+# Run as an unprivileged user (a compromised app must not be root in the container)
+RUN useradd --create-home --uid 10001 app && chown -R app:app /app
+USER app
+
 EXPOSE 8000
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Platforms such as Sevalla tell the app which port to use through $PORT
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

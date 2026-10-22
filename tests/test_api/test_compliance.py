@@ -8,7 +8,7 @@ import pytest
 from app.models.user import User, UserRole
 from app.schemas.vehicle import VehicleCreate
 from app.services.vehicle_service import VehicleService
-from app.utils.security import create_access_token, hash_password
+from app.utils.security import create_access_token, password_fingerprint, hash_password
 from tests.conftest import auth_header
 
 BASE = "/api/v1/compliance-documents"
@@ -51,7 +51,7 @@ async def token_for(db, role: UserRole) -> str:
     )
     db.add(user)
     await db.flush()
-    return create_access_token(user.id, user.role.value)
+    return create_access_token(user.id, user.role.value, password_fingerprint(user.hashed_password))
 
 
 @pytest.mark.asyncio

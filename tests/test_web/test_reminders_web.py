@@ -74,7 +74,7 @@ async def test_viewers_drivers_and_anonymous_users_cannot_stop(client, db_sessio
     for action in ("stop", "resume"):
         response = await client.post(f"{item_url(doc)}/{action}")
         assert response.status_code in (302, 303) and response.headers["location"] == "/"
-    await client.get("/logout")
+    await client.post("/logout")
 
     driver = await make_driver(db_session, "Шофьор Стоп")
     await make_driver_login(db_session, driver, "nostop")
@@ -185,7 +185,7 @@ async def test_item_page_shows_rule_next_reminder_and_history_to_managers_only(
     next_date = format_local_date(doc.end_date - timedelta(days=10), "en")  # 12 left: the next point is 10
     assert 'data-next="date"' in page and next_date in page
     assert SECRET_NUMBER not in page and "send_failed" not in page
-    await client.get("/logout")
+    await client.post("/logout")
 
     await login(client, "testviewer")
     viewer_page = (await client.get(item_url(doc))).text

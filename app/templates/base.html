@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
     <link rel="apple-touch-icon" href="/static/img/favicon-180.png">
@@ -148,7 +149,7 @@
                             <p class="text-xs text-gray-500">{{ _('role.' + user.role.value) }}</p>
                         </div>
                         <a href="/profile" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">{{ _('auth.profile') }}</a>
-                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">{{ _('auth.logout') }}</a>
+                        <form method="POST" action="/logout"><button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">{{ _('auth.logout') }}</button></form>
                     </div>
                 </div>
                 {% endif %}

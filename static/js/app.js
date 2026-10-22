@@ -106,3 +106,35 @@ document.addEventListener('alpine:init', function() {
         }, extra || {});
     });
 });
+
+
+// --- CSRF: send the session token with every state-changing request -------------------------------------------
+(function () {
+    function token() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+    // HTMX requests: header
+    document.addEventListener('htmx:configRequest', function (event) {
+        event.detail.headers['X-CSRF-Token'] = token();
+    });
+    // Plain forms: hidden field (added when the page loads, and again right before any submit)
+    function addField(form) {
+        var method = (form.getAttribute('method') || 'get').toLowerCase();
+        if (method === 'get' || form.querySelector('input[name="csrf_token"]')) return;
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrf_token';
+        input.value = token();
+        form.appendChild(input);
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('form').forEach(addField);
+    });
+    document.addEventListener('htmx:afterSettle', function () {
+        document.querySelectorAll('form').forEach(addField);
+    });
+    document.addEventListener('submit', function (event) {
+        if (event.target && event.target.tagName === 'FORM') addField(event.target);
+    }, true);
+})();

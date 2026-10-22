@@ -41,13 +41,13 @@ async def test_sidebar_section_per_role(client, admin_user, fleet_manager_user, 
     admin_page = (await client.get("/vehicles")).text
     for href in ("/notifications", RULES, "/settings/notifications/settings", "/settings/notifications/channels"):
         assert f'href="{href}"' in admin_page, href
-    await client.get("/logout")
+    await client.post("/logout")
 
     await login(client, "testmanager")
     manager_page = (await client.get("/vehicles")).text
     assert f'href="{RULES}"' in manager_page and 'href="/settings/notifications/channels"' in manager_page
     assert 'href="/settings/notifications/settings"' not in manager_page
-    await client.get("/logout")
+    await client.post("/logout")
 
     await login(client, "testviewer")
     viewer_page = (await client.get("/vehicles")).text
@@ -88,7 +88,7 @@ async def test_viewer_and_driver_cannot_open_settings_pages(client, db_session, 
     for path in (RULES, "/settings/notifications/settings", "/settings/notifications/channels"):
         response = await client.get(path)
         assert response.status_code in (302, 303) and response.headers["location"] == "/", path
-    await client.get("/logout")
+    await client.post("/logout")
     driver = await make_driver(db_session, "Шофьор Иван")
     await make_driver_login(db_session, driver, "wheel")
     await login(client, "wheel", "driver-pass-1")

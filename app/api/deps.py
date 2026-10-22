@@ -10,7 +10,7 @@ from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.services.driver_scope import UNRESTRICTED, DriverScope, driver_may_call_api, resolve_scope
-from app.utils.security import decode_token
+from app.utils.security import decode_token, password_fingerprint
 
 security = HTTPBearer()
 
@@ -30,6 +30,9 @@ async def get_current_user(
     user = await repo.get_by_id(user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="auth.user_disabled")
+
+    if payload.get("pv") != password_fingerprint(user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="auth.invalid_token")
 
     resolve_locale(request, user)
     set_audit_user(user.id)

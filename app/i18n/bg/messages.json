@@ -439,7 +439,7 @@
   "cli.full_name": "Пълно име [Administrator]: ",
   "cli.password": "Парола (задължителна): ",
   "cli.password_required": "Паролата е задължителна",
-  "cli.password_length": "Паролата трябва да е поне 8 знака",
+  "cli.password_length": "Паролата трябва да е поне 10 знака",
   "cli.created": "Администраторът е създаден: {username} ({email})",
   "auth.invalid_token": "Невалиден или изтекъл токен",
   "seed.notification.maintenance_reminder.0.title": "Техническо обслужване след {days} дни",
@@ -778,7 +778,7 @@
   "error.user_username_invalid": "Потребителското име трябва да е между 3 и 100 символа.",
   "error.user_name_required": "Пълното име е задължително.",
   "error.user_email_invalid": "Въведете валиден имейл адрес.",
-  "error.user_password_short": "Паролата трябва да е между 6 и 128 символа.",
+  "error.user_password_short": "Паролата трябва да е между 10 и 128 символа.",
   "error.user_password_mismatch": "Паролите не съвпадат.",
   "error.user_self_locked": "Не можете да променяте собствената си роля или да деактивирате собствения си акаунт.",
   "settings.account_section": "Акаунт",
@@ -1104,5 +1104,9 @@
   "notifications.preview_label": "График",
   "notifications.send_schedule": "График на изпращане",
   "notifications.test_title": "Тествайте каналите си",
-  "notifications.test_hint": "Изпраща кратко тестово съобщение на запазения по-горе адрес или чат."
+  "notifications.test_hint": "Изпраща кратко тестово съобщение на запазения по-горе адрес или чат.",
+  "error.password_is_username": "Паролата не трябва да съвпада с потребителското име.",
+  "auth.too_many_attempts": "Твърде много неуспешни опити. Опитайте отново след {minutes} минути.",
+  "errors.csrf": "Проверката за сигурност не премина. Презаредете страницата и опитайте отново.",
+  "error.file_content_mismatch": "Съдържанието на файла не съответства на типа му. Качете истински PDF, изображение или Office документ."
 }

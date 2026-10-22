@@ -117,13 +117,13 @@ async def test_detail_tabs_per_role(client, db_session, fleet_manager_user, view
     assert "1 expired" in page.text  # summary on the General data tab
     assert 'href="/drivers/%s/edit"' % other.id in page.text and "/delete" in page.text
 
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "testviewer")
     page = await client.get(f"/drivers/{other.id}")
     assert "Licences &amp; Documents" in page.text and "Uploaded documents" not in page.text
     assert f"/drivers/{other.id}/edit" not in page.text
 
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, me_user.username)
     assert "Licences &amp; Documents" in (await client.get(f"/drivers/{mine.id}")).text
     foreign = await client.get(f"/drivers/{other.id}")
@@ -150,13 +150,13 @@ async def test_licences_tab_partial_and_number_masking(client, db_session, fleet
     assert f"/driver-documents/new?driver_id={driver.id}&document_type=driving_licence" in tab.text
     assert f"/driver-documents/{forever.id}/renew" in tab.text
 
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "testviewer")
     masked = await client.get(f"/drivers/{driver.id}/tab/licences")
     assert masked.status_code == 200 and "900011112222" not in masked.text and "•••• 2222" in masked.text
     assert "/renew" not in masked.text and "/driver-documents/new" not in masked.text
 
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, me_user.username)
     assert "777788889999" in (await client.get(f"/drivers/{mine.id}/tab/licences")).text
     # another driver's tab is closed: a redirect to the own profile (403 for HTMX requests)
@@ -257,7 +257,7 @@ async def test_document_detail_scans_and_numbers_per_role(client, db_session, fl
     assert (await client.get(f"/documents/gallery/driver/{driver.id}")).status_code == 403
     assert (await client.get(f"/driver-documents/{uuid4()}")).status_code == 302
 
-    await client.get("/logout")
+    await client.post("/logout")
     await login(client, "testmanager")
     assert "555566667777" in (await client.get(f"/driver-documents/{entry.id}")).text
     assert (await client.get(f"/documents/gallery/driver_document/{entry.id}")).status_code == 200

@@ -186,6 +186,12 @@ Compose reads it automatically; `.env` is git-ignored). The app, worker and beat
 | `APP_BASE_URL` | Public address of the web UI, used for the links in reminder messages (default `http://localhost:8000`; set it to the address people actually open) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Email server; until `SMTP_HOST` is set, email reminders are skipped |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token; until set, Telegram reminders are skipped |
+| `APP_ENV` | `production` makes the app refuse to start with a weak `SECRET_KEY` (under 32 characters), debug on, or no database |
+| `TRUST_PROXY` | `true` behind Cloudflare / a platform proxy: use the visitor address from `CF-Connecting-IP` / `X-Forwarded-For` |
+| `GEO_MODE`, `ALLOWED_COUNTRIES` | Country restriction using Cloudflare's `CF-IPCountry` header: `off`, `log` (only log) or `enforce` (403); default list `BG` |
+| `CSP_MODE` | `enforce` (default), `report-only` or `off` for the Content-Security-Policy header |
+| `S3_REGION`, `MINIO_EXTERNAL_USE_SSL` | Object storage region (`auto` for Cloudflare R2) and https for browser download links |
+| `RUN_MIGRATIONS` | `true`/`false` overrides the automatic choice (migrations run only for the web command) |
 
 Example `.env` lines (the token is the bare value from @BotFather, without quotes or brackets):
 
@@ -303,7 +309,22 @@ app/
 `app/driver_document_rules.py`, planned service items in `app/maintenance_rules.py`, notification sources and
 defaults in `app/notification_rules.py`. Adding a type means one entry there plus translations; no migration.
 
+## Security
+
+- No self-registration (administrators create users), passwords of at least 10 characters, one password policy for
+  the API, web forms and the CLI.
+- Login throttling per user and address (429 with `Retry-After`), CSRF protection for the cookie-based web UI, a new
+  session on every login, 12-hour sessions, and sessions/tokens end when the password changes.
+- Security headers (HSTS in production, CSP, frame and sniffing protection), hidden API docs outside debug,
+  `Secure` cookies in production, content-based upload checks with safe filenames and attachment downloads for
+  Office files.
+- Optional country restriction (`GEO_MODE`), non-root container, pinned dependencies (`requirements.txt`),
+  Dependabot and a CI workflow (tests, migrations, `alembic check`, dependency audit).
+
 ## Deployment and updates
+
+Two supported routes: **Sevalla** (managed platform, GitHub → CI → automatic deploy; see
+[docs/deploy-sevalla.md](docs/deploy-sevalla.md)) or a plain Linux server with Docker (below).
 
 Production uses `docker-compose.prod.yml` and a private `.env.production` (no Vault dev mode). Releases are git
 tags (`v1.2.0`) built into one image, shown by `GET /api/v1/health`. UI, logic and database changes all ship the
@@ -325,6 +346,7 @@ checklist.
 
 | Document | Topic |
 |----------|-------|
+| [deploy-sevalla.md](docs/deploy-sevalla.md) | Step-by-step deployment on Sevalla (database, storage, worker, Gmail, Telegram, country restriction, updates) |
 | [deployment.md](docs/deployment.md) | Production deployment, updates, rollback, backups and restore |
 | [vehicle-workflow.md](docs/vehicle-workflow.md) | Vehicle types, mileage rules, guarded deployment |
 | [compliance-documents.md](docs/compliance-documents.md) | Vehicle documents and deadlines |

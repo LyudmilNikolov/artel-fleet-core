@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -11,38 +11,33 @@ from app.schemas.user import (
     PasswordChange,
     RefreshRequest,
     TokenResponse,
-    UserCreate,
     UserRead,
 )
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.errors import error_detail
+from app.utils import rate_limit
+from app.utils.client_ip import request_ip
+from app.utils.rate_limit import RateLimitedError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
-    service = AuthService(db)
-    try:
-        user = await service.register(
-            email=data.email,
-            username=data.username,
-            full_name=data.full_name,
-            password=data.password,
-            role=data.role,
-            language=data.language,
-        )
-        return user
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail(e))
-
-
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    ip = request_ip(request)
+    try:
+        rate_limit.limiter.check(ip, data.username)
+    except RateLimitedError as blocked:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"key": "auth.too_many_attempts", "params": {"minutes": -(-blocked.retry_after // 60)}},
+            headers={"Retry-After": str(blocked.retry_after)},
+        )
     service = AuthService(db)
     try:
         user, access_token, refresh_token = await service.authenticate(data.username, data.password)
+        rate_limit.limiter.success(ip, data.username)
         set_audit_user(user.id)
         await AuditService(db).log(
             user_id=user.id,
@@ -53,6 +48,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         )
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
     except ValueError as e:
+        rate_limit.limiter.failure(ip, data.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail(e))
 
 

@@ -12,6 +12,8 @@ from app.models.document import DocumentType, EntityType
 from app.services.document_service import DocumentService
 from app.services.driver_access import can_upload_scans, can_view_scans
 from app.services.errors import render_error
+from app.utils.s3 import MAX_FILE_SIZE
+from app.utils.upload_validation import read_limited
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/documents", tags=["web-documents"])
@@ -55,9 +57,9 @@ async def upload_document(
     if not await can_upload_scans(db, user, etype, eid):
         return HTMLResponse(escape(render_error(ValueError("errors.forbidden"), request.state.locale)), status_code=403)
 
-    file_data = await file.read()
     service = DocumentService(db)
     try:
+        file_data = await read_limited(file, MAX_FILE_SIZE)  # stops reading above the size limit
         await service.upload(
             file_data=file_data,
             filename=file.filename or "upload",

@@ -14,8 +14,11 @@ from app.audit_context import AuditContextMiddleware
 from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
+from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
 from app.services.errors import render_error
 from app.utils.formatting import format_local_date, format_local_datetime, money
+from app.utils.rate_limit import configure_limiter
+from app.web.csrf import get_token as get_csrf_token
 from app.web.deps import WebRedirectException
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -32,6 +35,7 @@ def create_app() -> FastAPI:
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         docs_url="/docs" if settings.APP_DEBUG else None,
+        openapi_url="/openapi.json" if settings.APP_DEBUG else None,
         redoc_url="/redoc" if settings.APP_DEBUG else None,
         lifespan=lifespan,
     )
@@ -41,10 +45,16 @@ def create_app() -> FastAPI:
         SessionMiddleware,
         secret_key=settings.SECRET_KEY,
         session_cookie="fleetcore_session",
-        max_age=86400 * 7,
+        max_age=12 * 3600,  # signed cookie, refreshed on every response: effectively a 12 hour idle timeout
+        same_site="lax",
+        https_only=settings.APP_ENV == "production",
     )
 
     application.add_middleware(AuditContextMiddleware)
+    # Outermost last: headers wrap everything (also the 403 page), the country check runs before the app
+    application.add_middleware(GeoRestrictionMiddleware)
+    application.add_middleware(SecurityHeadersMiddleware)
+    configure_limiter()
 
     # Templates
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -63,6 +73,7 @@ def create_app() -> FastAPI:
         return {
             "lang": lang,
             "driver_scope": getattr(request.state, "driver_scope", None),
+            "csrf_token": get_csrf_token(request),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
             "local_date": lambda value: format_local_date(value, lang),

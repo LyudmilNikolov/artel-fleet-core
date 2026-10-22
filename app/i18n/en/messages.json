@@ -439,7 +439,7 @@
   "cli.full_name": "Full name [Administrator]: ",
   "cli.password": "Password (required): ",
   "cli.password_required": "Password is required",
-  "cli.password_length": "Password must be at least 8 characters",
+  "cli.password_length": "Password must be at least 10 characters",
   "cli.created": "Superuser created: {username} ({email})",
   "auth.invalid_token": "Invalid or expired token",
   "seed.notification.maintenance_reminder.0.title": "Maintenance in {days} days",
@@ -778,7 +778,7 @@
   "error.user_username_invalid": "The username must be 3 to 100 characters.",
   "error.user_name_required": "Full name is required.",
   "error.user_email_invalid": "Enter a valid email address.",
-  "error.user_password_short": "The password must be 6 to 128 characters.",
+  "error.user_password_short": "The password must be 10 to 128 characters.",
   "error.user_password_mismatch": "The passwords do not match.",
   "error.user_self_locked": "You cannot change your own role or deactivate your own account.",
   "settings.account_section": "Account",
@@ -1104,5 +1104,9 @@
   "notifications.preview_label": "Schedule",
   "notifications.send_schedule": "Send schedule",
   "notifications.test_title": "Test your channels",
-  "notifications.test_hint": "Sends a short test message to the address or chat saved above."
+  "notifications.test_hint": "Sends a short test message to the address or chat saved above.",
+  "error.password_is_username": "The password must not be the same as the username.",
+  "auth.too_many_attempts": "Too many failed attempts. Try again in {minutes} minutes.",
+  "errors.csrf": "Security check failed. Reload the page and try again.",
+  "error.file_content_mismatch": "The file content does not match its type. Upload a real PDF, image or Office document."
 }

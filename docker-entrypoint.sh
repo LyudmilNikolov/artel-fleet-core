@@ -37,7 +37,8 @@ if [ "$1" = "create-superuser" ]; then
 fi
 
 # Only run migrations for the main app (uvicorn), not for celery workers
-if echo "$1" | grep -q "uvicorn"; then
+# RUN_MIGRATIONS=true/false overrides the automatic choice (web process: yes, workers: no)
+if [ "${RUN_MIGRATIONS:-}" = "true" ] || { [ "${RUN_MIGRATIONS:-}" != "false" ] && echo "$*" | grep -q "uvicorn"; }; then
     echo "Running database migrations..."
     alembic upgrade head
 fi
