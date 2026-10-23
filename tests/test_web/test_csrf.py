@@ -84,3 +84,87 @@ async def test_pages_carry_the_token_and_the_script_sends_it(client, admin_user)
     assert page_token(page) and '<form method="POST" action="/logout">' in page
     script = (await client.get("/static/js/app.js")).text
     assert "X-CSRF-Token" in script and "htmx:configRequest" in script and 'name="csrf_token"' in script
+
+
+@pytest.fixture
+async def manager_browser(app, fleet_manager_user):
+    """A real-browser-like client: no test helper adds the CSRF header, so only the hidden form field can carry it."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as raw:
+        assert (await raw.post("/login", data={"username": "testmanager", "password": "testpass123"})).status_code == 302
+        yield raw
+
+
+VEHICLE_FORM = {
+    "vehicle_type": "van",
+    "license_plate": "CB8595CB",
+    "brand": "Renault",
+    "model": "Premium",
+    "department": "Test department",
+    "year": "2011",
+    "fuel_type": "diesel",
+    "transmission": "automatic",
+}
+
+
+@pytest.mark.asyncio
+async def test_the_hidden_token_field_is_not_passed_on_to_strict_validators(manager_browser):
+    """Regression: forms carry a csrf_token field; handlers hand the form to schemas that forbid unknown fields."""
+    token = page_token((await manager_browser.get("/vehicles/new")).text)
+    created = await manager_browser.post("/vehicles/new", data={**VEHICLE_FORM, "csrf_token": token})
+    assert created.status_code == 302, created.text  # not a 422 "invalid input"
+    driver = await manager_browser.post("/drivers/new", data={"full_name": "Иван Иванов", "csrf_token": token})
+    assert driver.status_code in (302, 303), driver.text
+
+
+@pytest.mark.asyncio
+async def test_a_header_plus_a_form_field_also_works_and_validation_errors_stay_specific(manager_browser):
+    token = page_token((await manager_browser.get("/vehicles/new")).text)
+    both = await manager_browser.post(
+        "/vehicles/new", data={**VEHICLE_FORM, "license_plate": "CB1111CB", "csrf_token": token}, headers={"X-CSRF-Token": token}
+    )
+    assert both.status_code == 302  # an HTMX form post sends the header and the field together
+    bad = await manager_browser.post("/vehicles/new", data={**VEHICLE_FORM, "year": "bad", "csrf_token": token})
+    assert bad.status_code == 422 and "bad" in bad.text  # a real validation error, shown with the entered value
+
+
+@pytest.mark.asyncio
+async def test_dependency_strips_the_field_from_urlencoded_and_multipart_bodies():
+    from starlette.requests import Request
+
+    from app.web.csrf import csrf_protect
+
+    async def run(content_type: str, body: bytes):
+        sent = False
+
+        async def receive():
+            nonlocal sent
+            if sent:
+                return {"type": "http.disconnect"}
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/x",
+                "query_string": b"",
+                "headers": [(b"content-type", content_type.encode()), (b"x-csrf-token", b"tok")],
+                "session": {"user_id": "u", "csrf": "tok"},
+            },
+            receive,
+        )
+        await csrf_protect(request)
+        return await request.form()
+
+    form = await run("application/x-www-form-urlencoded", b"a=1&csrf_token=tok&b=2")
+    assert dict(form) == {"a": "1", "b": "2"}
+    boundary = "xyz"
+    multipart = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="csrf_token"\r\n\r\ntok\r\n'
+        f'--{boundary}\r\nContent-Disposition: form-data; name="entity_id"\r\n\r\n42\r\n'
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.4\r\n'
+        f"--{boundary}--\r\n"
+    ).encode()
+    form = await run(f"multipart/form-data; boundary={boundary}", multipart)
+    assert set(form.keys()) == {"entity_id", "file"} and form["file"].filename == "a.pdf"
