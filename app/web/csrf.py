@@ -10,6 +10,7 @@ import hmac
 import secrets
 
 from fastapi import HTTPException, Request
+from starlette.datastructures import FormData
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 SESSION_KEY = "csrf"
@@ -31,14 +32,25 @@ def rotate_token(request: Request) -> str:
     return request.session[SESSION_KEY]
 
 
+FORM_TYPES = ("application/x-www-form-urlencoded", "multipart/form-data")
+
+
 async def csrf_protect(request: Request) -> None:
-    """Router dependency: reject unsafe requests of a logged-in session that lack the right token."""
+    """Router dependency: reject unsafe requests of a logged-in session that lack the right token.
+
+    The token field is removed from the parsed form afterwards: handlers pass the submitted fields to schemas that
+    forbid unknown fields, so the field must never reach them.
+    """
     if request.method in SAFE_METHODS or not request.session.get("user_id"):
         return
+    form = None
+    if request.headers.get("content-type", "").lower().startswith(FORM_TYPES):
+        form = await request.form()  # cached by Starlette, handlers read the same (cleaned) form
     expected = request.session.get(SESSION_KEY) or ""
     supplied = request.headers.get(HEADER)
     if supplied is None:
-        form = await request.form()  # cached by Starlette, handlers can read it again
-        supplied = str(form.get(FIELD) or "")
+        supplied = str(form.get(FIELD) or "") if form is not None else ""
     if not expected or not hmac.compare_digest(supplied, expected):
         raise HTTPException(status_code=403, detail="errors.csrf")
+    if form is not None and FIELD in form:
+        request._form = FormData([(key, value) for key, value in form.multi_items() if key != FIELD])
