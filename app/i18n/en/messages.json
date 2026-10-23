@@ -1108,5 +1108,6 @@
   "error.password_is_username": "The password must not be the same as the username.",
   "auth.too_many_attempts": "Too many failed attempts. Try again in {minutes} minutes.",
   "errors.csrf": "Security check failed. Reload the page and try again.",
-  "error.file_content_mismatch": "The file content does not match its type. Upload a real PDF, image or Office document."
+  "error.file_content_mismatch": "The file content does not match its type. Upload a real PDF, image or Office document.",
+  "notifications.recipient_telegram_hint": "Telegram messages go to these chats (for example the company group). Everyone in a Telegram group sees them; nobody needs to set up Telegram personally."
 }

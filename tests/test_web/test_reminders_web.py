@@ -214,7 +214,7 @@ async def test_next_reminder_states(client, db_session, admin_user):
 
 
 @pytest.mark.asyncio
-async def test_send_test_messages_from_my_channels(client, db_session, monkeypatch, fleet_manager_user):
+async def test_send_test_messages_from_my_channels(client, db_session, monkeypatch, admin_user):
     from app.config import settings
     from app.utils.email import email_sender
     from app.utils.telegram import telegram_bot
@@ -228,7 +228,7 @@ async def test_send_test_messages_from_my_channels(client, db_session, monkeypat
     )
     monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
     monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "123:token")
-    await login(client, "testmanager")
+    await login(client, "testadmin")
     channels = "/settings/notifications/channels"
 
     # no Telegram chat saved yet
@@ -237,7 +237,7 @@ async def test_send_test_messages_from_my_channels(client, db_session, monkeypat
     assert "Save your email or Telegram chat ID first" in (await client.get(response.headers["location"])).text
 
     await NotificationRuleService(db_session).save_channels(
-        fleet_manager_user.id, email_enabled=True, telegram_enabled=True, telegram_chat_id="424242424"
+        admin_user.id, email_enabled=True, telegram_enabled=True, telegram_chat_id="424242424"
     )
     email = await client.post(f"{channels}/test/email")
     assert (
@@ -246,7 +246,7 @@ async def test_send_test_messages_from_my_channels(client, db_session, monkeypat
     )
     telegram = await client.post(f"{channels}/test/telegram")
     assert "Test Telegram message sent" in (await client.get(telegram.headers["location"])).text
-    assert sent["email"][0][0] == fleet_manager_user.email and sent["telegram"] == ["424242424"]
+    assert sent["email"][0][0] == admin_user.email and sent["telegram"] == ["424242424"]
     assert "FleetCore" in sent["email"][0][1]  # the test user is English
 
     monkeypatch.setattr(email_sender, "send", lambda *a, **k: False)
@@ -264,8 +264,9 @@ async def test_send_test_messages_from_my_channels(client, db_session, monkeypat
 
 
 @pytest.mark.asyncio
-async def test_viewers_cannot_send_test_messages(client, viewer_user):
-    await login(client, "testviewer")
+@pytest.mark.parametrize("username", ["testviewer", "testmanager"])
+async def test_only_the_administrator_can_send_test_messages(client, viewer_user, fleet_manager_user, username):
+    await login(client, username)
     response = await client.post("/settings/notifications/channels/test/email")
     assert response.status_code in (302, 303) and response.headers["location"] == "/"
 
@@ -278,3 +279,38 @@ async def test_bulgarian_labels_on_the_item_page(client, db_session, admin_user)
     page = (await client.get(item_url(doc), params={"lang": "bg"})).text
     assert "Спри напомнянията" in page and "Следващо напомняне" in page
     assert local_today() == TODAY
+
+
+@pytest.mark.asyncio
+async def test_fleet_manager_sees_the_next_reminder_but_not_rules_recipients_or_history(
+    client, db_session, admin_user, fleet_manager_user
+):
+    v = await vehicle(db_session, "CA9100AA")
+    doc = await vehicle_doc(db_session, v, "casco", 12)
+    await NotificationRuleService(db_session).save_rule(
+        "vehicle:casco",
+        RuleInput(True, True, False, [30, 15, 10], 1, None, None, [RecipientInput("external_email", address="ops@example.com")]),
+        admin_user.id,
+    )
+    db_session.add(
+        NotificationDelivery(
+            entity_type="compliance_document",
+            entity_id=doc.id,
+            end_date=doc.end_date,
+            channel="email",
+            recipient="ops@example.com",
+            point=15,
+            status="sent",
+        )
+    )
+    await db_session.flush()
+    await login(client, "testmanager")
+    page = (await client.get(item_url(doc))).text
+    assert 'data-next="date"' in page and "Next reminder" in page  # they may still stop / resume reminders
+    assert "Stop reminders" in page
+    assert "ops@example.com" not in page and "Sent reminders" not in page
+    assert "30, 15, 10 days before expiry" not in page and "Edit rule" not in page
+    await client.post("/logout")
+    await login(client, "testadmin")
+    admin_page = (await client.get(item_url(doc))).text
+    assert "ops@example.com" in admin_page and "Sent reminders" in admin_page and "30, 15, 10 days before expiry" in admin_page

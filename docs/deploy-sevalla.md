@@ -16,7 +16,7 @@ what matter. Sevalla's own docs: <https://docs.sevalla.com>.
 | Database | Sevalla PostgreSQL 16 | Daily automatic backups |
 | Queue/cache | Sevalla Redis | |
 | Uploaded files | Sevalla object storage (S3-compatible, Cloudflare R2) | |
-| HTTPS | Automatic on the default `*.kinsta.app` address | Custom domain later |
+| HTTPS | Automatic on the default `*.sevalla.app` address | Custom domain later |
 | Email | Gmail SMTP with an app password (for now) | |
 | Telegram | Your existing bot | |
 
@@ -104,7 +104,7 @@ region).
 Tip: put the shared values in a Sevalla **global variable** group, so the web app and the worker use the same ones.
 
 6. Deploy. The first start applies all database migrations. Open the application address Sevalla shows
-   (`<name>.kinsta.app`); you should see the login page, and `https://<address>/api/v1/health` shows the version.
+   (`<name>.sevalla.app`); you should see the login page, and `https://<address>/api/v1/health` shows the version.
 
 ## 6. Add the background worker
 
@@ -115,12 +115,13 @@ application (same image), **exactly 1 instance**, pod size S1, with this start c
 celery -A app.tasks.celery_app worker -B -l info --concurrency 2
 ```
 
-`-B` runs the scheduler inside the worker, so no separate "beat" process is needed. Set `RUN_MIGRATIONS=false` on
-this process (only the web process migrates). Give it the same variables as the web app.
+`-B` runs the scheduler inside the worker, so no separate "beat" process is needed. Environment variables are shared by
+all processes of an application, so the worker automatically gets the same ones. Do **not** set `RUN_MIGRATIONS`: the
+image only runs migrations when the start command is the web server, so the worker never migrates.
 
 ## 7. Set the public address and create the first admin
 
-1. Copy the application's address (for example `https://fleetcore-xxxx.kinsta.app`) into `APP_BASE_URL` on **both**
+1. Copy the application's address (for example `https://fleetcore-xxxx.sevalla.app`) into `APP_BASE_URL` on **both**
    processes and redeploy. Reminder messages link to it.
 2. Create the first administrator. Either use Sevalla's terminal/one-off command for the web process:
 
@@ -147,8 +148,10 @@ small team. Move to a mail provider with your own domain later (SPF/DKIM).
 
 ## 9. Telegram and the country restriction
 
-1. Telegram: the token is already set. Add the bot to your group, then in *My channels* each person enters their
-   chat ID (or put the group's ID under *Other Telegram chats* in a rule). Press *Send test Telegram message*.
+1. Telegram is a global channel set up once by the administrator: the token is already set. Add the bot to your
+   group, then put the group's chat ID under *Other Telegram chats* in a rule (use *Apply to all* to copy it to the
+   others). Fleet managers do not see or configure any channel. For a first test, enter the same chat ID in
+   *My channels* (administrator only) and press *Send test Telegram message*.
 2. Country restriction (Bulgaria only): `GEO_MODE=log` first. Open the app from your phone and computer, then read the
    application logs: you should see no `no CF-IPCountry header` warnings. If the header is missing, the restriction
    cannot work on this setup. Then set `GEO_MODE=enforce` and redeploy. Someone using a VPN or travelling abroad is

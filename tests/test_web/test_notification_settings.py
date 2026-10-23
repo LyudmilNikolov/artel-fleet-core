@@ -45,8 +45,9 @@ async def test_sidebar_section_per_role(client, admin_user, fleet_manager_user, 
 
     await login(client, "testmanager")
     manager_page = (await client.get("/vehicles")).text
-    assert f'href="{RULES}"' in manager_page and 'href="/settings/notifications/channels"' in manager_page
-    assert 'href="/settings/notifications/settings"' not in manager_page
+    assert 'href="/notifications"' in manager_page  # the inbox (bell) stays available
+    for href in (RULES, "/settings/notifications/settings", "/settings/notifications/channels"):
+        assert f'href="{href}"' not in manager_page, href  # rules and channels are administrator-only
     await client.post("/logout")
 
     await login(client, "testviewer")
@@ -70,16 +71,23 @@ async def test_rules_page_lists_every_source_with_defaults(client, admin_user):
 
 
 @pytest.mark.asyncio
-async def test_manager_sees_rules_read_only_and_cannot_save(client, db_session, fleet_manager_user):
+async def test_fleet_manager_cannot_open_or_change_rules_and_channels(client, db_session, fleet_manager_user):
     await login(client, "testmanager")
-    page = (await client.get(RULES)).text
-    assert "Only an administrator can change rules" in page
-    assert "data-rules-save" not in page and "<fieldset disabled" in page
-    response = await client.post(f"{RULES}/vehicle:casco", data=form())
-    assert response.status_code in (302, 303) and response.headers["location"] == "/"
+    for path in (RULES, "/settings/notifications", "/settings/notifications/settings", "/settings/notifications/channels"):
+        response = await client.get(path)
+        assert response.status_code in (302, 303) and response.headers["location"] == "/", path
+    for method, path, data in (
+        ("post", f"{RULES}/vehicle:casco", form()),
+        ("post", f"{RULES}/apply", {"owner": "vehicle", "from_source": "vehicle:casco"}),
+        ("post", "/settings/notifications/settings", {"send_time": "07:00", "timezone": "UTC"}),
+        ("post", "/settings/notifications/channels", {"telegram_chat_id": "123456789"}),
+        ("post", "/settings/notifications/channels/test/telegram", {}),
+    ):
+        response = await getattr(client, method)(path, data=data)
+        assert response.status_code in (302, 303) and response.headers["location"] == "/", path
     assert await stored(db_session) == {}
-    apply_response = await client.post(f"{RULES}/apply", data={"owner": "vehicle", "from_source": "vehicle:casco"})
-    assert apply_response.headers["location"] == "/"
+    channels = await NotificationRuleService(db_session).channels(fleet_manager_user.id)
+    assert channels.telegram_chat_id is None  # nothing was saved for the manager
 
 
 @pytest.mark.asyncio
@@ -242,17 +250,17 @@ async def test_manager_cannot_open_global_settings(client, fleet_manager_user):
 
 
 @pytest.mark.asyncio
-async def test_my_channels_page_saves_and_validates(client, db_session, fleet_manager_user):
-    await login(client, "testmanager")
+async def test_my_channels_page_saves_and_validates(client, db_session, admin_user):
+    await login(client, "testadmin")
     page = (await client.get("/settings/notifications/channels")).text
-    assert fleet_manager_user.email in page and 'name="telegram_chat_id"' in page
+    assert admin_user.email in page and 'name="telegram_chat_id"' in page
 
     response = await client.post(
         "/settings/notifications/channels",
         data={"email_enabled": "on", "telegram_enabled": "on", "telegram_chat_id": "987654321"},
     )
     assert response.status_code in (302, 303)
-    channels = await NotificationRuleService(db_session).channels(fleet_manager_user.id)
+    channels = await NotificationRuleService(db_session).channels(admin_user.id)
     assert (channels.email_enabled, channels.telegram_enabled, channels.telegram_chat_id) == (True, True, "987654321")
 
     missing = await client.post(
@@ -261,7 +269,7 @@ async def test_my_channels_page_saves_and_validates(client, db_session, fleet_ma
     assert missing.status_code == 422 and "Enter your Telegram chat ID" in missing.text
     junk = await client.post("/settings/notifications/channels", data={"telegram_chat_id": "x y"})
     assert junk.status_code == 422
-    still = await NotificationRuleService(db_session).channels(fleet_manager_user.id)
+    still = await NotificationRuleService(db_session).channels(admin_user.id)
     assert still.telegram_chat_id == "987654321"
 
 
