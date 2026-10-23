@@ -57,7 +57,7 @@ python-dotenv==1.2.4
 python-multipart==0.0.32
 PyYAML==6.0.3
 qrcode==8.2
-redis==6.4.0
+redis==8.1.0
 requests==2.34.2
 s3transfer==0.19.3
 six==1.17.0

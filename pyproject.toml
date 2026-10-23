@@ -24,7 +24,8 @@ dependencies = [
     "itsdangerous>=2.2.0",
     # Redis & Celery
     "redis>=5.2.0",
-    "celery[redis]>=5.4.0",
+    # no [redis] extra: it makes kombu cap redis below 6.5; redis is a direct dependency above
+    "celery>=5.4.0",
     # S3 / MinIO
     "boto3>=1.36.0",
     # Export
