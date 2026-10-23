@@ -33,8 +33,8 @@ jobs:
       VAULT_ADDR: ""
       VAULT_TOKEN: ""
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -48,7 +48,6 @@ jobs:
             libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core
       - name: Install
         run: |
-          pip install "bcrypt==4.0.1"
           pip install -c requirements.txt -e ".[dev]"
       - name: Migrations apply and match the models
         run: |
@@ -65,8 +64,8 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true   # informational: read the log, upgrade what matters
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install pip-audit

@@ -17,14 +17,15 @@ dependencies = [
     "pydantic-settings>=2.6.0",
     # Auth
     "PyJWT>=2.10.0",
-    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.1",
     "python-multipart>=0.0.12",
     # Templates
     "jinja2>=3.1.4",
     "itsdangerous>=2.2.0",
     # Redis & Celery
     "redis>=5.2.0",
-    "celery[redis]>=5.4.0",
+    # no [redis] extra: it makes kombu cap redis below 6.5; redis is a direct dependency above
+    "celery>=5.4.0",
     # S3 / MinIO
     "boto3>=1.36.0",
     # Export

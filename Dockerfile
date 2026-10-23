@@ -21,7 +21,6 @@ COPY pyproject.toml requirements.txt ./
 
 # Install dependencies (non-editable, then copy source)
 RUN pip install --no-cache-dir pip setuptools wheel hatchling \
-    && pip install --no-cache-dir "bcrypt==4.0.1" \
     && pip install --no-cache-dir -c requirements.txt .
 
 # Copy application source
