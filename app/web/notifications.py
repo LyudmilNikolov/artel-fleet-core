@@ -206,12 +206,14 @@ async def notification_item(
     )
     rule = next_reminder = history = rule_preview = None
     if manages:
-        rule = await NotificationRuleService(db).rule(item.source)
+        loaded = await NotificationRuleService(db).rule(item.source)
         info = ReminderInfoService(db)
-        next_reminder = await info.next_reminder(item, rule, local_today())
-        history = await info.history(item)
-        t = request.app.state.template_globals(request)["_"]
-        rule_preview = preview_text(t, rule.milestone_days, rule.repeat_every_days, rule.stop_after_overdue_days)
+        next_reminder = await info.next_reminder(item, loaded, local_today())
+        if user.role == UserRole.ADMIN:  # the rule, its recipients and the send history are administrator-only
+            rule = loaded
+            history = await info.history(item)
+            t = request.app.state.template_globals(request)["_"]
+            rule_preview = preview_text(t, rule.milestone_days, rule.repeat_every_days, rule.stop_after_overdue_days)
     return _render(
         request,
         "notifications/item.html",

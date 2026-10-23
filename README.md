@@ -97,52 +97,16 @@ warn.
 - **Rules** (sidebar → Notifications → Rules): per document type, the schedule (milestones such as 30, 15, 10 days,
   then a repeat every N days that continues after expiry, with an optional stop after N days overdue), channels
   (email, Telegram), an optional send time, and recipients (users, roles, extra email addresses, extra Telegram
-  chats). Admins edit; fleet managers see them read-only. Until a rule is saved nothing is sent.
+  chats). The rules, settings and channels are **administrator-only**; fleet managers only use the bell and the inbox. Until a rule is saved nothing is sent.
 - **Settings** (admin): default send time (08:00) and time zone, and whether email / Telegram are configured on
-  the server. **My channels**: your email on/off, your Telegram chat ID, and "send test" buttons.
+  the server. **My channels** (admin): your own email on/off and Telegram chat ID, and "send test" buttons.
 - **Sending**: Celery beat runs a tick every 15 minutes. Each rule sends once per local day at its send time, one
   message per document, recipient and channel, in the recipient's language, always linking to the item page.
   After downtime only the latest due message is sent. Messages never contain document numbers. Every send is
   logged and is idempotent, and a failed send is retried at the next run.
-- Telegram goes to a person only if they turned it on and saved their chat ID under *My channels*; email goes to
-  the address on their account. Drivers are not recipients yet.
-
-Configure the channels in the root `.env` file (see [Configuration](#configuration)).
-
-### Time zone
-
-Everything shown in the interface uses **Europe/Sofia** time (dates, "today", days left, audit log, send history,
-reminder send time). The database stores UTC. Docker, Celery and server logs stay in UTC. The REST API returns
-ISO timestamps with an explicit UTC offset. The zone is `APP_TIMEZONE` in `app/config.py`.
-
-### Roles
-
-| Role | Access |
-|------|--------|
-| `admin` | Full system access, users, audit log, notification rules and settings |
-| `fleet_manager` | Vehicles, drivers, maintenance, expenses, documents & deadlines, reports; can stop / resume reminders; sees rules read-only |
-| `driver` | Own profile and documents; read access to vehicles assigned to them and their documents, expenses and maintenance; can add expenses and maintenance for their vehicles |
-| `viewer` | Read-only dashboards, reports and notifications |
-
-### Internationalization
-
-Supported languages: Bulgarian (`bg`, default) and English (`en`).
-
-Browser pages resolve language from a valid `?lang=bg/en`, the signed session,
-the authenticated user preference, then Bulgarian. Browser headers do not change
-this default. The language switcher saves the selection in the session and user
-profile. Anonymous selections survive login, and logout retains the language.
-Query overrides affect only the current request.
-
-API requests resolve a valid query override, then supported `Accept-Language`
-preferences (including regional tags and quality values), then the authenticated
-user preference, then Bulgarian. Only lowercase `bg` and `en` preference writes
-are accepted. Background output takes an explicit locale and defaults to Bulgarian.
-
-## API
-
-REST API available at `/api/v1/`:
-
+- Telegram is a global channel: the administrator puts the company group's chat ID under *Other Telegram chats* in the
+  rules (use "Apply to all" to copy it), and nobody else has to set anything up. Email goes to the address on each
+  recipient's account or to extra addresses typed into a rule.
 - `POST /api/v1/auth/login` — authenticate
 - `GET /api/v1/vehicles` — list vehicles
 - `GET /api/v1/compliance-documents`, `GET /api/v1/driver-documents` — document deadlines

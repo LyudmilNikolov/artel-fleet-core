@@ -60,10 +60,11 @@
         {% if can_stop %}<p class="mt-2 text-xs text-gray-500">{{ _('notifications.stop_hint') }}</p>{% endif %}
     </div>
 
-    {% if can_stop and rule %}
+    {% if can_stop and next_reminder %}
     <div class="mt-6 fc-card p-6">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ _('notifications.schedule_title') }}</h3>
         <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {% if rule %}
             <div><dt class="text-gray-500">{{ _('notifications.rule_summary') }}</dt>
                 <dd>{{ rule_preview }}
                     <span class="block text-xs text-gray-500">
@@ -71,6 +72,7 @@
                     </span>
                     {% if can_edit_rules %}<a href="/settings/notifications/rules#rule-{{ item.source|replace(':', '-') }}" class="text-xs text-primary-600 hover:underline">{{ _('notifications.edit_rule') }}</a>{% endif %}
                 </dd></div>
+            {% endif %}
             <div><dt class="text-gray-500">{{ _('notifications.next_reminder') }}</dt>
                 <dd class="font-medium" data-next="{{ next_reminder.kind }}">
                     {% if next_reminder.kind == 'today' %}{{ _('notifications.next_today') }}
@@ -79,11 +81,14 @@
                     {% elif next_reminder.kind == 'off' %}{{ _('notifications.next_off') }}
                     {% else %}{{ _('notifications.next_none') }}{% endif %}
                 </dd></div>
+            {% if rule %}
             <div class="sm:col-span-2"><dt class="text-gray-500">{{ _('notifications.rule_recipients') }}</dt>
                 <dd>{% if rule.recipients %}{{ rule.recipients | map(attribute='label') | join(', ') }}{% else %}{{ _('notifications.no_recipients') }}{% endif %}</dd></div>
+            {% endif %}
         </dl>
     </div>
 
+    {% if rule %}
     <div class="mt-6 fc-card p-6">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ _('notifications.history') }}</h3>
         {% if history %}
@@ -113,6 +118,7 @@
         <p class="mt-2 text-sm text-gray-500">{{ _('notifications.history_empty') }}</p>
         {% endif %}
     </div>
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %}
