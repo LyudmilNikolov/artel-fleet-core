@@ -1,0 +1,37 @@
+name: Post-deploy check
+
+# After production changes, wait for the live app to answer its health check. A failure sends the usual GitHub
+# notification. The health endpoint reports a fixed version, so this proves the app is up, not which commit runs.
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HEALTH_URL: https://fleetcore-mmzwy.sevalla.app/api/v1/health
+    steps:
+      - name: Wait for the deployment to roll out
+        run: sleep 150
+      - name: Health check
+        run: |
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 10 "$HEALTH_URL" | grep -q '"status":"ok"'; then
+              ok=$((ok + 1))
+              echo "healthy ($ok/3)"
+              [ "$ok" -ge 3 ] && exit 0
+            else
+              ok=0
+              echo "not healthy yet"
+            fi
+            sleep 15
+          done
+          echo "The app did not become healthy after the deployment" >&2
+          exit 1
