@@ -62,18 +62,18 @@ Open http://localhost:8000 in your browser.
 
 ### Modules
 
-| Module | Description |
-|--------|------------|
-| **Vehicles** | Six vehicle types (tractor unit, container semi-trailer, curtain-side semi-trailer, van, passenger car, forklift) with type-specific fields, status, assigned driver, photo gallery. See [vehicle workflow](docs/vehicle-workflow.md) |
-| **Drivers** | Driver profiles and logins; ID card, driving licence, driver (tachograph) card, psychological test, CPC, medical certificate and ADR tracked with validity, renewal and expiry status. Drivers can propose changes that a manager approves. See [driver documents](docs/driver-documents.md) |
-| **Mileage** | Readings per vehicle (a reading never goes below the last one, except a confirmed maintenance correction); history on the vehicle page, bulk entry through the API |
-| **Maintenance** | Scheduled and unscheduled maintenance; planned service items (engine oil, gearbox oil, differential oil, brake fluid, coolant) with overdue / due-soon tracking. See [service items](docs/maintenance-service-items.md) |
-| **Expenses** | Cost tracking by category in EUR, fuel liters with derived price per liter, links to vehicle documents. |
-| **Documents & Deadlines** | Civil liability, CASCO, technical inspection (ГТП) and tachograph validity per vehicle, with renewal and computed expiry status. See [compliance documents](docs/compliance-documents.md) |
-| **Documents** | File upload / download through MinIO (S3) |
-| **Reports** | TCO, fuel consumption, expense analysis and maintenance history with shared filters and Excel / CSV export. See [reports](docs/reports.md) |
-| **Notifications** | Bell, inbox and per-document pages; configurable reminder rules sent by email and Telegram (see below) |
-| **Audit Log** | Append-only trail of create / update / delete / login / export actions (admin only) |
+| Module                    | Description                                                                                                                                                                                                                                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Vehicles**              | Six vehicle types (tractor unit, container semi-trailer, curtain-side semi-trailer, van, passenger car, forklift) with type-specific fields, status, assigned driver, photo gallery. See [vehicle workflow](docs/vehicle-workflow.md)                                                        |
+| **Drivers**               | Driver profiles and logins; ID card, driving licence, driver (tachograph) card, psychological test, CPC, medical certificate and ADR tracked with validity, renewal and expiry status. Drivers can propose changes that a manager approves. See [driver documents](docs/driver-documents.md) |
+| **Mileage**               | Readings per vehicle (a reading never goes below the last one, except a confirmed maintenance correction); history on the vehicle page, bulk entry through the API                                                                                                                           |
+| **Maintenance**           | Scheduled and unscheduled maintenance; planned service items (engine oil, gearbox oil, differential oil, brake fluid, coolant) with overdue / due-soon tracking. See [service items](docs/maintenance-service-items.md)                                                                      |
+| **Expenses**              | Cost tracking by category in EUR, fuel liters with derived price per liter, links to vehicle documents.                                                                                                                                                                                      |
+| **Documents & Deadlines** | Civil liability, CASCO, technical inspection (ГТП) and tachograph validity per vehicle, with renewal and computed expiry status. See [compliance documents](docs/compliance-documents.md)                                                                                                    |
+| **Documents**             | File upload / download through MinIO (S3)                                                                                                                                                                                                                                                    |
+| **Reports**               | TCO, fuel consumption, expense analysis and maintenance history with shared filters and Excel / CSV export. See [reports](docs/reports.md)                                                                                                                                                   |
+| **Notifications**         | Bell, inbox and per-document pages; configurable reminder rules sent by email and Telegram (see below)                                                                                                                                                                                       |
+| **Audit Log**             | Append-only trail of create / update / delete / login / export actions (admin only)                                                                                                                                                                                                          |
 
 ### Dashboard
 
@@ -90,7 +90,7 @@ Documents without an end date, renewed or replaced entries, terminated drivers a
 warn.
 
 - **Bell** (top bar, always red) with the number of documents needing attention, a dropdown with the most urgent
-  ones, and an **inbox** (`/notifications`) with filters, sorting and a *Messages* tab for system messages.
+  ones, and an **inbox** (`/notifications`) with filters, sorting and a _Messages_ tab for system messages.
 - **Item page** per document with Previous / Next, the schedule, the next reminder date, the send history and
   **Stop / Resume** (admin and fleet manager). A stop applies to everyone and every channel, is audited, and resets
   when the document is renewed or its end date changes.
@@ -104,7 +104,7 @@ warn.
   message per document, recipient and channel, in the recipient's language, always linking to the item page.
   After downtime only the latest due message is sent. Messages never contain document numbers. Every send is
   logged and is idempotent, and a failed send is retried at the next run.
-- Telegram is a global channel: the administrator puts the company group's chat ID under *Other Telegram chats* in the
+- Telegram is a global channel: the administrator puts the company group's chat ID under _Other Telegram chats_ in the
   rules (use "Apply to all" to copy it), and nobody else has to set anything up. Email goes to the address on each
   recipient's account or to extra addresses typed into a rule.
 - `POST /api/v1/auth/login` — authenticate
@@ -142,20 +142,20 @@ Secrets and settings are managed through **HashiCorp Vault** (dev mode in Docker
 service seeds them on every `docker compose up`, taking the values below from the **root `.env` file** (Docker
 Compose reads it automatically; `.env` is git-ignored). The app, worker and beat containers read them from Vault.
 
-| Setting | Description |
-|--------|-------------|
-| `DATABASE_URL`, `DATABASE_URL_SYNC`, `REDIS_URL` | Connection strings (seeded by default) |
-| `SECRET_KEY` | JWT / session signing key (generated once, kept on re-seed) |
-| `MINIO_*` | MinIO S3 endpoint and credentials |
-| `APP_BASE_URL` | Public address of the web UI, used for the links in reminder messages (default `http://localhost:8000`; set it to the address people actually open) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Email server; until `SMTP_HOST` is set, email reminders are skipped |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token; until set, Telegram reminders are skipped |
-| `APP_ENV` | `production` makes the app refuse to start with a weak `SECRET_KEY` (under 32 characters), debug on, or no database |
-| `TRUST_PROXY` | `true` behind Cloudflare / a platform proxy: use the visitor address from `CF-Connecting-IP` / `X-Forwarded-For` |
-| `GEO_MODE`, `ALLOWED_COUNTRIES` | Country restriction using Cloudflare's `CF-IPCountry` header: `off`, `log` (only log) or `enforce` (403); default list `BG` |
-| `CSP_MODE` | `enforce` (default), `report-only` or `off` for the Content-Security-Policy header |
-| `S3_REGION`, `MINIO_EXTERNAL_USE_SSL` | Object storage region (`auto` for Cloudflare R2) and https for browser download links |
-| `RUN_MIGRATIONS` | `true`/`false` overrides the automatic choice (migrations run only for the web command) |
+| Setting                                                             | Description                                                                                                                                         |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`, `DATABASE_URL_SYNC`, `REDIS_URL`                    | Connection strings (seeded by default)                                                                                                              |
+| `SECRET_KEY`                                                        | JWT / session signing key (generated once, kept on re-seed)                                                                                         |
+| `MINIO_*`                                                           | MinIO S3 endpoint and credentials                                                                                                                   |
+| `APP_BASE_URL`                                                      | Public address of the web UI, used for the links in reminder messages (default `http://localhost:8000`; set it to the address people actually open) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Email server; until `SMTP_HOST` is set, email reminders are skipped                                                                                 |
+| `TELEGRAM_BOT_TOKEN`                                                | Telegram bot token; until set, Telegram reminders are skipped                                                                                       |
+| `APP_ENV`                                                           | `production` makes the app refuse to start with a weak `SECRET_KEY` (under 32 characters), debug on, or no database                                 |
+| `TRUST_PROXY`                                                       | `true` behind Cloudflare / a platform proxy: use the visitor address from `CF-Connecting-IP` / `X-Forwarded-For`                                    |
+| `GEO_MODE`, `ALLOWED_COUNTRIES`                                     | Country restriction using Cloudflare's `CF-IPCountry` header: `off`, `log` (only log) or `enforce` (403); default list `BG`                         |
+| `CSP_MODE`                                                          | `enforce` (default), `report-only` or `off` for the Content-Security-Policy header                                                                  |
+| `S3_REGION`, `MINIO_EXTERNAL_USE_SSL`                               | Object storage region (`auto` for Cloudflare R2) and https for browser download links                                                               |
+| `RUN_MIGRATIONS`                                                    | `true`/`false` overrides the automatic choice (migrations run only for the web command)                                                             |
 
 Example `.env` lines (the token is the bare value from @BotFather, without quotes or brackets):
 
@@ -308,19 +308,15 @@ checklist.
 
 ## More documentation
 
-| Document | Topic |
-|----------|-------|
-| [production-sevalla.md](docs/production-sevalla.md) | What is running in production on Sevalla (resources, settings, runbook, open items) |
-| [deploy-sevalla.md](docs/deploy-sevalla.md) | Step-by-step deployment on Sevalla (database, storage, worker, Gmail, Telegram, country restriction, updates) |
-| [deployment.md](docs/deployment.md) | Production deployment, updates, rollback, backups and restore |
-| [vehicle-workflow.md](docs/vehicle-workflow.md) | Vehicle types, mileage rules, guarded deployment |
-| [compliance-documents.md](docs/compliance-documents.md) | Vehicle documents and deadlines |
-| [driver-documents.md](docs/driver-documents.md) | Driver documents, access rules, test setup |
-| [maintenance-service-items.md](docs/maintenance-service-items.md) | Planned service items and due tracking |
-| [reports.md](docs/reports.md) | Reports, filters and exports |
-| [eur-deployment.md](docs/eur-deployment.md) | EUR-only money and the guarded migration |
-| [plans/notifications.md](docs/plans/notifications.md) | Design of the notification system |
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+| Document                                                          | Topic                                                                                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [production-sevalla.md](docs/production-sevalla.md)               | What is running in production on Sevalla (resources, settings, runbook, open items)                           |
+| [deploy-sevalla.md](docs/deploy-sevalla.md)                       | Step-by-step deployment on Sevalla (database, storage, worker, Gmail, Telegram, country restriction, updates) |
+| [deployment.md](docs/deployment.md)                               | Production deployment, updates, rollback, backups and restore                                                 |
+| [vehicle-workflow.md](docs/vehicle-workflow.md)                   | Vehicle types, mileage rules, guarded deployment                                                              |
+| [compliance-documents.md](docs/compliance-documents.md)           | Vehicle documents and deadlines                                                                               |
+| [driver-documents.md](docs/driver-documents.md)                   | Driver documents, access rules, test setup                                                                    |
+| [maintenance-service-items.md](docs/maintenance-service-items.md) | Planned service items and due tracking                                                                        |
+| [reports.md](docs/reports.md)                                     | Reports, filters and exports                                                                                  |
+| [eur-deployment.md](docs/eur-deployment.md)                       | EUR-only money and the guarded migration                                                                      |
+| [plans/notifications.md](docs/plans/notifications.md)             | Design of the notification system                                                                             |
