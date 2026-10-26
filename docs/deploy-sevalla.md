@@ -2,7 +2,8 @@
 
 Sevalla builds the app from your GitHub repository with the `Dockerfile`, runs it, and hosts PostgreSQL, Redis
 and S3-compatible file storage next to it. This guide takes you from an empty account to a running, locked-down
-system. (For a plain Linux server with Docker, see [deployment.md](deployment.md) instead.)
+system. (For a plain Linux server with Docker, see [deployment.md](deployment.md) instead. What is actually running in
+production, with resource ids and the runbook, is in [production-sevalla.md](production-sevalla.md).)
 
 Names of buttons in Sevalla's dashboard can differ slightly from what is written here; the settings themselves are
 what matter. Sevalla's own docs: <https://docs.sevalla.com>.
