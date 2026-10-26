@@ -310,6 +310,7 @@ checklist.
 
 | Document | Topic |
 |----------|-------|
+| [production-sevalla.md](docs/production-sevalla.md) | What is running in production on Sevalla (resources, settings, runbook, open items) |
 | [deploy-sevalla.md](docs/deploy-sevalla.md) | Step-by-step deployment on Sevalla (database, storage, worker, Gmail, Telegram, country restriction, updates) |
 | [deployment.md](docs/deployment.md) | Production deployment, updates, rollback, backups and restore |
 | [vehicle-workflow.md](docs/vehicle-workflow.md) | Vehicle types, mileage rules, guarded deployment |

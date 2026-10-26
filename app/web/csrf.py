@@ -32,6 +32,10 @@ def rotate_token(request: Request) -> str:
     return request.session[SESSION_KEY]
 
 
+# The login form needs the user's credentials and starts a brand-new session, so a forged request gains nothing; a
+# stale login tab must still work while the browser is signed in (the session token has since been replaced).
+EXEMPT_PATHS = {"/login"}
+
 FORM_TYPES = ("application/x-www-form-urlencoded", "multipart/form-data")
 
 
@@ -41,7 +45,7 @@ async def csrf_protect(request: Request) -> None:
     The token field is removed from the parsed form afterwards: handlers pass the submitted fields to schemas that
     forbid unknown fields, so the field must never reach them.
     """
-    if request.method in SAFE_METHODS or not request.session.get("user_id"):
+    if request.method in SAFE_METHODS or request.url.path in EXEMPT_PATHS or not request.session.get("user_id"):
         return
     form = None
     if request.headers.get("content-type", "").lower().startswith(FORM_TYPES):
