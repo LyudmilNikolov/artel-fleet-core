@@ -273,7 +273,7 @@ async def _settings_page(request: Request, db: AsyncSession, user: User, *, erro
             "notice": request.query_params.get("saved") and True,
             "timezones": COMMON_TIMEZONES,
             # Only whether a channel is configured is shown, never the credentials.
-            "smtp_ok": bool(app_settings.SMTP_HOST),
+            "smtp_ok": email_sender.configured,
             "telegram_ok": bool(app_settings.TELEGRAM_BOT_TOKEN),
             **request.app.state.template_globals(request),
         },
@@ -359,7 +359,7 @@ async def channels_send_test(
     saved = await NotificationRuleService(db).channels(user.id)
     message = build_test_message(channel, user.language)
     if channel == "email":
-        configured, target = bool(app_settings.SMTP_HOST), user.email
+        configured, target = email_sender.configured, user.email
     else:
         configured, target = bool(app_settings.TELEGRAM_BOT_TOKEN), saved.telegram_chat_id
     if not target:
