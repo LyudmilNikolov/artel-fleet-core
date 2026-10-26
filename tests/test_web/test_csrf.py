@@ -168,3 +168,13 @@ async def test_dependency_strips_the_field_from_urlencoded_and_multipart_bodies(
     ).encode()
     form = await run(f"multipart/form-data; boundary={boundary}", multipart)
     assert set(form.keys()) == {"entity_id", "file"} and form["file"].filename == "a.pdf"
+
+
+@pytest.mark.asyncio
+async def test_login_form_works_when_a_session_is_already_signed_in(browser):
+    """A stale login tab (or Back button) submits an old token while the browser is already logged in."""
+    response = await browser.post(
+        "/login", data={"username": "testadmin", "password": "testpass123", "csrf_token": "stale"}
+    )
+    assert response.status_code == 302
+    assert (await browser.get("/vehicles")).status_code == 200
