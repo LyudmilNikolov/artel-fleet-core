@@ -1,0 +1,32 @@
+name: Release PR
+
+# After every push to master, make sure there is one open pull request master -> production.
+# Merging it (with "Create a merge commit") is the release; Sevalla deploys the production branch.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-release-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open the release PR if none exists
+        env:
+          # A PR created with the default token does not start the CI checks. To get them, add a personal access
+          # token (or GitHub App token) with pull-request write access as the RELEASE_PR_TOKEN secret.
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          existing=$(gh pr list --base production --head master --state open --json number --jq 'length')
+          if [ "$existing" != "0" ]; then
+            echo "A release PR is already open; it picks up the new commits by itself."
+            exit 0
+          fi
+          gh pr create --base production --head master \
+            --title "Release: master to production" \
+            --body "Automatic release PR. Check that CI is green, then merge with **Create a merge commit** (not rebase or squash). Sevalla deploys the production branch after the merge."
