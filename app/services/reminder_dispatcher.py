@@ -38,6 +38,7 @@ from app.services.notification_rule_service import EffectiveRule, NotificationRu
 from app.services.reminder_messages import build_message
 from app.services.reminder_schedule import due_point
 from app.services.validity import app_timezone, local_today
+from app.utils.email import email_sender
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class ReminderDispatcher:
         send_telegram: Callable[[str, str], bool],
         sleep: Callable[[float], None] = time_module.sleep,
         base_url: str | None = None,
-        email_configured: Callable[[], bool] = lambda: bool(settings.SMTP_HOST),
+        email_configured: Callable[[], bool] = lambda: email_sender.configured,
         telegram_configured: Callable[[], bool] = lambda: bool(settings.TELEGRAM_BOT_TOKEN),
     ):
         self.session = session

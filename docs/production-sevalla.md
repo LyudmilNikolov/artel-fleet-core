@@ -29,8 +29,38 @@ Plain settings: `APP_ENV=production`, `APP_DEBUG=false`, `APP_VERSION`, `APP_BAS
 `MINIO_ENDPOINT`, `MINIO_EXTERNAL_ENDPOINT` (same host), `MINIO_BUCKET`, `MINIO_USE_SSL=true`, `S3_REGION=auto`.
 
 Secrets (entered by the owner in the dashboard, availability **runtime only**): `SECRET_KEY`, `TELEGRAM_BOT_TOKEN`,
-`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`. Not set yet: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
-`SMTP_FROM` (email is off until they exist; without `SMTP_HOST` the app shows email as "not configured").
+`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `SMTP_*` (Gmail, `fleetcorenotifications@gmail.com`).
+
+### Email: Brevo API (HTTPS), not SMTP
+
+Sevalla blocks outbound SMTP ports 25, 465, 587, and 2525 on OCI clusters, so Gmail SMTP times out in production.
+Transport order in `app/utils/email.py`: `BREVO_API_KEY` set → Brevo API; else all `GMAIL_*` set → Gmail API; else SMTP.
+
+**Chosen: Brevo** (free: 300 emails/day, accepts a Gmail account). Sign up with `fleetcorenotifications@gmail.com`,
+add it under *Senders, Domains, IPs > Senders* and confirm the email, create an API key under *SMTP & API > API keys*,
+and store it as the `BREVO_API_KEY` secret (runtime). Keep `SMTP_FROM` (may be `FleetCore <address>`). Without an
+authenticated own domain Brevo may rewrite the From to an `@brevosend.com` address; a custom domain fixes that.
+SMTP2GO was rejected: it refuses free-mail signups. Brevo SMTP ports are all blocked on Sevalla.
+
+The app uses STARTTLS on every non-implicit-TLS SMTP port (implicit TLS on 465, 2465, 8465), for local SMTP or a relay
+on an open port.
+
+**Alternative: Gmail API over HTTPS.**
+When `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN` are all set, the app sends through the Gmail
+API over HTTPS instead (`app/utils/email.py`); `SMTP_FROM` stays the sender address. One-time setup:
+
+1. Google Cloud Console, signed in as the sending Gmail account: create a project, enable the **Gmail API**.
+2. *OAuth consent screen*: External, add that account as test user, then **Publish app** ("In production").
+   Unpublished ("Testing") apps get refresh tokens that expire after 7 days. Google may show an "unverified app"
+   warning during consent (Advanced → Go to … (unsafe)); continue, it is your own app. Do **not** request
+   verification: it is not needed for one sending account, and `sevalla.app` cannot be verified (we do not own it).
+   If the console objects to the scope, remove `gmail.send` from *Data access*; the script requests it anyway.
+3. *Credentials*: create an **OAuth client ID** of type **Desktop app**; note its ID and secret.
+4. Locally: `python scripts/gmail_refresh_token.py <client_id> <client_secret>`, sign in as the sending account,
+   allow sending; it prints the refresh token.
+5. Add the three `GMAIL_*` secrets in the Sevalla dashboard (runtime), deploy, press *Send test email*.
+
+If the token is revoked or the account password changes, repeat step 4 and replace `GMAIL_REFRESH_TOKEN`.
 
 All processes of an application share the same variables. Do **not** set `RUN_MIGRATIONS` (the image migrates only
 for the web command). A variable change applies at the next deployment.
@@ -82,7 +112,7 @@ with the "not allowed" page (and `/api/v1/health` stays 200), then set it back t
 
 ## Open items
 
-- Email (Gmail app password or a mail provider on a custom domain); then add the `SMTP_*` variables.
+- Email: add the `BREVO_API_KEY` secret (see *Email: Brevo API*) and send a test email.
 - Enter the company Telegram group chat ID under *Other Telegram chats* in the rules and press *Apply to all*.
 - Rehearse a database restore from a dump once (not tested yet).
 - Decide on automatic deploys on push to `production`; tag the live version (`git tag v1.0.1`).

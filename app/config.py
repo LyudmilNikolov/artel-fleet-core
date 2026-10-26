@@ -90,6 +90,16 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "noreply@fleetcore.local"
 
+    # Brevo transactional email API (HTTPS). When set it replaces SMTP and the Gmail API; SMTP_FROM must be
+    # a sender verified in Brevo.
+    BREVO_API_KEY: str = ""
+
+    # Gmail API (HTTPS). When all three are set it replaces SMTP, for hosts that block SMTP ports.
+    # The sender is the Gmail account that granted the refresh token; SMTP_FROM should be that address.
+    GMAIL_CLIENT_ID: str = ""
+    GMAIL_CLIENT_SECRET: str = ""
+    GMAIL_REFRESH_TOKEN: str = ""
+
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
