@@ -20,6 +20,13 @@ environment variables and in the password manager. For the generic step-by-step 
 
 Approximate cost: S1 + S1 + two db1 + storage, about $31 per month.
 
+**Hibernation is on** (`hibernation_enabled`, `hibernate_after_seconds=1800`): after 30 minutes without HTTP requests
+Sevalla stops the web and worker processes (no compute cost); the next request wakes them in about 90 seconds.
+Reminders only run while the app is awake and catch up with the latest missed point after waking. Databases and the
+01:30 UTC dump keep running. The notification bell stops polling in hidden tabs and after 20 minutes without user
+activity (`static/js/app.js`), so a forgotten tab does not keep the app awake; bot requests answered with the
+country 403 still wake it briefly. Turn off with `updateApplicationV3` `{"hibernation_enabled": false}`.
+
 ## Environment variables (names only; set in Sevalla, never in git)
 
 Set by Sevalla when linking the databases: `DATABASE_URL`, `REDIS_URL` (the app accepts the plain `postgresql://` form).

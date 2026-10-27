@@ -80,7 +80,7 @@ async def test_bell_sits_between_dark_mode_toggle_and_user_menu(client, admin_us
     page = (await client.get("/vehicles")).text
     toggle, bell, menu = page.index("Dark mode toggle"), page.index('id="notification-bell"'), page.index("User menu")
     assert toggle < bell < menu
-    assert 'hx-get="/notifications/bell"' in page and "every 300s" in page
+    assert 'hx-get="/notifications/bell"' in page and "every 300s, bell-refresh" in page
 
 
 @pytest.mark.asyncio
