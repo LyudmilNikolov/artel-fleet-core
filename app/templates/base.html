@@ -131,7 +131,7 @@
                 </button>
                 <!-- Notification bell -->
                 {% if user %}
-                <div id="notification-bell" hx-get="/notifications/bell" hx-trigger="load, every 300s" hx-swap="innerHTML"></div>
+                <div id="notification-bell" hx-get="/notifications/bell" hx-trigger="load, every 300s, bell-refresh" hx-swap="innerHTML"></div>
                 {% endif %}
                 <!-- User menu -->
                 {% if user %}

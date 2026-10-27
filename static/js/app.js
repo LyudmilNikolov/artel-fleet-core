@@ -138,3 +138,34 @@ document.addEventListener('alpine:init', function() {
         if (event.target && event.target.tagName === 'FORM') addField(event.target);
     }, true);
 })();
+
+// --- Notification bell: no polling from hidden or idle tabs -----------------------------------------------------
+// Production hibernates after a period without requests; a forgotten tab polling every 5 minutes would keep it
+// awake (and billed) all night. Skipped polls are made up once when the user comes back.
+(function () {
+    var IDLE_MS = 20 * 60 * 1000;
+    var lastActivity = Date.now();
+    var skipped = false;
+    function idle() {
+        return document.hidden || Date.now() - lastActivity > IDLE_MS;
+    }
+    function resume() {
+        if (!skipped || idle()) return;
+        skipped = false;
+        var bell = document.getElementById('notification-bell');
+        if (bell && window.htmx) htmx.trigger(bell, 'bell-refresh');
+    }
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function (name) {
+        document.addEventListener(name, function () {
+            lastActivity = Date.now();
+            resume();
+        }, { passive: true });
+    });
+    document.addEventListener('visibilitychange', resume);
+    document.addEventListener('htmx:beforeRequest', function (event) {
+        if (event.detail.elt && event.detail.elt.id === 'notification-bell' && idle()) {
+            event.preventDefault();
+            skipped = true;
+        }
+    });
+})();
