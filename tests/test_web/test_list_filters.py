@@ -197,7 +197,7 @@ async def test_complete_button_returns_to_the_filtered_list(client, db_session, 
 async def test_fleet_overview_cards_open_the_vehicle_list_with_that_status(client, db_session, fleet, fleet_manager_user):
     await login(client, "testmanager")
     widget = (await client.get("/widgets/fleet-overview")).text
-    for href in ("/vehicles", "/vehicles?status=active", "/vehicles?status=in_maintenance", "/vehicles?status=decommissioned"):
+    for href in ("/vehicles", "/vehicles?vehicle_type=trailer", "/vehicles?status=active", "/vehicles?status=in_maintenance", "/vehicles?status=decommissioned"):
         assert f'href="{href}"' in widget
     # the target filter is applied by the vehicle list
     page = (await client.get("/vehicles", params={"status": "active"})).text.replace("&#34;", '"')

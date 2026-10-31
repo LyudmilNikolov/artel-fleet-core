@@ -14,6 +14,7 @@ from app.models.vehicle import Vehicle
 from app.services.attention_service import AttentionService
 from app.services.service_due_service import ServiceDueService
 from app.services.validity import local_today
+from app.vehicle_rules import TRAILER_TYPES
 
 
 class DashboardService:
@@ -21,12 +22,15 @@ class DashboardService:
         self.db = db
 
     async def fleet_overview(self) -> dict:
-        """Get vehicle counts by status."""
+        """Vehicle counts by status, plus how many are trailers and how many are not."""
         result = await self.db.execute(select(Vehicle.status, func.count(Vehicle.id)).group_by(Vehicle.status))
         counts = {str(row[0].value): row[1] for row in result.all()}
         total = sum(counts.values())
+        trailers = await self.db.scalar(select(func.count(Vehicle.id)).where(Vehicle.vehicle_type.in_(TRAILER_TYPES)))
         return {
             "total": total,
+            "trailers": trailers or 0,
+            "vehicles": total - (trailers or 0),
             "active": counts.get("active", 0),
             "in_maintenance": counts.get("in_maintenance", 0),
             "decommissioned": counts.get("decommissioned", 0),

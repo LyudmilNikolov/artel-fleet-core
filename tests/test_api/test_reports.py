@@ -60,6 +60,10 @@ async def test_new_filters_are_optional_and_validated(client: AsyncClient, admin
     )
     assert reversed_dates.status_code == 422 and "cannot be before" in reversed_dates.json()["detail"]
     assert (await client.get("/api/v1/reports/maintenance-history?status=nope", headers=headers)).status_code == 422
+    assert (await client.get("/api/v1/reports/expense-analysis?category=toll", headers=headers)).status_code == 200
+    for path in ("expense-analysis", "export/expenses.csv"):
+        bad = await client.get(f"/api/v1/reports/{path}?category=nope", headers={**headers, "Accept-Language": "en"})
+        assert bad.status_code == 422 and bad.json()["detail"] == "Unknown expense category."
 
 
 @pytest.mark.asyncio

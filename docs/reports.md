@@ -11,6 +11,7 @@ and **Maintenance history** (`/reports/tco|fuel|expenses|maintenance`, API under
 | `vehicle_type` | Group: `tractor_unit`, `trailer` (both trailer kinds), `van`, `passenger_car`, `forklift`; empty = all. Mapping lives in `app/vehicle_rules.py` (`vehicle_type_filter`, `type_group_of`). |
 | `start_date`, `end_date` | Inclusive, `YYYY-MM-DD`. |
 | `status` | Maintenance only. |
+| `category` | Expense analysis only: one expense category (`fuel`, `toll`, ...); empty = all. Applies to the page, the CSV export and `/api/v1/reports/expense-analysis`. |
 
 - Vehicle and type work together (AND). The picker narrows to the chosen type and a mismatching vehicle is cleared;
   a hand-edited URL with a vehicle outside the type returns an empty report with a note.
