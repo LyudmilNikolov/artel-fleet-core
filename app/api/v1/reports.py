@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.report import (
     ExpenseAnalysis,
+    ExpenseReportFilters,
     FuelReportRow,
     MaintenanceReportFilters,
     MaintenanceReportRow,
@@ -68,6 +69,26 @@ def maintenance_filters(
     )
 
 
+def expense_filters(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    vehicle_id: str | None = None,
+    vehicle_type: str | None = None,
+    category: str | None = None,
+) -> ExpenseReportFilters:
+    """Report filters plus an expense category (fuel, toll, ...)."""
+    return _parse(
+        {
+            "start_date": start_date,
+            "end_date": end_date,
+            "vehicle_id": vehicle_id,
+            "vehicle_type": vehicle_type,
+            "category": category,
+        },
+        ExpenseReportFilters,
+    )
+
+
 @router.get("/tco", response_model=list[TCOReportRow])
 async def tco_report(
     filters: ReportFilters = Depends(report_filters),
@@ -99,7 +120,7 @@ async def fuel_consumption(
 
 @router.get("/expense-analysis", response_model=ExpenseAnalysis)
 async def expense_analysis(
-    filters: ReportFilters = Depends(report_filters),
+    filters: ExpenseReportFilters = Depends(expense_filters),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -189,7 +210,7 @@ async def export_maintenance_excel(
 @router.get("/export/expenses.csv")
 async def export_expenses_csv(
     request: Request,
-    filters: ReportFilters = Depends(report_filters),
+    filters: ExpenseReportFilters = Depends(expense_filters),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_fleet_manager),
 ):

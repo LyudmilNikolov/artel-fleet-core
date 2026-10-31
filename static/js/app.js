@@ -169,3 +169,33 @@ document.addEventListener('alpine:init', function() {
         }
     });
 })();
+
+// Alpine state for components/drop_zone.html: one file, picked by click or drag and drop.
+function fileUpload() {
+    return {
+        dragging: false,
+        selectedFile: '',
+        handleDrop(event) {
+            this.dragging = false;
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.$refs.fileInput.files = files;
+                this.selectedFile = files[0].name;
+            }
+        },
+        handleSelect(event) {
+            const files = event.target.files;
+            this.selectedFile = files.length > 0 ? files[0].name : '';
+        },
+        clearSelection() {
+            this.$refs.fileInput.value = '';
+            this.selectedFile = '';
+        },
+        clearFiles(event) {
+            if (event.detail.successful) {
+                this.$refs.fileInput.value = '';
+                this.selectedFile = '';
+            }
+        }
+    };
+}

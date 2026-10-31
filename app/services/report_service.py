@@ -180,6 +180,11 @@ class ReportService:
         status = getattr(filters, "status", None)
         if status:
             parts.append(_("report.filter_status", lang=locale) + ": " + _("status." + status.value, lang=locale))
+        category = getattr(filters, "category", None)
+        if category:
+            parts.append(
+                _("report.filter_category", lang=locale) + ": " + _("expense_category." + category.value, lang=locale)
+            )
         return "; ".join(parts)
 
     async def _subtitle(self, filters: ReportFilters | None, locale: str) -> str:

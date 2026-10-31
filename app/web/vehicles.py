@@ -184,13 +184,16 @@ async def save_form(request, db, user, vehicle=None):
 
 
 @router.get("/new", response_class=HTMLResponse)
-async def vehicle_form_new(request: Request, db: AsyncSession = Depends(get_db)):
+async def vehicle_form_new(request: Request, license_plate: str | None = None, db: AsyncSession = Depends(get_db)):
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if user.role.value not in ("admin", "fleet_manager"):
         return RedirectResponse(url="/vehicles", status_code=303)
-    return await render_form(request, db, user)
+    form_data = None
+    if license_plate and license_plate.strip():  # e.g. an unknown plate from a toll import
+        form_data = {"vehicle_type": "tractor_unit", **CREATE_DEFAULTS["tractor_unit"], "license_plate": license_plate.strip()[:20]}
+    return await render_form(request, db, user, form_data=form_data)
 
 
 @router.post("/new", response_class=HTMLResponse)

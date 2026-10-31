@@ -47,6 +47,38 @@
     {% endif %}
 </div>
 
+{% if expense.toll_transactions %}
+<div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('toll_import.transactions_title', count=expense.toll_transactions|length) }}</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.date') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.time') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.product') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.invoice') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.transaction_id') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('common.amount') }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for t in expense.toll_transactions %}
+                <tr>
+                    <td class="px-4 py-3">{{ local_date(t.transaction_date) }}</td>
+                    <td class="px-4 py-3">{{ t.transaction_time.strftime('%H:%M') if t.transaction_time else '—' }}</td>
+                    <td class="px-4 py-3">{{ t.product or '—' }}</td>
+                    <td class="px-4 py-3">{{ t.invoice_number or _('toll_import.not_invoiced') }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ t.external_id }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ money(t.amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('docs.title') }}</h3>
     <div hx-get="/documents/gallery/expense/{{ expense.id }}" hx-trigger="load" hx-swap="innerHTML">

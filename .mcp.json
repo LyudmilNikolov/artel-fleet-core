@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "acp-sd-ra-py": {
+      "type": "http",
+      "url": "https://chatbotapi.apimatic.io/mcp/b6f4a85b-7c77-4d37-8cf3-61ef03d83e66/python",
+      "headers": {
+        "X-Apimatic-Mcp-Client": "ClaudeCode"
+      }
+    }
+  }
+}
