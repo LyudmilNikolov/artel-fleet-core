@@ -1,0 +1,33 @@
+{# Drag-and-drop file field (one file). Use inside an element with x-data="fileUpload()" (static/js/app.js);
+   the hidden input is named "file", so a normal or HTMX multipart form submits it as usual. #}
+{% macro drop_zone(accept, hint) %}
+<div @dragover.prevent="dragging = true"
+     @dragleave.prevent="dragging = false"
+     @drop.prevent="handleDrop($event)"
+     :class="dragging ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-300 dark:border-gray-600'"
+     class="border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer hover:border-primary-400"
+     @click="$refs.fileInput.click()">
+    <input x-ref="fileInput" type="file" name="file" accept="{{ accept }}" class="hidden"
+           @change="handleSelect($event)">
+
+    <div x-show="!selectedFile" class="space-y-1">
+        <svg class="w-8 h-8 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ _('docs.drop_or_click') }}</p>
+        <p class="text-xs text-gray-400">{{ hint }}</p>
+    </div>
+
+    <div x-show="selectedFile" x-cloak class="flex items-center justify-center gap-2 text-sm">
+        <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <span x-text="selectedFile" class="text-gray-700 dark:text-gray-300 truncate max-w-xs"></span>
+        <button type="button" @click.stop="clearSelection()" class="text-red-500 hover:text-red-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+</div>
+{% endmacro %}

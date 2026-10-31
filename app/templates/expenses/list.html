@@ -17,8 +17,11 @@
         </div>
         <a href="/expenses" x-show="q || type || category" {% if not (q or type_filter or category_filter) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
     </form>
+    {% if can_edit %}
+    <a href="/expenses/imports" class="h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 ml-auto whitespace-nowrap">{{ _('toll_import.button') }}</a>
+    {% endif %}
     {% if can_add %}
-    <a href="/expenses/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium ml-auto whitespace-nowrap">+ {{ _('expense.add') }}</a>
+    <a href="/expenses/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium {{ '' if can_edit else 'ml-auto' }} whitespace-nowrap">+ {{ _('expense.add') }}</a>
     {% endif %}
 </div>
 <div id="expense-results">

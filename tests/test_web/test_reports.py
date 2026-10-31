@@ -99,6 +99,27 @@ async def test_invalid_maintenance_status_is_422(client, db_session, admin_user)
 
 
 @pytest.mark.asyncio
+async def test_expense_report_filters_by_category(client, db_session, admin_user):
+    truck = await vehicle(db_session, "tractor_unit", "CB3333CC")
+    for category, amount in ((ExpenseCategory.TOLL, "12.34"), (ExpenseCategory.PARKING, "56.78")):
+        db_session.add(Expense(vehicle_id=truck.id, category=category, amount=Decimal(amount), date=date(2026, 1, 1)))
+    await db_session.commit()
+    await login(client)
+    await client.get("/set-language/en")
+    page = await client.get("/reports/expenses?category=toll")
+    assert page.status_code == 200
+    assert 'name="category"' in page.text and '<option value="toll" selected' in page.text
+    assert "12,34" in page.text or "12.34" in page.text
+    assert "56,78" not in page.text and "56.78" not in page.text
+    assert "/reports/export/expenses.csv?category=toll" in page.text
+    export = (await client.get("/reports/export/expenses.csv?category=toll")).text
+    assert "12.34" in export and "56.78" not in export
+    assert (await client.get("/reports/expenses?category=nope")).status_code == 422
+    # other report pages have no category select
+    assert 'name="category"' not in (await client.get("/reports/tco")).text
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("path", PAGES)
 async def test_filters_apply_and_export_links_carry_them(client, db_session, admin_user, path):
     truck = await vehicle(db_session, "tractor_unit", "CB1111AA")

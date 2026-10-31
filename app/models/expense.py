@@ -63,6 +63,15 @@ class Expense(Base, UUIDPrimaryKey, TimestampMixin):
     creator = relationship("User", foreign_keys=[created_by])
     # The Documents & Deadlines entry this cost belongs to, if any (the document holds the link).
     compliance_document = relationship("ComplianceDocument", back_populates="expense", uselist=False, lazy="selectin")
+    # Card transactions this expense was imported from (toll imports); empty for a typed-in expense.
+    toll_transactions = relationship(
+        "TollTransaction",
+        back_populates="expense",
+        order_by="(TollTransaction.transaction_date, TollTransaction.transaction_time)",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
 
     @property
     def compliance_document_id(self) -> uuid.UUID | None:

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% from 'expenses/imports/_problems.html' import reason_text with context %}
+{% set s = batch.summary %}
+{% block title %}{{ batch.filename }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('toll_import.title') }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-3">
+    <a href="/expenses/imports" class="text-gray-500 hover:text-gray-700" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white break-all">{{ batch.filename }}</h2>
+    {% if applied %}
+    <span class="fc-badge fc-badge-success">{{ _('toll_import.status_applied') }}</span>
+    <span class="text-sm text-gray-500 dark:text-gray-400">{{ local_dt(batch.applied_at) }}{% if batch.uploader %} · {{ batch.uploader.full_name }}{% endif %}</span>
+    {% else %}
+    <span class="fc-badge fc-badge-info">{{ _('toll_import.status_preview') }}</span>
+    {% endif %}
+</div>
+
+{% if error %}<div class="fc-notice fc-notice-danger mb-4" role="alert">{{ error }}</div>{% endif %}
+
+{% if applied %}
+<div class="fc-notice fc-notice-success mb-6">
+    {{ _('toll_import.applied_message', rows=s.new_rows, amount=money(s.new_amount), created=s.expenses_created, updated=s.expenses_updated) }}
+    {% if s.invoice_updates %}{{ _('toll_import.applied_invoices', count=s.invoice_updates) }}{% endif %}
+</div>
+{% else %}
+<div class="fc-notice fc-notice-info mb-6">
+    <p>{{ _('toll_import.preview_message') }}</p>
+    <div class="mt-3 flex flex-wrap gap-2">
+        {% if s.new_rows or s.invoice_updates %}
+        <form method="POST" action="/expenses/imports/{{ batch.id }}/apply">
+            <button type="submit" class="fc-btn-primary">{% if s.new_rows %}{{ _('toll_import.apply', rows=s.new_rows, amount=money(s.new_amount)) }}{% else %}{{ _('toll_import.apply_invoices_only') }}{% endif %}</button>
+        </form>
+        {% endif %}
+        <form method="POST" action="/expenses/imports/{{ batch.id }}/cancel">
+            <button type="submit" class="fc-btn-secondary">{{ _('btn.cancel') }}</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    {% macro stat(label, value, extra=none) %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</p>
+        <p class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ value }}</p>
+        {% if extra %}<p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ extra }}</p>{% endif %}
+    </div>
+    {% endmacro %}
+    {{ stat(_('toll_import.period'), local_date(s.period_start) ~ ' – ' ~ local_date(s.period_end), _('toll_import.rows_in_file', count=s.total_rows)) }}
+    {{ stat(_('toll_import.new') if not applied else _('toll_import.added'), s.new_rows, money(s.new_amount)) }}
+    {{ stat(_('toll_import.skipped'), s.duplicate_rows, _('toll_import.skipped_with_invoices', count=s.invoice_updates) if s.invoice_updates else _('toll_import.skipped_hint')) }}
+    {{ stat(_('toll_import.problems'), s.problem_rows, money(s.problem_amount) if s.problem_rows else none) }}
+</div>
+{% if s.new_rows %}
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ _('toll_import.expenses_line', vehicles=s.vehicles, created=s.expenses_created, updated=s.expenses_updated) }}</p>
+{% endif %}
+
+{% set invoiced = s.invoiced or [] %}
+{% if invoiced %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('toll_import.invoiced_title', count=invoiced|length) }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ _('toll_import.invoiced_hint_applied') if applied else _('toll_import.invoiced_hint') }}</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.plate') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.date') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('common.amount') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.invoice') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.transaction_id') }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for t in invoiced %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/expenses/{{ t.expense_id }}'">
+                    <td class="px-4 py-3 font-medium"><a href="/expenses/{{ t.expense_id }}" class="text-primary-600 hover:underline">{{ t.plate }}</a></td>
+                    <td class="px-4 py-3">{{ local_date(t.date) }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ money(t.amount) }}</td>
+                    <td class="px-4 py-3">
+                        <span class="text-gray-400">{{ t.old_invoice or _('toll_import.not_invoiced') }}</span>
+                        <span class="text-gray-400" aria-hidden="true">→</span>
+                        <span class="font-mono font-medium">{{ t.invoice }}</span>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ t.transaction_id }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if batch.problems %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-amber-300 dark:border-amber-700">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('toll_import.problems_title') }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ _('toll_import.problems_hint') }}</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('toll_import.line') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.plate') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.date') }}</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('common.amount') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.reason_column') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('toll_import.transaction_id') }}</th>
+                {% if applied %}<th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>{% endif %}
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for p in batch.problems %}
+                {% set done = applied and p.transaction_id in resolved and p.reason != 'changed' %}
+                <tr class="{{ 'opacity-60' if done }}">
+                    <td class="px-4 py-3 text-right text-gray-500">{{ p.line }}</td>
+                    <td class="px-4 py-3 font-medium">{{ p.plate or '—' }}</td>
+                    <td class="px-4 py-3">{{ local_date(p.date) }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ money(p.amount) if p.amount else (p.amount_text or '—') }}</td>
+                    <td class="px-4 py-3">
+                        {{ reason_text(p) }}
+                        {% if p.reason == 'unknown_vehicle' and p.plate and not done %}
+                        <a href="/vehicles/new?license_plate={{ p.plate | urlencode }}" class="ml-2 text-primary-600 hover:underline whitespace-nowrap">{{ _('toll_import.add_vehicle') }}</a>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ p.transaction_id or '—' }}</td>
+                    {% if applied %}<td class="px-4 py-3">{% if p.reason == 'changed' %}—{% elif done %}<span class="fc-badge fc-badge-success">{{ _('toll_import.resolved') }}</span>{% else %}<span class="fc-badge fc-badge-warning">{{ _('toll_import.waiting') }}</span>{% endif %}</td>{% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

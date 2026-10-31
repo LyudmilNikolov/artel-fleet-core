@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 
 from app.models.expense import Expense, ExpenseCategory
 from app.models.maintenance import MaintenanceRecord, MaintenanceStatus, MaintenanceType
-from app.schemas.report import MaintenanceReportFilters, ReportFilters, parse_report_filters
+from app.schemas.report import ExpenseReportFilters, MaintenanceReportFilters, ReportFilters, parse_report_filters
 from app.schemas.vehicle import VehicleCreate
 from app.services.errors import DomainError
 from app.services.report_service import ReportService
@@ -217,3 +217,36 @@ async def test_exports_use_the_same_filters(db_session):
     assert [r[0] for r in sheet if r[0] and r[0].startswith("CA")] == [van.license_plate]
     csv_rows = (await svc.export_expense_csv(ReportFilters(vehicle_id=truck.id), locale="en")).decode("utf-8-sig")
     assert "12.34" in csv_rows and "1.00" not in csv_rows.replace("12.34", "")
+
+
+def test_category_filter_parses_and_rejects_unknown_values():
+    f = parse_report_filters({"category": "toll", "vehicle_type": "tractor_unit"}, ExpenseReportFilters)
+    assert f.category == ExpenseCategory.TOLL and f.to_query() == {"vehicle_type": "tractor_unit", "category": "toll"}
+    assert not hasattr(parse_report_filters({"category": "toll"}), "category")  # other reports ignore it
+    with pytest.raises(DomainError) as exc:
+        parse_report_filters({"category": "nope"}, ExpenseReportFilters)
+    assert exc.value.key == "error.report_invalid_category"
+
+
+@pytest.mark.asyncio
+async def test_expense_analysis_and_csv_filter_by_category(db_session):
+    truck = await vehicle(db_session, "tractor_unit")
+    van = await vehicle(db_session, "van")
+    await expense(db_session, truck, "10.00", date(2026, 3, 1), ExpenseCategory.TOLL)
+    await expense(db_session, truck, "20.00", date(2026, 4, 1), ExpenseCategory.TOLL)
+    await expense(db_session, truck, "99.00", date(2026, 3, 1), ExpenseCategory.FUEL, liters=Decimal("50"))
+    await expense(db_session, van, "5.00", date(2026, 3, 2), ExpenseCategory.TOLL)
+    svc = ReportService(db_session)
+
+    tolls = await svc.expense_analysis(ExpenseReportFilters(category=ExpenseCategory.TOLL))
+    assert tolls["grand_total"] == Decimal("35.00") and tolls["total_count"] == 3
+    assert [c["category"] for c in tolls["by_category"]] == ["toll"]
+    assert [(m["month"], m["total"]) for m in tolls["monthly"]] == [
+        ("2026-03-01", Decimal("15.00")),
+        ("2026-04-01", Decimal("20.00")),
+    ]
+    truck_tolls = ExpenseReportFilters(category=ExpenseCategory.TOLL, vehicle_id=truck.id)
+    assert (await svc.expense_analysis(truck_tolls))["grand_total"] == Decimal("30.00")
+    csv_text = (await svc.export_expense_csv(truck_tolls, locale="en")).decode("utf-8-sig")
+    assert "30.00" in csv_text and "99.00" not in csv_text
+    assert "Category: Toll" in await svc.filter_label(truck_tolls, "en")

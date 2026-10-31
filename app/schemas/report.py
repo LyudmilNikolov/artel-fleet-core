@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.expense import ExpenseCategory
 from app.models.maintenance import MaintenanceStatus
 from app.services.errors import DomainError
 from app.vehicle_rules import VehicleType, vehicle_type_filter
@@ -39,6 +40,7 @@ class ReportFilters(BaseModel):
             "vehicle_id": self.vehicle_id,
             "vehicle_type": self.vehicle_type,
             "status": getattr(self, "status", None),
+            "category": getattr(self, "category", None),
         }
         return {k: str(getattr(v, "value", v)) for k, v in values.items() if v}
 
@@ -47,6 +49,12 @@ class MaintenanceReportFilters(ReportFilters):
     """Maintenance history adds a status filter."""
 
     status: MaintenanceStatus | None = None
+
+
+class ExpenseReportFilters(ReportFilters):
+    """Expense analysis adds an expense category filter."""
+
+    category: ExpenseCategory | None = None
 
 
 def parse_report_filters(raw: Mapping[str, str | None], cls: type[ReportFilters] = ReportFilters) -> ReportFilters:
@@ -81,6 +89,11 @@ def parse_report_filters(raw: Mapping[str, str | None], cls: type[ReportFilters]
             values["status"] = MaintenanceStatus(clean("status"))
         except ValueError:
             raise DomainError("error.report_invalid_status") from None
+    if issubclass(cls, ExpenseReportFilters) and clean("category"):
+        try:
+            values["category"] = ExpenseCategory(clean("category"))
+        except ValueError:
+            raise DomainError("error.report_invalid_category") from None
     return cls(**values)
 
 

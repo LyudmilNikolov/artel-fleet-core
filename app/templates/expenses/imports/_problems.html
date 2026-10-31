@@ -1,0 +1,4 @@
+{# Why a toll import line was not imported. #}
+{% macro reason_text(p) -%}
+{{ _('toll_import.reason.' ~ p.reason) }}{% if p.field %} ({{ _('toll_import.field.' ~ p.field) }}){% endif %}
+{%- endmacro %}

@@ -6,13 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.maintenance import MaintenanceStatus
-from app.schemas.report import MaintenanceReportFilters, ReportFilters, parse_report_filters
+from app.schemas.report import ExpenseReportFilters, MaintenanceReportFilters, ReportFilters, parse_report_filters
 from app.services.audit_service import AuditService
 from app.services.errors import DomainError, render_error
 from app.services.report_service import ReportService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, vehicle_type_filter
 from app.web.deps import get_web_user
+from app.web.expenses import LISTED_CATEGORIES
 from app.web.pickers import option_rows, picker_state
 
 router = APIRouter(prefix="/reports", tags=["web-reports"])
@@ -72,6 +73,7 @@ async def _report_page(
             "picker": picker_state(vehicle),
             "type_filters": LIST_TYPE_FILTERS,
             "statuses": [s.value for s in MaintenanceStatus],
+            "categories": [c.value for c in LISTED_CATEGORIES],
             "filter_query": filters.to_query(),
             "filter_error": error,
             "vehicle_mismatch": mismatch,
@@ -96,7 +98,12 @@ async def report_fuel(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("/expenses", response_class=HTMLResponse)
 async def report_expenses(request: Request, db: AsyncSession = Depends(get_db)):
     return await _report_page(
-        request, db, "reports/expenses.html", lambda svc, f: svc.expense_analysis(f), EMPTY_EXPENSES
+        request,
+        db,
+        "reports/expenses.html",
+        lambda svc, f: svc.expense_analysis(f),
+        EMPTY_EXPENSES,
+        ExpenseReportFilters,
     )
 
 
@@ -195,5 +202,10 @@ async def web_export_maintenance(request: Request, db: AsyncSession = Depends(ge
 @router.get("/export/expenses.csv")
 async def web_export_expenses(request: Request, db: AsyncSession = Depends(get_db)):
     return await _export(
-        request, db, lambda s, f, loc: s.export_expense_csv(f, locale=loc), "expense_analysis.csv", "text/csv"
+        request,
+        db,
+        lambda s, f, loc: s.export_expense_csv(f, locale=loc),
+        "expense_analysis.csv",
+        "text/csv",
+        ExpenseReportFilters,
     )

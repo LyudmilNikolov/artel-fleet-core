@@ -14,6 +14,7 @@ from app.web.notifications import router as notifications_router
 from app.web.reports import router as reports_router
 from app.web.settings import router as settings_router
 from app.web.help import router as help_router
+from app.web.toll_imports import router as toll_imports_router
 from app.web.vehicles import router as vehicles_router
 
 web_router = APIRouter(dependencies=[Depends(csrf_protect)])
@@ -24,6 +25,8 @@ web_router.include_router(vehicles_router)
 web_router.include_router(drivers_router)
 web_router.include_router(driver_documents_router)
 web_router.include_router(maintenance_router)
+# before expenses: /expenses/imports must not be read as /expenses/{expense_id}
+web_router.include_router(toll_imports_router)
 web_router.include_router(expenses_router)
 web_router.include_router(compliance_router)
 web_router.include_router(reports_router)

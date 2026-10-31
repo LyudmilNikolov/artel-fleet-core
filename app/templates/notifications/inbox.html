@@ -27,6 +27,7 @@
                 {% if not n.is_read %}<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></span>{% endif %}
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ n.message }}</p>
+            {% if n.entity_type == 'expense_import' and n.entity_id %}<a href="/expenses/imports/{{ n.entity_id }}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">{{ _('toll_import.open_import') }}</a>{% endif %}
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ local_dt(n.created_at) }}</p>
         </div>
         {% else %}

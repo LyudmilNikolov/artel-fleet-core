@@ -129,10 +129,13 @@ class ReportRepository:
         return {row[0]: (row[1], row[2], row[3]) for row in (await self.db.execute(query)).all()}
 
     def _expense_scope(self, query, f: ReportFilters):
-        """Apply date and (only when needed) vehicle filters to an aggregate over expenses."""
+        """Apply date, category and (only when needed) vehicle filters to an aggregate over expenses."""
         vehicle = vehicle_conditions(f)
         if vehicle:
             query = query.join(Vehicle, Vehicle.id == Expense.vehicle_id).where(*vehicle)
+        category = getattr(f, "category", None)
+        if category:
+            query = query.where(Expense.category == category)
         return query.where(*date_conditions(Expense.date, f))
 
     async def expense_by_category(self, f: ReportFilters) -> list[tuple]:
