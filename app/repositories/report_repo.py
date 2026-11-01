@@ -37,8 +37,20 @@ class ReportRepository:
         self.db = db
 
     async def tco(self, f: ReportFilters) -> list[tuple]:
-        """Per-vehicle purchase price and expenses; vehicles without expenses in the period are kept."""
+        """Per-vehicle purchase price, expenses and maintenance; vehicles without costs in the period are kept."""
         expense_total = func.coalesce(func.sum(Expense.amount), 0)
+        # Maintenance is summed in its own subquery so it cannot be multiplied by the expense join.
+        # Same rules as the maintenance report: cancelled records are ignored and the period applies
+        # to the completed date (scheduled date while not completed).
+        maintenance_total = (
+            select(func.coalesce(func.sum(MaintenanceRecord.cost), 0))
+            .where(
+                MaintenanceRecord.vehicle_id == Vehicle.id,
+                MaintenanceRecord.status != MaintenanceStatus.CANCELLED,
+                *date_conditions(self.service_date(), f),
+            )
+            .scalar_subquery()
+        )
         query = (
             select(
                 Vehicle.id,
@@ -49,6 +61,7 @@ class ReportRepository:
                 Vehicle.vehicle_type,
                 Vehicle.purchase_price,
                 expense_total.label("total_expenses"),
+                maintenance_total.label("maintenance_cost"),
             )
             .select_from(Vehicle)
             .outerjoin(Expense, and_(Expense.vehicle_id == Vehicle.id, *date_conditions(Expense.date, f)))
@@ -62,7 +75,7 @@ class ReportRepository:
                 Vehicle.vehicle_type,
                 Vehicle.purchase_price,
             )
-            .order_by(expense_total.desc(), Vehicle.license_plate)
+            .order_by((expense_total + maintenance_total).desc(), Vehicle.license_plate)
         )
         return list((await self.db.execute(query)).all())
 

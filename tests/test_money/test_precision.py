@@ -67,9 +67,11 @@ def test_report_json_keeps_decimal_strings():
         year=2026,
         purchase_price=Decimal("0.10"),
         total_expenses=Decimal("0.20"),
+        maintenance_cost=Decimal("0.00"),
         tco=Decimal("0.30"),
     )
     assert row.model_dump(mode="json")["tco"] == "0.30"
+    assert row.model_dump(mode="json")["maintenance_cost"] == "0.00"
 
 
 @pytest.mark.asyncio

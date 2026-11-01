@@ -93,6 +93,7 @@ def test_report_templates_render_decimal_and_missing_purchase_price(templates):
                 "model": "Model",
                 "purchase_price": None,
                 "total_expenses": Decimal("0.30"),
+                "maintenance_cost": Decimal("0.00"),
                 "tco": Decimal("0.30"),
             }
         ],
