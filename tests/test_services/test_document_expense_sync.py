@@ -277,19 +277,22 @@ async def test_deleting_an_expense_clears_the_document_cost_and_files(db_session
 
 
 @pytest.mark.asyncio
-async def test_expense_mileage_updates_vehicle_with_confirmation_for_lower_values(db_session):
+async def test_expense_mileage_raises_vehicle_but_can_never_lower_it(db_session):
+    """QA #3: only a confirmed maintenance correction may lower the odometer, never an expense."""
     v = await make_vehicle(db_session)
     svc = ExpenseService(db_session)
     await svc.create(expense(v.id, mileage_at_refuel=1300), None)
     await reload(db_session, v)
     assert v.current_mileage == 1300
-    with pytest.raises(MileageBelowCurrentError) as exc:
-        await svc.create(expense(v.id, mileage_at_refuel=1200), None)
-    assert (exc.value.value, exc.value.previous) == (1200, 1300)
+    for extra in ({}, {"overwrite_mileage": True}):  # a stray overwrite flag changes nothing
+        with pytest.raises(DomainError) as exc:
+            await svc.create(expense(v.id, mileage_at_refuel=1200, **extra), None)
+        assert exc.value.key == "error.expense_mileage_below_current"
+        assert not isinstance(exc.value, MileageBelowCurrentError)  # no confirm dialog is offered
+        assert (exc.value.params["value"], exc.value.params["previous"]) == (1200, 1300)
     assert len(await expenses(db_session)) == 1
-    await svc.create(expense(v.id, mileage_at_refuel=1200, overwrite_mileage=True), None)
     await reload(db_session, v)
-    assert v.current_mileage == 1200
+    assert v.current_mileage == 1300
 
 
 @pytest.mark.asyncio
@@ -301,8 +304,12 @@ async def test_expense_mileage_on_update_and_untracked_vehicle(db_session):
     await svc.update(created.id, ExpenseUpdate(mileage_at_refuel=1500))
     await reload(db_session, v)
     assert v.current_mileage == 1500
-    with pytest.raises(MileageBelowCurrentError):
-        await svc.update(created.id, ExpenseUpdate(mileage_at_refuel=900))
+    for extra in ({}, {"overwrite_mileage": True}):
+        with pytest.raises(DomainError) as lower:
+            await svc.update(created.id, ExpenseUpdate(mileage_at_refuel=900, **extra))
+        assert lower.value.key == "error.expense_mileage_below_current"
+    await reload(db_session, v)
+    assert v.current_mileage == 1500
     with pytest.raises(DomainError) as exc:
         await svc.create(expense(forklift.id, mileage_at_refuel=10), None)
     assert exc.value.key == "error.mileage_unsupported"

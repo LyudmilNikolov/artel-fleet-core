@@ -13,7 +13,7 @@ from app.repositories.base import BaseRepository
 from app.repositories.vehicle_repo import vehicle_search_condition
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 from app.services import document_expense_sync as sync
-from app.services.errors import DomainError
+from app.services.errors import DomainError, MileageBelowCurrentError
 from app.services.mileage_service import MileageService
 from app.utils.s3 import get_s3_client
 from app.vehicle_rules import VehicleType, validate_expense_category
@@ -48,11 +48,18 @@ class ExpenseService:
         except ValueError as exc:
             raise DomainError(str(exc)) from exc
 
+    async def _apply_mileage(self, vehicle_id: UUID, mileage: int | None, note: str | None, user_id: UUID | None) -> None:
+        """Raise the vehicle's mileage from an expense; never lower it (no overwrite is possible here)."""
+        try:
+            await MileageService(self.session).apply_from_entry(vehicle_id, mileage, note, user_id, False)
+        except MileageBelowCurrentError as exc:
+            raise DomainError("error.expense_mileage_below_current", value=exc.value, previous=exc.previous) from exc
+
     async def create(self, data: ExpenseCreate, user_id: UUID) -> Expense:
         """Create an expense; in a document category with validity dates, also its linked document.
 
-        A mileage on a tracked vehicle updates the vehicle (a lower one needs ``overwrite_mileage``).
-        Every check runs before anything is written.
+        A mileage on a tracked vehicle raises the vehicle's mileage. A lower one is always rejected: only a
+        confirmed maintenance correction may lower the odometer. Every check runs before anything is written.
         """
         data = ExpenseCreate.model_validate(data.model_dump())
         vehicle = await self.session.get(Vehicle, data.vehicle_id)
@@ -71,10 +78,8 @@ class ExpenseService:
                 if data.valid_until < data.valid_from:
                     raise DomainError("error.compliance_end_before_start")
                 await sync.require_applicable(self.session, data.vehicle_id, data.category)
-        await MileageService(self.session).apply_from_entry(
-            data.vehicle_id, data.mileage_at_refuel, data.description, user_id, data.overwrite_mileage
-        )
-        values = data.model_dump(exclude={"valid_from", "valid_until", "policy_number", "overwrite_mileage"})
+        await self._apply_mileage(data.vehicle_id, data.mileage_at_refuel, data.description, user_id)
+        values = data.model_dump(exclude={"valid_from", "valid_until", "policy_number"})
         if data.fuel_liters:
             values["fuel_price_per_liter"] = fuel_price_per_liter(data.amount, data.fuel_liters)
         expense = await self.repo.create(**values, created_by=user_id)
@@ -95,7 +100,7 @@ class ExpenseService:
         if not expense:
             raise DomainError("error.expense_not_found")
         data = ExpenseUpdate.model_validate(data.model_dump(exclude_unset=True))
-        values = data.model_dump(exclude_unset=True, exclude={"overwrite_mileage"})
+        values = data.model_dump(exclude_unset=True)
         linked = expense.compliance_document is not None
         if linked and values.get("category", expense.category) != expense.category:
             raise DomainError("error.expense_category_locked")
@@ -108,13 +113,7 @@ class ExpenseService:
                 values["fuel_price_per_liter"] = fuel_price_per_liter(values.get("amount", expense.amount), liters)
         mileage = values.get("mileage_at_refuel")
         if mileage is not None and mileage != expense.mileage_at_refuel:
-            await MileageService(self.session).apply_from_entry(
-                expense.vehicle_id,
-                mileage,
-                values.get("description", expense.description),
-                None,
-                data.overwrite_mileage,
-            )
+            await self._apply_mileage(expense.vehicle_id, mileage, values.get("description", expense.description), None)
         expense = await self.repo.update(expense, **values)
         if linked and ("amount" in values or "vendor" in values):
             await sync.sync_from_expense(self.session, expense)

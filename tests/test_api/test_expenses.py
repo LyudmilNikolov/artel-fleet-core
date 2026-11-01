@@ -135,20 +135,19 @@ async def test_expense_validity_errors(client, db_session, manager_token):
 
 
 @pytest.mark.asyncio
-async def test_expense_mileage_confirmation_flow(client, db_session, manager_token):
+async def test_expense_cannot_lower_mileage_even_with_an_overwrite_flag(client, db_session, manager_token):
     vehicle = await _vehicle(db_session)
     headers = auth_header(manager_token)
     data = {"vehicle_id": str(vehicle.id), "category": "fuel", "amount": "50.00", "date": "2026-03-01"}
     assert (
         await client.post("/api/v1/expenses", json={**data, "mileage_at_refuel": 1500}, headers=headers)
     ).status_code == 201
-    lower = await client.post("/api/v1/expenses", json={**data, "mileage_at_refuel": 1200}, headers=headers)
-    assert lower.status_code == 409 and "1200" in lower.json()["detail"]
-    assert (
-        await client.post(
-            "/api/v1/expenses", json={**data, "mileage_at_refuel": 1200, "overwrite_mileage": True}, headers=headers
-        )
-    ).status_code == 201
+    for extra in ({}, {"overwrite_mileage": True}):
+        lower = await client.post("/api/v1/expenses", json={**data, "mileage_at_refuel": 1200, **extra}, headers=headers)
+        detail = lower.json()["detail"]
+        assert lower.status_code == 400 and "1200" in detail and "1500" in detail and "maintenance" in detail.lower()
+    await db_session.refresh(vehicle)
+    assert vehicle.current_mileage == 1500
 
 
 @pytest.mark.asyncio
