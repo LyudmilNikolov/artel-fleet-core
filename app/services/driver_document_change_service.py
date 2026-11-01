@@ -176,12 +176,18 @@ class DriverDocumentChangeService:
     async def request_changes(
         self, change_id: UUID, approver_id: UUID, note: str | None = None
     ) -> DriverDocumentChange:
-        """Send the request back: the driver sees the note and can correct and resubmit it (or delete it)."""
+        """Send the request back: the driver sees the note and can correct and resubmit it (or delete it).
+
+        The note is required: the driver has to be told what to fix.
+        """
         change = await self._pending(change_id)
+        note = (note or "").strip()[:MAX_NOTE]
+        if not note:
+            raise DomainError("error.driver_doc_note_required")
         change.status = ChangeStatus.REVISION.value
         change.decided_by = approver_id
         change.decided_at = datetime.now(UTC)
-        change.decision_note = (note or "").strip()[:MAX_NOTE] or None
+        change.decision_note = note
         await self.session.flush()
         await self._log(
             approver_id, AuditAction.UPDATE, change, None, {"status": {"old": "pending", "new": "revision"}}
@@ -190,11 +196,12 @@ class DriverDocumentChangeService:
         return change
 
     async def reject(self, change_id: UUID, approver_id: UUID) -> None:
-        """Refuse the request: it is deleted and the driver is not told or shown anything about it again."""
+        """Refuse the request: the driver is told it was rejected, then it is deleted and not shown again."""
         change = await self._pending(change_id)
         await self._log(
             approver_id, AuditAction.DELETE, change, None, {"status": {"old": "pending", "new": "rejected"}}
         )
+        await self._notify_requester(change, "rejected")
         await self.session.delete(change)
         await self.session.flush()
 

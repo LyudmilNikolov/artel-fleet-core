@@ -234,10 +234,20 @@ async def request_changes(
 ):
     """Send a request back to the driver with a note; they correct and resubmit it, or delete it."""
     form = await request.form()
+    service = DriverDocumentChangeService(db)
     try:
-        await DriverDocumentChangeService(db).request_changes(change_id, user.id, str(form.get("note") or ""))
-    except DomainError:
-        pass
+        await service.request_changes(change_id, user.id, str(form.get("note") or ""))
+    except DomainError as exc:
+        if exc.key != "error.driver_doc_note_required":
+            return RedirectResponse(url=_next_url(form.get("next"), "/driver-documents/pending"), status_code=303)
+        return request.app.state.templates.TemplateResponse(  # the manager must write what to fix
+            request=request,
+            name="driver_documents/pending.html",
+            status_code=422,
+            context=_ctx(
+                request, user, changes=await service.list_pending(), error=render_error(exc, request.state.locale)
+            ),
+        )
     return RedirectResponse(url=_next_url(form.get("next"), "/driver-documents/pending"), status_code=303)
 
 
@@ -245,7 +255,7 @@ async def request_changes(
 async def reject_change(
     request: Request, change_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(require_manager)
 ):
-    """Refuse a request: it is deleted and the driver sees nothing about it again."""
+    """Refuse a request: the driver is told it was rejected; the request is deleted and not shown again."""
     form = await request.form()
     try:
         await DriverDocumentChangeService(db).reject(change_id, user.id)

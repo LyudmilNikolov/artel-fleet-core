@@ -11,13 +11,20 @@
           hx-swap="outerHTML"
           hx-encoding="multipart/form-data"
           hx-indicator="#upload-spinner-{{ entity_type }}"
+          @htmx:before-request="error = ''"
           @htmx:after-request="clearFiles($event)"
+          @htmx:response-error="showError($event, {{ _('errors.upload_failed') | tojson | forceescape }})"
+          @htmx:send-error="error = {{ _('errors.upload_failed') | tojson | forceescape }}"
           class="relative">
         <input type="hidden" name="entity_type" value="{{ entity_type }}">
         <input type="hidden" name="entity_id" value="{{ entity_id }}">
         <input type="hidden" name="doc_type" value="{{ dtype }}">
 
         {{ drop_zone(accept_types, _('docs.max_size')) }}
+
+        {# The server's reason for a rejected file (type, size, rights), or a generic line when the request failed #}
+        <p data-upload-error x-show="error" x-cloak x-text="error" role="alert"
+           class="mt-2 text-sm text-red-600 dark:text-red-400"></p>
 
         {# Upload button #}
         <div x-show="selectedFile" x-cloak class="mt-2 flex justify-end">

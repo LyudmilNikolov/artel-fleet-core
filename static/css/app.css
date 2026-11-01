@@ -2,3 +2,7 @@
 /* a field the server rejected */
 .fc-input[aria-invalid="true"],.fc-select[aria-invalid="true"],.fc-textarea[aria-invalid="true"],.fc-input-date[aria-invalid="true"]{border-color:#dc2626}
 .dark .fc-input[aria-invalid="true"],.dark .fc-select[aria-invalid="true"],.dark .fc-textarea[aria-invalid="true"],.dark .fc-input-date[aria-invalid="true"]{border-color:#f87171}
+
+/* inline "note + button" form that wraps on narrow screens */
+.fc-inline-note{display:flex;flex:1 1 22rem;flex-wrap:wrap;align-items:center;gap:.5rem;min-width:0}
+.fc-inline-note input{flex:1 1 14rem;min-width:0}

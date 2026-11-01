@@ -43,9 +43,9 @@
             <input type="hidden" name="next" value="{{ next_url }}">
             <button type="submit" class="fc-btn-primary">{{ _('driver_doc.approve') }}</button>
         </form>
-        <form method="POST" action="/driver-documents/changes/{{ c.id }}/request-changes" class="flex items-center gap-2">
+        <form method="POST" action="/driver-documents/changes/{{ c.id }}/request-changes" class="fc-inline-note">
             <input type="hidden" name="next" value="{{ next_url }}">
-            <input type="text" name="note" maxlength="500" placeholder="{{ _('driver_doc.revision_note_placeholder') }}" aria-label="{{ _('driver_doc.revision_note') }}" class="fc-input w-72">
+            <input type="text" name="note" required maxlength="500" placeholder="{{ _('driver_doc.revision_note_placeholder') }}" aria-label="{{ _('driver_doc.revision_note') }}" class="fc-input">
             <button type="submit" class="fc-btn-reset whitespace-nowrap">{{ _('driver_doc.request_changes') }}</button>
         </form>
         <form method="POST" action="/driver-documents/changes/{{ c.id }}/reject" onsubmit="return confirm({{ _('driver_doc.reject_confirm') | tojson | forceescape }})">

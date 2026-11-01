@@ -283,7 +283,7 @@ async def test_manager_asks_to_redo_and_the_driver_corrects_and_resubmits(client
 
 
 @pytest.mark.asyncio
-async def test_rejecting_deletes_the_request_and_it_is_never_mentioned_again(
+async def test_rejecting_deletes_the_request_and_tells_the_driver(
     client, db_session, pair, fleet_manager_user
 ):
     await login(client, "mine")
@@ -295,10 +295,17 @@ async def test_rejecting_deletes_the_request_and_it_is_never_mentioned_again(
     assert await db_session.get(DriverDocumentChange, change_id) is None
     await db_session.refresh(pair["entry"])
     assert pair["entry"].document_number == "BG1234567"
-    # the driver is told nothing and sees nothing
-    assert await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id)) is None
+    # QA #13: the driver gets a message that it was rejected (and it follows the language they read in)
+    note = await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id))
+    assert note is not None and "rejected" in note.title.lower()
+    assert note.title_key == "driver_doc.notify_rejected_title"
+    from app.services.notification_text import notification_text
+
+    assert "отхвърлен" in notification_text(note, "bg")[0].lower()
     await client.post("/logout")
     await login(client, "mine")
+    inbox = await client.get("/notifications", params={"tab": "messages"})
+    assert "rejected" in inbox.text.lower()
     tab = await client.get(f"/drivers/{pair['mine'].id}/tab/licences")
     assert "WRONG-1" not in tab.text and "Waiting for approval" not in tab.text and "Changes requested" not in tab.text
     assert "Waiting for approval and sent back" not in tab.text
@@ -633,3 +640,26 @@ async def test_viewers_still_cannot_edit_driver_documents(client, db_session, pa
     for path in (f"/driver-documents/{pair['entry'].id}/edit", f"/driver-documents/new?driver_id={pair['mine'].id}"):
         response = await get(client, path)
         assert response.status_code == 302 and response.headers["location"] == "/", path
+
+
+@pytest.mark.asyncio
+async def test_asking_to_redo_needs_a_note(client, db_session, pair, fleet_manager_user):
+    """QA #14: the driver must be told what to fix, so a blank (or spaces-only) note is refused."""
+    await login(client, "mine")
+    await submit_edit(client, pair["entry"])
+    await manager_login(client)
+    [change] = await changes_for(db_session, pair["mine"])
+    page = await client.get("/driver-documents/pending")
+    assert 'name="note"' in page.text and 'required' in page.text.split('name="note"')[1].split(">")[0]
+    for blank in ("", "   "):
+        refused = await client.post(f"/driver-documents/changes/{change.id}/request-changes", data={"note": blank})
+        assert refused.status_code == 422 and "what the driver should fix" in refused.text
+        await db_session.refresh(change)
+        assert change.status == "pending"  # nothing was sent back
+    assert await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id)) is None
+    ok = await client.post(
+        f"/driver-documents/changes/{change.id}/request-changes", data={"note": "Photo is unreadable"}, follow_redirects=False
+    )
+    assert ok.status_code == 303
+    await db_session.refresh(change)
+    assert change.status == "revision" and change.decision_note == "Photo is unreadable"
