@@ -62,6 +62,9 @@ async def test_driver_cannot_add_expenses_for_other_vehicles_or_documents(client
     before = await count(db_session, Expense)
     other = await client.post("/expenses/new", data={**EXPENSE, "vehicle_id": str(vb.id)})
     assert other.status_code in (400, 403, 422) and await count(db_session, Expense) == before
+    # QA #7: the rejected form must not echo anything about the other vehicle
+    assert "CB2222BB" not in other.text and str(vb.id) not in other.text
+    assert str(va.id) in other.text  # it falls back to the driver's own vehicle
     # insurance / inspection documents stay with managers, also when sent as an expense
     docs_before = await count(db_session, ComplianceDocument)
     casco = await client.post(
@@ -108,6 +111,7 @@ async def test_driver_adds_maintenance_for_their_own_vehicle_only(client, db_ses
         "/maintenance/new", data={**MAINTENANCE, "title": "Other truck", "vehicle_id": str(vb.id)}
     )
     assert other.status_code in (400, 403, 422) and await count(db_session, MaintenanceRecord) == before
+    assert "CB2222BB" not in other.text and str(vb.id) not in other.text  # QA #7
     # completing, editing and deleting stay with managers
     for method, path in (
         ("get", f"/maintenance/{record.id}/edit"),

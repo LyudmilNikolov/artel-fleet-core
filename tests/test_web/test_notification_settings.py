@@ -46,8 +46,9 @@ async def test_sidebar_section_per_role(client, admin_user, fleet_manager_user, 
     await login(client, "testmanager")
     manager_page = (await client.get("/vehicles")).text
     assert 'href="/notifications"' in manager_page  # the inbox (bell) stays available
-    for href in (RULES, "/settings/notifications/settings", "/settings/notifications/channels"):
-        assert f'href="{href}"' not in manager_page, href  # rules and channels are administrator-only
+    for href in (RULES, "/settings/notifications/channels"):  # QA #5: read-only rules and my own channels
+        assert f'href="{href}"' in manager_page, href
+    assert 'href="/settings/notifications/settings"' not in manager_page  # global settings stay admin-only
     await client.post("/logout")
 
     await login(client, "testviewer")
@@ -71,23 +72,34 @@ async def test_rules_page_lists_every_source_with_defaults(client, admin_user):
 
 
 @pytest.mark.asyncio
-async def test_fleet_manager_cannot_open_or_change_rules_and_channels(client, db_session, fleet_manager_user):
+async def test_fleet_manager_reads_rules_and_manages_own_channels_only(client, db_session, fleet_manager_user):
+    """QA #5: rules are read-only for a manager, own channels are editable, global settings stay admin-only."""
     await login(client, "testmanager")
-    for path in (RULES, "/settings/notifications", "/settings/notifications/settings", "/settings/notifications/channels"):
+    rules = await client.get(RULES)
+    assert rules.status_code == 200 and "data-rule-card" in rules.text
+    assert "data-rules-save" not in rules.text and "disabled" in rules.text  # read-only page
+    home = await client.get("/settings/notifications")
+    assert home.status_code == 302 and home.headers["location"] == RULES
+    for path in ("/settings/notifications/settings",):
         response = await client.get(path)
         assert response.status_code in (302, 303) and response.headers["location"] == "/", path
     for method, path, data in (
         ("post", f"{RULES}/vehicle:casco", form()),
         ("post", f"{RULES}/apply", {"owner": "vehicle", "from_source": "vehicle:casco"}),
         ("post", "/settings/notifications/settings", {"send_time": "07:00", "timezone": "UTC"}),
-        ("post", "/settings/notifications/channels", {"telegram_chat_id": "123456789"}),
-        ("post", "/settings/notifications/channels/test/telegram", {}),
     ):
         response = await getattr(client, method)(path, data=data)
         assert response.status_code in (302, 303) and response.headers["location"] == "/", path
-    assert await stored(db_session) == {}
-    channels = await NotificationRuleService(db_session).channels(fleet_manager_user.id)
-    assert channels.telegram_chat_id is None  # nothing was saved for the manager
+    assert await stored(db_session) == {}  # no rule was written
+
+    channels = await client.get("/settings/notifications/channels")
+    assert channels.status_code == 200
+    saved = await client.post("/settings/notifications/channels", data={"telegram_chat_id": "123456789"})
+    assert saved.status_code == 303 and saved.headers["location"].endswith("channels?saved=1")
+    mine = await NotificationRuleService(db_session).channels(fleet_manager_user.id)
+    assert mine.telegram_chat_id == "123456789"  # only their own row
+    test = await client.post("/settings/notifications/channels/test/email")
+    assert test.status_code == 303 and "/settings/notifications/channels?test=email_" in test.headers["location"]
 
 
 @pytest.mark.asyncio

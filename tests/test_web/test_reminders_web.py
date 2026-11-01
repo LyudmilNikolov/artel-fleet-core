@@ -264,8 +264,9 @@ async def test_send_test_messages_from_my_channels(client, db_session, monkeypat
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("username", ["testviewer", "testmanager"])
-async def test_only_the_administrator_can_send_test_messages(client, viewer_user, fleet_manager_user, username):
+@pytest.mark.parametrize("username", ["testviewer"])
+async def test_viewers_cannot_send_test_messages(client, viewer_user, fleet_manager_user, username):
+    """Managers send tests to their own address from My channels (QA #5); viewers have no channels page."""
     await login(client, username)
     response = await client.post("/settings/notifications/channels/test/email")
     assert response.status_code in (302, 303) and response.headers["location"] == "/"
