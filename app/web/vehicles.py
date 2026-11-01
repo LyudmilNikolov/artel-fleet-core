@@ -101,7 +101,9 @@ async def vehicle_list(
     )
 
 
-async def render_form(request, db, user, vehicle=None, form_data=None, error=None, field_errors=None):
+async def render_form(
+    request, db, user, vehicle=None, form_data=None, error=None, field_errors=None, plate_warning=None
+):
     if form_data is None:
         form_data = (
             VehicleRead.model_validate(vehicle).model_dump(mode="json")
@@ -120,7 +122,7 @@ async def render_form(request, db, user, vehicle=None, form_data=None, error=Non
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="vehicles/form.html",
-        status_code=422 if error else 200,
+        status_code=409 if plate_warning else 422 if error else 200,
         context={
             "request": request,
             "user": user,
@@ -134,6 +136,7 @@ async def render_form(request, db, user, vehicle=None, form_data=None, error=Non
             "statuses": VehicleStatus,
             "error": error,
             "field_errors": field_errors or {},
+            "plate_warning": plate_warning,  # the real plate a change to forklift would drop
             "choices": choices,
             "container_sizes": CONTAINER_SIZES,
             "technical_fields": sorted(set.union(*APPLICABLE.values())),
@@ -152,6 +155,7 @@ async def render_form(request, db, user, vehicle=None, form_data=None, error=Non
 
 def submitted_values(form, editing):
     values = dict(form)
+    values.pop("confirm_plate_drop", None)  # a control flag of the form, not a vehicle field
     if form.get("vehicle_type") == "container_semi_trailer":
         values["supported_container_sizes"] = form.getlist("supported_container_sizes")
     for name, value in list(values.items()):
@@ -169,6 +173,14 @@ async def save_form(request, db, user, vehicle=None):
     raw["supported_container_sizes"] = form.getlist("supported_container_sizes")
     try:
         values = submitted_values(form, vehicle is not None)
+        if (
+            vehicle
+            and values.get("vehicle_type") == VehicleType.FORKLIFT.value
+            and vehicle.vehicle_type != VehicleType.FORKLIFT
+            and not vehicle.license_plate.startswith("PRIVATE-")
+            and form.get("confirm_plate_drop") != "1"
+        ):  # a forklift only has a generated internal id: the real plate would be lost, so ask first
+            return await render_form(request, db, user, vehicle, raw, plate_warning=vehicle.license_plate)
         if vehicle:
             result = await VehicleService(db).update(vehicle.id, VehicleUpdate(**values), user_id=user.id)
         else:

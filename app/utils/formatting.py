@@ -1,5 +1,6 @@
 """Locale-explicit display helpers; monetary inputs stay decimal."""
 
+import re
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -39,6 +40,21 @@ def format_percent(value: Decimal | int | float | str | None, lang: str = "bg", 
     if value is None:
         return "—"
     return format_number(value, lang, decimals) + ("%" if lang == "en" else NBSP + "%")
+
+
+def department_label(value: str | None, lang: str = "bg") -> str:
+    """A department name in the UI language when it is a known one (``department.<name>``), else as typed.
+
+    Departments are free text configured per deployment, so only common names have a translation.
+    """
+    from app.i18n import _
+
+    text = (value or "").strip()
+    if not text:
+        return ""
+    key = "department." + re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    translated = _(key, lang=lang)
+    return text if translated == key else translated
 
 
 def format_local_date(value: date | datetime | str | None, lang: str = "bg") -> str:
