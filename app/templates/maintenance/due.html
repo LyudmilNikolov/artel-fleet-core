@@ -35,8 +35,8 @@
                     </td>
                     <td class="px-4 py-3 font-medium">{{ _('service_item.' + v.record.service_item) }}</td>
                     <td class="px-4 py-3 whitespace-nowrap">{{ due_badge(v.due) }}</td>
-                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ v.record.completed_date or '—' }}{% if v.record.mileage_at_service %}<span class="block text-xs">{{ "{:,}".format(v.record.mileage_at_service) }} km</span>{% endif %}</td>
-                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ "{:,}".format(v.record.next_service_mileage) ~ ' km' if v.record.next_service_mileage is not none else '—' }}{% if v.vehicle.current_mileage is not none %}<span class="block text-xs text-gray-500">{{ _('maintenance.now_at') }} {{ "{:,}".format(v.vehicle.current_mileage) }} km</span>{% endif %}</td>
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ v.record.completed_date or '—' }}{% if v.record.mileage_at_service %}<span class="block text-xs">{{ fmt_number(v.record.mileage_at_service) }} km</span>{% endif %}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ fmt_number(v.record.next_service_mileage) ~ ' km' if v.record.next_service_mileage is not none else '—' }}{% if v.vehicle.current_mileage is not none %}<span class="block text-xs text-gray-500">{{ _('maintenance.now_at') }} {{ "{:,}".format(v.vehicle.current_mileage) }} km</span>{% endif %}</td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ v.record.next_service_date or '—' }}</td>
                     <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ due_left(v.due) }}</td>
                 </tr>

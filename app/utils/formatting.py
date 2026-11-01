@@ -1,7 +1,7 @@
 """Locale-explicit display helpers; monetary inputs stay decimal."""
 
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from babel.numbers import format_currency
 
@@ -16,6 +16,29 @@ def money(value: Decimal | int | str | None, lang: str = "bg") -> str:
 
 
 format_money = money
+
+NBSP = "\u00a0"
+
+
+def format_number(value: Decimal | int | float | str | None, lang: str = "bg", decimals: int = 0) -> str:
+    """A plain number in the UI language: Bulgarian ``1 234,5`` (non-breaking space), English ``1,234.5``.
+
+    Grouping starts at four digits in both languages. Rounds half up; ``None`` shows a dash.
+    """
+    if value is None:
+        return "—"
+    number = Decimal(str(value)).quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
+    text = f"{number:,.{decimals}f}"
+    if lang == "en":
+        return text
+    return text.replace(",", NBSP).replace(".", ",")
+
+
+def format_percent(value: Decimal | int | float | str | None, lang: str = "bg", decimals: int = 1) -> str:
+    """A percentage: Bulgarian ``72,9 %`` (non-breaking space before the sign), English ``72.9%``."""
+    if value is None:
+        return "—"
+    return format_number(value, lang, decimals) + ("%" if lang == "en" else NBSP + "%")
 
 
 def format_local_date(value: date | datetime | str | None, lang: str = "bg") -> str:

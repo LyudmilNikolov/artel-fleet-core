@@ -53,7 +53,7 @@
                 <label class="fc-label" for="fuel_price_per_liter">{{ _('expense.fuel_price_per_liter') }} (EUR)</label>
                 {# Calculated from amount / liters; the server recomputes it, so this field is display-only. #}
                 <input id="fuel_price_per_liter" type="text" readonly tabindex="-1" class="fc-input" placeholder="—"
-                       value="{{ value('fuel_price_per_liter') }}" :value="fuelPricePerLiter(amount, liters)">
+                       value="{{ fmt_number(value('fuel_price_per_liter'), 2) if value('fuel_price_per_liter') not in (none, '') else '' }}" :value="fuelPricePerLiter(amount, liters)">
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('expense.fuel_price_auto') }}</p>
             </div>
         </div>

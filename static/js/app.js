@@ -55,7 +55,15 @@ window.fuelPricePerLiter = function(amount, liters) {
     var cents = Math.round(num(amount) * 100), hundredths = Math.round(num(liters) * 100);
     if (!(cents >= 0) || !(hundredths > 0)) return '';
     var price = Math.floor((2 * cents * 100 + hundredths) / (2 * hundredths));
-    return (price / 100).toFixed(2);
+    return fcNumber(price / 100, 2);
+};
+
+// Number in the page language, same rules as the server: Bulgarian '1 234,5', English '1,234.5'.
+window.fcNumber = function(n, decimals) {
+    decimals = decimals || 0;
+    var text = Number(n).toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    if (document.documentElement.lang === 'en') return text;
+    return text.replace(/,/g, '\u00a0').replace('.', ',');
 };
 
 // Localized native validation: a field's data-msg-required / data-msg-format replace the browser-language text.

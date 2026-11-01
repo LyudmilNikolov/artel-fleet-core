@@ -33,8 +33,8 @@
                 <p class="text-xs text-gray-700 dark:text-gray-300 truncate" title="{{ doc.filename }}">{{ doc.filename }}</p>
                 <p class="text-xs text-gray-400 mt-0.5">
                     {% if doc.size_bytes < 1024 %}{{ doc.size_bytes }} B
-                    {% elif doc.size_bytes < 1048576 %}{{ "%.1f"|format(doc.size_bytes / 1024) }} KB
-                    {% else %}{{ "%.1f"|format(doc.size_bytes / 1048576) }} MB{% endif %}
+                    {% elif doc.size_bytes < 1048576 %}{{ fmt_number(doc.size_bytes / 1024, 1) }} KB
+                    {% else %}{{ fmt_number(doc.size_bytes / 1048576, 1) }} MB{% endif %}
                     <span class="mx-1">&middot;</span>
                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs
                         {% if doc.type.value == 'photo' %}fc-badge-info

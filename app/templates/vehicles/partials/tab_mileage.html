@@ -18,13 +18,13 @@
                     {{ local_dt(log.recorded_at) }}
                 </td>
                 <td class="px-4 py-3 text-right font-mono font-medium text-gray-900 dark:text-white">
-                    {{ "{:,}".format(log.value) }} km
+                    {{ fmt_number(log.value) }} km
                 </td>
                 <td class="px-4 py-3 text-right font-mono text-xs">
                     {% if not loop.last %}
                     {% set delta = log.value - logs[loop.index].value %}
                     <span class="{% if delta > 0 %}text-green-600 dark:text-green-400{% elif delta < 0 %}text-amber-600 dark:text-amber-400{% else %}text-gray-400{% endif %}">
-                        {{ '+' if delta > 0 else '' }}{{ "{:,}".format(delta) }}
+                        {{ '+' if delta > 0 else '' }}{{ fmt_number(delta) }}
                     </span>
                     {% endif %}
                 </td>

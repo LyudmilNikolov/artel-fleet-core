@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-from app.utils.formatting import money
+from app.utils.formatting import format_number, format_percent, money
 
 
 @pytest.fixture
@@ -15,6 +15,8 @@ def templates():
     env.globals.update(
         _=lambda key, **kwargs: key,
         money=lambda value: money(value, "bg"),
+        fmt_number=lambda value, decimals=0: format_number(value, "bg", decimals),
+        fmt_percent=lambda value, decimals=1: format_percent(value, "bg", decimals),
         fuel_average=lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
         lang="bg",
         user=None,
