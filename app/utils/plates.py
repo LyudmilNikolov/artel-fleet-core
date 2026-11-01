@@ -6,6 +6,23 @@ all mean the same vehicle.
 """
 
 CYRILLIC_TO_LATIN = str.maketrans("АВЕКМНОРСТУХ", "ABEKMHOPCTYX")
+_LOOKALIKES = "АВЕКМНОРСТУХ" + "авекмнорстух"
+_LATIN_TWINS = "ABEKMHOPCTYX" + "abekmhopctyx"
+
+
+def normalize_plate(plate: str) -> str:
+    """Stored form of a plate: upper case, with Cyrillic look-alike letters replaced by their Latin twins.
+
+    Spacing and every other character are kept. Applied on save and before every duplicate lookup.
+    """
+    return plate.upper().translate(CYRILLIC_TO_LATIN)
+
+
+def plate_sql_key(column):
+    """SQL expression equal to ``normalize_plate`` of a stored plate, so rows saved before it existed still match."""
+    from sqlalchemy import func
+
+    return func.upper(func.translate(column, _LOOKALIKES, _LATIN_TWINS))
 
 
 def plate_key(plate: str | None) -> str:
