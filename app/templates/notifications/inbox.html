@@ -22,11 +22,12 @@
         {% for n in messages %}
         <div class="p-4 {% if not n.is_read %}bg-blue-50/30 dark:bg-blue-900/10{% endif %}"
              {% if not n.is_read %}hx-post="/notifications/{{ n.id }}/read" hx-swap="none" hx-trigger="click"{% endif %}>
+            {% set text = notice_text(n) %}
             <div class="flex items-center justify-between">
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ n.title }}</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ text[0] }}</p>
                 {% if not n.is_read %}<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></span>{% endif %}
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ n.message }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ text[1] }}</p>
             {% if n.entity_type == 'expense_import' and n.entity_id %}<a href="/expenses/imports/{{ n.entity_id }}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">{{ _('toll_import.open_import') }}</a>{% endif %}
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ local_dt(n.created_at) }}</p>
         </div>

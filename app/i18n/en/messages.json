@@ -1168,6 +1168,7 @@
   "toll_import.notify_title": "Toll import: some lines were not imported",
   "toll_import.notify_message": "{count} lines of {filename} were not imported.",
   "toll_import.notify_unknown_plates": "Vehicles missing in FleetCore: {plates}.",
+  "toll_import.notify_message_plates": "{count} lines of {filename} were not imported. Vehicles missing in FleetCore: {plates}.",
   "toll_import.reason.missing_field": "Value missing",
   "toll_import.reason.bad_date": "Date not recognised",
   "toll_import.reason.bad_amount": "Amount not recognised or more than 2 decimals",

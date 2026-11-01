@@ -26,6 +26,11 @@ class Notification(UUIDPrimaryKey, Base):
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     type: Mapped[NotificationType] = mapped_column(Enum(NotificationType), nullable=False)
+    # Translation keys and values, so the message can be shown in the reader's current language. Rows without
+    # them (older ones) are shown with ``title`` / ``message`` as stored.
+    title_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    message_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     entity_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     entity_id: Mapped[str | None] = mapped_column(UUID, nullable=True)

@@ -1168,6 +1168,7 @@
   "toll_import.notify_title": "Импорт на пътни такси: някои редове не са импортирани",
   "toll_import.notify_message": "{count} реда от {filename} не са импортирани.",
   "toll_import.notify_unknown_plates": "Липсващи превозни средства във FleetCore: {plates}.",
+  "toll_import.notify_message_plates": "{count} реда от {filename} не са импортирани. Липсващи превозни средства във FleetCore: {plates}.",
   "toll_import.reason.missing_field": "Липсва стойност",
   "toll_import.reason.bad_date": "Неразпозната дата",
   "toll_import.reason.bad_amount": "Неразпозната сума или повече от 2 знака след десетичната запетая",

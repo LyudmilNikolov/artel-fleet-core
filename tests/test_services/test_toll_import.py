@@ -274,6 +274,12 @@ async def test_problem_lines_block_only_themselves_and_are_reported(db_session, 
     note = await db_session.scalar(select(Notification).where(Notification.user_id == admin_user.id))
     assert note.entity_type == "expense_import" and note.entity_id == batch.id
     assert "5 lines" in note.message and "XX0000XX" in note.message
+    # QA #11: the same message can be shown in either language later
+    from app.services.notification_text import notification_text
+
+    assert "5 lines" in notification_text(note, "en")[1] and "XX0000XX" in notification_text(note, "en")[1]
+    bg_title, bg_message = notification_text(note, "bg")
+    assert "5 реда" in bg_message and "XX0000XX" in bg_message and "Липсващи" in bg_message
 
 
 @pytest.mark.asyncio

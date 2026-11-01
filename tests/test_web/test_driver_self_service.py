@@ -142,6 +142,14 @@ async def test_driver_new_document_waits_for_approval(client, db_session, pair, 
     assert "/approve" not in tab.text  # a driver cannot approve
     manager_note = await db_session.scalar(select(Notification).where(Notification.user_id == fleet_manager_user.id))
     assert manager_note is not None and "Mine Driver" in manager_note.message
+    # QA #11: the stored message follows the language the manager is looking at now, not the one it was created in
+    await client.post("/logout")
+    await manager_login(client)
+    for lang, title in (("bg", "Промяна в документ за одобрение"), ("en", "Document change to approve")):
+        inbox = await client.get("/notifications", params={"tab": "messages", "lang": lang})
+        assert title in inbox.text, lang
+        other = "Document change to approve" if lang == "bg" else "Промяна в документ за одобрение"
+        assert other not in inbox.text, lang
     assert await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id)) is None
 
 
