@@ -32,7 +32,7 @@
                 <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{{ e.vendor or '' }}</td>
                 <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">
                     {% if e.category.value == 'fuel' and e.fuel_liters %}
-                        {{ e.fuel_liters }} {{ _('reports.liters_unit') }} &middot; {{ e.fuel_type or '' }}
+                        {{ fmt_number(e.fuel_liters, 2) }} {{ _('reports.liters_unit') }} &middot; {{ e.fuel_type or '' }}
                     {% else %}
                         {{ e.description or '' }}
                     {% endif %}

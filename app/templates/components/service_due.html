@@ -14,7 +14,7 @@
 {# Remaining km and days, e.g. "1,200 km · 14 days" or "overdue by 300 km". #}
 {% macro due_left(due) %}
 {%- set parts = [] -%}
-{%- if due.km_left is not none -%}{%- set ignore = parts.append(("{:,}".format(due.km_left | abs) ~ ' km') ~ (' ' ~ _('service_due.over') if due.km_left < 0 else '')) -%}{%- endif -%}
+{%- if due.km_left is not none -%}{%- set ignore = parts.append((fmt_number(due.km_left | abs) ~ ' km') ~ (' ' ~ _('service_due.over') if due.km_left < 0 else '')) -%}{%- endif -%}
 {%- if due.days_left is not none -%}{%- set ignore = parts.append(_('service_due.days', days=due.days_left | abs) ~ (' ' ~ _('service_due.over') if due.days_left < 0 else '')) -%}{%- endif -%}
 {{ parts | join(' · ') if parts else '—' }}
 {% endmacro %}

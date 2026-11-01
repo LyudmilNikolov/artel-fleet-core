@@ -24,7 +24,7 @@
     </div>
     <div class="fc-card p-5">
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.total_transactions') }}</p>
-        <p class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ "{:,}".format(data.total_count) }}</p>
+        <p class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ fmt_number(data.total_count) }}</p>
     </div>
     <div class="fc-card p-5">
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.categories_count') }}</p>
@@ -77,7 +77,7 @@
                         </td>
                         <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
                             {% if data.grand_total > 0 %}
-                            {{ "{:.1f}".format(row.total / data.grand_total * 100) }}%
+                            {{ fmt_percent(row.total / data.grand_total * 100) }}
                             {% else %}
                             0%
                             {% endif %}

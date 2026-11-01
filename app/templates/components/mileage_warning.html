@@ -4,7 +4,7 @@
 <div x-data="{ warn: true }" x-show="warn" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="warn = false">
     <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6" role="alertdialog" aria-modal="true">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ _('mileage_entry.warning_title') }}</h3>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ _('mileage_entry.warning_text', previous='{:,}'.format(mileage_warning.previous), value='{:,}'.format(mileage_warning.value)) }}</p>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ _('mileage_entry.warning_text', previous=fmt_number(mileage_warning.previous), value=fmt_number(mileage_warning.value)) }}</p>
         <div class="mt-6 flex flex-col gap-2">
             <button type="submit" name="confirm_mileage_overwrite" value="1" class="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg">{{ _('mileage_entry.overwrite_confirm') }}</button>
             <button type="button" @click="warn = false" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.cancel') }}</button>

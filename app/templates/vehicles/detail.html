@@ -55,7 +55,7 @@
             {{ field(_('vehicle.vehicle_type'), _('vehicle_type.' + vehicle.vehicle_type.value)) }}
             {% for name in applicable_fields %}
             {% set value = vehicle|attr(name) %}
-            {{ field(_('vehicle.' + name) ~ (' (kg)' if name.endswith('_kg') else ' (m)' if name.endswith('_m') else ' (L)' if name.endswith('_l') else ' (cm³)' if name.endswith('_cc') else ' (hp)' if name.endswith('_hp') else ' (km)' if name == 'current_mileage' else ''), (_(name + '.' + value.value) if name in ['fuel_type', 'transmission', 'power_source'] and value else (value|join(', ') if name == 'supported_container_sizes' and value else value))) }}
+            {{ field(_('vehicle.' + name) ~ (' (kg)' if name.endswith('_kg') else ' (m)' if name.endswith('_m') else ' (L)' if name.endswith('_l') else ' (cm³)' if name.endswith('_cc') else ' (hp)' if name.endswith('_hp') else ' (km)' if name == 'current_mileage' else ''), (_(name + '.' + value.value) if name in ['fuel_type', 'transmission', 'power_source'] and value else (value|join(', ') if name == 'supported_container_sizes' and value else (fmt_number(value, (value.as_tuple().exponent|abs) if value.as_tuple is defined and value.as_tuple().exponent < 0 else 0) if (value is number and value is not boolean) else value)))) }}
             {% endfor %}
             {{ field(_('vehicle.department'), vehicle.department) }}
             {{ field(_('vehicle.purchase_date'), vehicle.purchase_date) }}

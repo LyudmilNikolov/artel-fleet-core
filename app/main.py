@@ -16,7 +16,7 @@ from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
 from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
 from app.services.errors import render_error
-from app.utils.formatting import format_local_date, format_local_datetime, money
+from app.utils.formatting import format_local_date, format_local_datetime, format_number, format_percent, money
 from app.utils.rate_limit import configure_limiter
 from app.web.csrf import get_token as get_csrf_token
 from app.web.deps import WebRedirectException
@@ -76,6 +76,8 @@ def create_app() -> FastAPI:
             "csrf_token": get_csrf_token(request),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
+            "fmt_number": lambda value, decimals=0: format_number(value, lang, decimals),
+            "fmt_percent": lambda value, decimals=1: format_percent(value, lang, decimals),
             "local_date": lambda value: format_local_date(value, lang),
             "local_dt": lambda value, seconds=False: format_local_datetime(value, lang, seconds),
             "languages": get_available_languages(),
