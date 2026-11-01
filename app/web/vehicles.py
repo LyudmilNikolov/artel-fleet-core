@@ -31,6 +31,7 @@ from app.vehicle_rules import (
     type_group_of,
     vehicle_type_filter,
 )
+from app.web.form_errors import banner_for, field_errors_from
 from app.web.deps import can_contribute, driver_scope_of, get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
@@ -176,12 +177,12 @@ async def save_form(request, db, user, vehicle=None):
     except (ValidationError, DomainError) as exc:
         errors = {}
         if isinstance(exc, ValidationError):
-            for detail in exc.errors():
-                key = detail.get("ctx", {}).get("error")
-                errors[str(detail["loc"][0]) if detail["loc"] else "vehicle_type"] = render_error(
-                    key or "errors.invalid_input", request.state.locale
-                )
-        return await render_form(request, db, user, vehicle, raw, render_error(exc, request.state.locale), errors)
+            errors = field_errors_from(exc, request.state.locale)
+            if "_form" in errors:  # a rule that spans fields: show it on the type field
+                errors["vehicle_type"] = errors.pop("_form")
+        return await render_form(
+            request, db, user, vehicle, raw, banner_for(exc, errors, request.state.locale), errors
+        )
 
 
 @router.get("/new", response_class=HTMLResponse)

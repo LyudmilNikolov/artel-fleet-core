@@ -1,7 +1,8 @@
 {# Mileage input for vehicles that track mileage. Needs `field_name`, `field_label`, `form_data`, `picker`. #}
 <div x-show="tracked" {% if not picker.tracked %}style="display: none"{% endif %}>
     <label class="fc-label" for="{{ field_name }}">{{ field_label }} (km)</label>
-    <input id="{{ field_name }}" type="text" inputmode="numeric" name="{{ field_name }}" value="{{ form_data.get(field_name) if form_data.get(field_name) is not none else '' }}" class="fc-input" :disabled="!tracked">
+    <input id="{{ field_name }}" {% if field_errors and field_errors.get(field_name) %}aria-invalid="true"{% endif %} type="text" inputmode="numeric" name="{{ field_name }}" value="{{ form_data.get(field_name) if form_data.get(field_name) is not none else '' }}" class="fc-input" :disabled="!tracked">
+    {% if field_errors and field_errors.get(field_name) %}<p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ field_errors[field_name] }}</p>{% endif %}
     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
         <span x-show="currentMileage !== null" {% if picker.currentMileage is none %}style="display: none"{% endif %}>{{ _('mileage_entry.current') }} <span x-text="currentMileage === null ? '' : fcNumber(currentMileage)">{{ fmt_number(picker.currentMileage) if picker.currentMileage is not none else '' }}</span> km.</span>
         {{ _('mileage_entry.hint') }}

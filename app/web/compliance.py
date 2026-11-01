@@ -18,6 +18,7 @@ from app.services.compliance_service import ComplianceService
 from app.services.errors import DomainError, render_error
 from app.vehicle_rules import ComplianceType, compliance_types_for
 from app.services.policy_privacy import policy_number_for
+from app.web.form_errors import banner_for, field_errors_from
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, web_require_roles
 
 router = APIRouter(prefix="/compliance", tags=["web-compliance"])
@@ -173,12 +174,10 @@ async def _render_form(
 def _errors(exc: Exception, lang: str) -> tuple[str, dict]:
     field_errors = {}
     if isinstance(exc, ValidationError):
-        for detail in exc.errors():
-            key = detail.get("ctx", {}).get("error")
-            name = str(detail["loc"][0]) if detail["loc"] else "end_date"
-            field_errors[name] = render_error(key or "errors.invalid_input", lang)
-        first = next(iter(field_errors.values()), None)
-        return first or render_error(exc, lang), field_errors
+        field_errors = field_errors_from(exc, lang)
+        if "_form" in field_errors:  # the end-before-start rule belongs to the end date
+            field_errors["end_date"] = field_errors.pop("_form")
+        return banner_for(exc, field_errors, lang), field_errors
     return render_error(exc, lang), field_errors
 
 

@@ -170,3 +170,7 @@ a.fc-notice-warning:hover { background-color: #fef9c3; }
     .fc-filters .fc-filter-toggle { justify-content: flex-start; }
     .fc-filters button[type="submit"], .fc-filters .fc-btn-reset { justify-content: center; }
 }
+
+/* a field the server rejected */
+.fc-input[aria-invalid="true"],.fc-select[aria-invalid="true"],.fc-textarea[aria-invalid="true"],.fc-input-date[aria-invalid="true"]{border-color:#dc2626}
+.dark .fc-input[aria-invalid="true"],.dark .fc-select[aria-invalid="true"],.dark .fc-textarea[aria-invalid="true"],.dark .fc-input-date[aria-invalid="true"]{border-color:#f87171}
