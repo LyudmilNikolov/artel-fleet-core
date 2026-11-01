@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ _('app_name') }}{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon-32.png">
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script defer src="/static/vendor/js/alpine.min.js"></script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen p-4">
+    <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

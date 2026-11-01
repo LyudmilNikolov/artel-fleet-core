@@ -52,7 +52,7 @@
 <div><label for="{{ name }}" class="fc-label">{{ _('vehicle.' ~ name) }}{% if name == 'purchase_price' %} (EUR){% endif %}</label>
 <input id="{{ name }}" {% if field_errors.get(name) %}aria-invalid="true"{% endif %} name="{{ name }}" value="{{ form_data.get(name) if form_data.get(name) is not none else '' }}" type="{{ 'text' if field_errors.get(name) else 'number' if name in ['year','purchase_price'] else 'date' if name == 'purchase_date' else 'text' }}" {% if name in ['brand','model'] %}required maxlength="100"{% endif %} {% if name == 'vin' %}minlength="17" maxlength="17"{% endif %} {% if name == 'color' %}maxlength="50"{% endif %} {% if name == 'purchase_price' %}step="0.01" min="0"{% endif %} {% if name == 'year' %}min="1900" max="2100" step="1"{% endif %} class="fc-input">{{ errors(name) }}</div>
 {% endfor %}
-<div><label for="department" class="fc-label">{{ _('vehicle.department') }}</label><select id="department" name="department" required class="fc-select"><option value="">—</option>{% for name in departments %}<option value="{{ name }}" {% if form_data.get('department') == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>{{ errors('department') }}</div>
+<div><label for="department" class="fc-label">{{ _('vehicle.department') }}</label><select id="department" name="department" required class="fc-select"><option value="">—</option>{% for name in departments %}<option value="{{ name }}" {% if form_data.get('department') == name %}selected{% endif %}>{{ dept(name) }}</option>{% endfor %}</select>{{ errors('department') }}</div>
 {% if vehicle %}<div><label class="fc-label">{{ _('common.status') }}</label><select name="status" class="fc-select">{% for opt in statuses %}<option value="{{ opt.value }}" {% if form_data.get('status') == opt.value %}selected{% endif %}>{{ _('status.' ~ opt.value) }}</option>{% endfor %}</select></div>{% endif %}
 </div>
 {% if vehicle %}<p class="text-sm text-amber-700">{{ _('vehicle.type_change_warning') }}</p>{% endif %}
@@ -71,5 +71,6 @@
 </div>{% endfor %}</fieldset>
 <div><label for="notes" class="fc-label">{{ _('common.notes') }}</label><textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ form_data.get('notes') or '' }}</textarea></div>
 <div class="flex items-center gap-3"><button type="submit" class="fc-btn-primary" {% if not departments %}disabled{% endif %}>{{ _('btn.save') }}</button><a href="/vehicles{% if vehicle %}/{{ vehicle.id }}{% endif %}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a></div>
+{% include 'components/plate_warning.html' %}
 </form></div>
 {% endblock %}

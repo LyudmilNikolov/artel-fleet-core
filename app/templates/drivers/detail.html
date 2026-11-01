@@ -53,7 +53,7 @@
             {{ field(_('driver.full_name'), driver.full_name) }}
             {{ field(_('driver.phone'), driver.phone) }}
             {{ field(_('driver.email'), driver.email) }}
-            {{ field(_('driver.department'), driver.department) }}
+            {{ field(_('driver.department'), dept(driver.department) or none) }}
             {{ field(_('driver.hire_date'), driver.hire_date) }}
             {{ field(_('common.status'), _('status.' + driver.status.value)) }}
             {% if can_edit %}

@@ -17,7 +17,7 @@ from app.i18n.locales import resolve_locale
 from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
 from app.services.errors import render_error
 from app.services.notification_text import notification_text
-from app.utils.formatting import format_local_date, format_local_datetime, format_number, format_percent, money
+from app.utils.formatting import department_label, format_local_date, format_local_datetime, format_number, format_percent, money
 from app.utils.rate_limit import configure_limiter
 from app.web.csrf import get_token as get_csrf_token
 from app.web.deps import WebRedirectException
@@ -77,6 +77,7 @@ def create_app() -> FastAPI:
             "csrf_token": get_csrf_token(request),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
+            "dept": lambda value: department_label(value, lang),
             "notice_text": lambda notification: notification_text(notification, lang),
             "fmt_number": lambda value, decimals=0: format_number(value, lang, decimals),
             "fmt_percent": lambda value, decimals=1: format_percent(value, lang, decimals),
@@ -93,8 +94,53 @@ def create_app() -> FastAPI:
     async def redirect_exception_handler(request: Request, exc: WebRedirectException):
         return RedirectResponse(url=exc.headers["Location"], status_code=302)
 
+    ERROR_PAGE_STATUSES = (403, 404, 422)
+
+    def wants_error_page(request: Request, status: int) -> bool:
+        """Browsers loading a page get a styled error page; the API, HTMX fragments and other clients keep JSON."""
+        path = request.url.path
+        return (
+            status in ERROR_PAGE_STATUSES
+            and "text/html" in request.headers.get("accept", "")
+            and request.headers.get("HX-Request") != "true"
+            and not path.startswith(("/api/", "/static/"))
+        )
+
+    async def error_page(request: Request, status: int):
+        """The app layout (sidebar for a signed-in user, a minimal page otherwise) around a short explanation."""
+        from app.database import get_db
+        from app.web.deps import get_web_user
+
+        user, session = None, None
+        try:  # the same session provider as the routes, so overrides (tests) apply; never let this fail the page
+            session = request.app.dependency_overrides.get(get_db, get_db)()
+            user = await get_web_user(request, await session.__anext__())
+        except Exception:
+            user = None
+        finally:
+            if session is not None:
+                await session.aclose()
+        lang = get_lang(request)
+        key = f"errors.page.{status}"
+        return application.state.templates.TemplateResponse(
+            request=request,
+            name="errors/error.html",
+            status_code=status,
+            context={
+                "request": request,
+                "user": user,
+                "active_page": "",
+                "error_status": status,
+                "error_title": _(key + ".title", lang=lang),
+                "error_text": _(key + ".text", lang=lang),
+                **template_globals(request),
+            },
+        )
+
     @application.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, exc: RequestValidationError):
+        if wants_error_page(request, 422):
+            return await error_page(request, 422)
         lang = get_lang(request)
         errors = []
         for error in exc.errors():
@@ -109,6 +155,8 @@ def create_app() -> FastAPI:
 
     @application.exception_handler(HTTPException)
     async def http_error_handler(request: Request, exc: HTTPException):
+        if wants_error_page(request, exc.status_code):
+            return await error_page(request, exc.status_code)
         detail = render_error(
             {401: "errors.unauthorized", 403: "errors.forbidden", 404: "errors.not_found"}.get(
                 exc.status_code, exc.detail
