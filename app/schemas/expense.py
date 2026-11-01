@@ -26,8 +26,6 @@ class ExpenseCreate(BaseModel):
     valid_from: dt.date | None = None
     valid_until: dt.date | None = None
     policy_number: str | None = Field(None, max_length=100)
-    # Confirms that a mileage below the vehicle's current one may overwrite it (adds a correction reading).
-    overwrite_mileage: bool = False
 
 
 class ExpenseUpdate(BaseModel):
@@ -42,7 +40,6 @@ class ExpenseUpdate(BaseModel):
     fuel_price_per_liter: Decimal | None = Field(None, max_digits=8, decimal_places=2)
     fuel_type: str | None = None
     mileage_at_refuel: int | None = Field(None, ge=0, le=10000000)
-    overwrite_mileage: bool = False
 
     @model_validator(mode="after")
     def _required_fields(self):

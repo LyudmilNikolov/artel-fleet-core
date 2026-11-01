@@ -605,6 +605,7 @@
   "error.maintenance_vehicle_required": "Изберете превозно средство",
   "vtab.mileage_correction": "Корекция",
   "error.mileage_below_current": "Въведеният пробег ({value} км) е по-малък от текущия ({previous} км). Потвърдете презаписването.",
+  "error.expense_mileage_below_current": "Въведеният пробег ({value} km) е под текущия пробег на автомобила ({previous} km). Пробегът може да се намали само чрез потвърдена корекция в запис за поддръжка.",
   "picker.vehicle": "Превозно средство",
   "picker.search_placeholder": "Търсене по рег. номер, марка или модел",
   "picker.no_matches": "Няма намерени превозни средства",

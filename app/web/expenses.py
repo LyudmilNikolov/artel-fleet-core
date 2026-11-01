@@ -14,7 +14,7 @@ from app.models.vehicle import Vehicle
 from app.repositories.base import BaseRepository
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 from app.services.document_expense_sync import DOCUMENT_CATEGORIES, is_document_category
-from app.services.errors import DomainError, MileageBelowCurrentError, render_error
+from app.services.errors import DomainError, render_error
 from app.services.expense_service import ExpenseService
 from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
@@ -88,7 +88,6 @@ async def _render_form(
     form_data: dict,
     expense=None,
     error: str | None = None,
-    mileage_warning: MileageBelowCurrentError | None = None,
 ):
     vehicle = expense.vehicle if expense else None
     if vehicle is None and form_data.get("vehicle_id"):
@@ -99,7 +98,7 @@ async def _render_form(
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="expenses/form.html",
-        status_code=409 if mileage_warning else 400 if error else 200,
+        status_code=400 if error else 200,
         context=_ctx(
             request,
             user,
@@ -115,7 +114,6 @@ async def _render_form(
             document_categories=[] if driver_scope_of(request).restricted else DOCUMENT_CATEGORY_LIST,
             document_values=sorted(DOCUMENT_CATEGORIES),
             error=error,
-            mileage_warning=mileage_warning,
         ),
     )
 
@@ -267,12 +265,9 @@ async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
             valid_from=raw.get("valid_from") if is_document_category(category) else None,
             valid_until=raw.get("valid_until") if is_document_category(category) else None,
             policy_number=raw.get("policy_number") if is_document_category(category) else None,
-            overwrite_mileage=raw.get("confirm_mileage_overwrite") == "1",
         )
         expense = await ExpenseService(db).create(data, user.id)
         await db.commit()
-    except MileageBelowCurrentError as exc:
-        return await _render_form(request, db, user, form_data=raw, mileage_warning=exc)
     except (ValidationError, DomainError, IntegrityError) as exc:
         await _discard_failed_write(db, user, exc)
         return await _render_form(request, db, user, form_data=raw, error=_error_text(exc, request))
@@ -324,13 +319,9 @@ async def expense_update(
         }
         if ("category" in values and values["category"] != "fuel") or not values.get("fuel_liters"):
             values["fuel_liters"] = values["fuel_price_per_liter"] = None  # no liters, no price per liter
-        data = ExpenseUpdate(**values, overwrite_mileage=raw.get("confirm_mileage_overwrite") == "1")
+        data = ExpenseUpdate(**values)
         await service.update(expense_id, data)
         await db.commit()
-    except MileageBelowCurrentError as exc:
-        raw.setdefault("category", expense.category.value)
-        raw["vehicle_id"] = str(expense.vehicle_id)
-        return await _render_form(request, db, user, form_data=raw, expense=expense, mileage_warning=exc)
     except (ValidationError, DomainError, IntegrityError) as exc:
         await _discard_failed_write(db, user, exc)
         expense = await service.get_by_id(expense_id)

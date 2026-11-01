@@ -85,7 +85,6 @@
             <label class="fc-label" for="description">{{ _('common.description') }}</label>
             <textarea id="description" name="description" rows="2" class="fc-textarea">{{ value('description') }}</textarea>
         </div>
-        {% include 'components/mileage_warning.html' %}
         <div class="flex items-center gap-3">
             <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
             <a href="{{ '/expenses/' ~ expense.id if expense else '/expenses' }}" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>

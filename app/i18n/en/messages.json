@@ -605,6 +605,7 @@
   "error.maintenance_vehicle_required": "Choose a vehicle",
   "vtab.mileage_correction": "Correction",
   "error.mileage_below_current": "The mileage entered ({value} km) is lower than the current one ({previous} km). Confirm to overwrite it.",
+  "error.expense_mileage_below_current": "The mileage entered ({value} km) is lower than the vehicle's current mileage ({previous} km). Mileage can only be lowered by a confirmed correction on a maintenance record.",
   "picker.vehicle": "Vehicle",
   "picker.search_placeholder": "Search by plate, brand or model",
   "picker.no_matches": "No vehicles found",

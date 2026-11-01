@@ -157,16 +157,13 @@ async def test_mileage_popup_and_edit_delete(client, db_session, fleet_manager_u
     await db_session.refresh(truck)
     assert truck.current_mileage == 1300
 
-    response = await client.post("/expenses/new", data={**data, "mileage_at_refuel": "1100"})
-    assert response.status_code == 409 and "Mileage is lower than the current one" in response.text
-    assert "1,300 km" in response.text and 'value="1100"' in response.text
-    assert await _count(db_session, Expense) == 1
-    response = await client.post(
-        "/expenses/new", data={**data, "mileage_at_refuel": "1100", "confirm_mileage_overwrite": "1"}
-    )
-    assert response.status_code == 303
-    await db_session.refresh(truck)
-    assert truck.current_mileage == 1100
+    for extra in ({}, {"confirm_mileage_overwrite": "1"}):  # QA #3: no confirmation can lower it from an expense
+        response = await client.post("/expenses/new", data={**data, "mileage_at_refuel": "1100", **extra})
+        assert response.status_code == 400 and "confirm_mileage_overwrite" not in response.text
+        assert 'value="1100"' in response.text and "maintenance" in response.text.lower()
+        assert await _count(db_session, Expense) == 1
+        await db_session.refresh(truck)
+        assert truck.current_mileage == 1300
 
     expense = (await db_session.scalars(select(Expense).order_by(Expense.created_at))).first()
     detail = await client.get(f"/expenses/{expense.id}")
@@ -193,7 +190,7 @@ async def test_mileage_popup_and_edit_delete(client, db_session, fleet_manager_u
         await client.post(f"/expenses/{expense.id}/edit", data={"category": "fuel", "amount": "", "date": "2026-03-02"})
     ).status_code == 400
     assert (await client.post(f"/expenses/{expense.id}/delete")).status_code == 303
-    assert await _count(db_session, Expense) == 1
+    assert await _count(db_session, Expense) == 0
 
 
 @pytest.mark.asyncio
