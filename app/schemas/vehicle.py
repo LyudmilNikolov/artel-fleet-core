@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.vehicle import VehicleStatus
+from app.utils.plates import normalize_plate
 from app.vehicle_rules import (
     CONTAINER_SIZES,
     CREATE_DEFAULTS,
@@ -81,7 +82,9 @@ class VehicleFields(BaseModel):
             raise ValueError("errors.invalid_input")
         if isinstance(value, str):
             value = value.strip() or None
-            if value is not None and info.field_name in ("vin", "license_plate"):
+            if value is not None and info.field_name == "license_plate":
+                value = normalize_plate(value)
+            elif value is not None and info.field_name == "vin":
                 value = value.upper()
         return value
 

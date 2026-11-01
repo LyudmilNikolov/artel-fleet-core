@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.repositories.base import BaseRepository
+from app.utils.plates import normalize_plate, plate_sql_key
 
 
 def vehicle_search_condition(q: str | None):
@@ -23,6 +24,12 @@ def vehicle_search_condition(q: str | None):
     return or_(
         Vehicle.license_plate.ilike(pattern),
         plate.ilike(f"%{compact}%") if compact else false(),
+        plate_sql_key(Vehicle.license_plate).ilike(f"%{normalize_plate(q)}%"),
+        func.replace(func.replace(plate_sql_key(Vehicle.license_plate), " ", ""), "-", "").ilike(
+            f"%{normalize_plate(compact)}%"
+        )
+        if compact
+        else false(),
         Vehicle.vin.ilike(pattern),
         Vehicle.brand.ilike(pattern),
         Vehicle.model.ilike(pattern),
@@ -85,8 +92,9 @@ class VehicleRepository(BaseRepository[Vehicle]):
         return list(result.scalars().all()), total
 
     async def get_by_plate(self, plate: str) -> Vehicle | None:
-        result = await self.session.execute(select(Vehicle).where(Vehicle.license_plate == plate))
-        return result.scalar_one_or_none()
+        """Vehicle with this plate, treating case and Cyrillic look-alike letters (А В Е К М Н О Р С Т У Х) as equal."""
+        query = select(Vehicle).where(plate_sql_key(Vehicle.license_plate) == normalize_plate(plate))
+        return (await self.session.execute(query.limit(2))).scalars().first()
 
     async def get_by_vin(self, vin: str) -> Vehicle | None:
         result = await self.session.execute(select(Vehicle).where(Vehicle.vin == vin))
