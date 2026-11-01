@@ -183,8 +183,10 @@ function fileUpload() {
     return {
         dragging: false,
         selectedFile: '',
+        error: '',
         handleDrop(event) {
             this.dragging = false;
+            this.error = '';
             const files = event.dataTransfer.files;
             if (files.length > 0) {
                 this.$refs.fileInput.files = files;
@@ -192,8 +194,17 @@ function fileUpload() {
             }
         },
         handleSelect(event) {
+            this.error = '';
             const files = event.target.files;
             this.selectedFile = files.length > 0 ? files[0].name : '';
+        },
+        // The server answers a rejected upload with a short escaped sentence; anything else gets the generic text.
+        showError(event, fallback) {
+            const body = (event.detail.xhr && event.detail.xhr.responseText || '').trim();
+            const text = body && body.length < 300 && body.indexOf('<') === -1
+                ? new DOMParser().parseFromString(body, 'text/html').body.textContent
+                : '';
+            this.error = text || fallback;
         },
         clearSelection() {
             this.$refs.fileInput.value = '';
