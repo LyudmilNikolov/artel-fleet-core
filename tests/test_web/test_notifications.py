@@ -146,7 +146,7 @@ async def test_dropdown_groups_links_and_never_shows_numbers(client, db_session,
     assert "CA2000AA" in html and "Георги Иванов" in html
     assert SECRET_NUMBER not in html
     assert 'href="/notifications"' in html
-    assert 'href="/notifications?tab=messages"' in html and "1 unread messages" in html
+    assert 'href="/notifications?tab=messages"' in html and "1 unread message" in html and "1 unread messages" not in html
 
 
 @pytest.mark.asyncio

@@ -26,6 +26,7 @@ from app.vehicle_rules import (
     FUEL_CHOICES,
     INTEGER_BOUNDS,
     LIST_TYPE_FILTERS,
+    MILEAGE_TYPES,
     TRAILER_TYPES,
     PowerSource,
     type_group_of,
@@ -241,6 +242,7 @@ async def vehicle_detail(request: Request, vehicle_id: UUID, db: AsyncSession = 
             "vehicle": vehicle,
             "can_upload": can_contribute(request, user),
             "applicable_fields": sorted(APPLICABLE[vehicle.vehicle_type]),
+            "tracks_mileage": vehicle.vehicle_type in MILEAGE_TYPES,  # trailers and forklifts have no odometer
             **request.app.state.template_globals(request),
         },
     )

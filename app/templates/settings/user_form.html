@@ -94,14 +94,14 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="fc-label" for="password">{{ _('settings.new_password') if target else _('auth.password') }}</label>
-                    {{ password_input('password', 'password', autocomplete='new-password', required=not target, minlength=6, maxlength=128) }}
+                    {{ password_input('password', 'password', autocomplete='new-password', required=not target, minlength=password_min, maxlength=password_max) }}
                 </div>
                 <div>
                     <label class="fc-label" for="password_confirm">{{ _('settings.password_confirm') }}</label>
-                    {{ password_input('password_confirm', 'password_confirm', autocomplete='new-password', required=not target, minlength=6, maxlength=128) }}
+                    {{ password_input('password_confirm', 'password_confirm', autocomplete='new-password', required=not target, minlength=password_min, maxlength=password_max) }}
                 </div>
             </div>
-            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ _('settings.password_hint_edit') if target else _('settings.password_hint_new') }}</p>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ _('settings.password_hint_edit') if target else _('settings.password_hint_new', min=password_min, max=password_max) }}</p>
         </section>
 
         <div class="flex items-center gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">

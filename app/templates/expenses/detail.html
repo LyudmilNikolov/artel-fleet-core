@@ -65,12 +65,12 @@
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for t in expense.toll_transactions %}
                 <tr>
-                    <td class="px-4 py-3">{{ local_date(t.transaction_date) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3">{{ local_date(t.transaction_date) }}</td>
                     <td class="px-4 py-3">{{ t.transaction_time.strftime('%H:%M') if t.transaction_time else '—' }}</td>
                     <td class="px-4 py-3">{{ t.product or '—' }}</td>
                     <td class="px-4 py-3">{{ t.invoice_number or _('toll_import.not_invoiced') }}</td>
                     <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ t.external_id }}</td>
-                    <td class="px-4 py-3 text-right font-mono">{{ money(t.amount) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono">{{ money(t.amount) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

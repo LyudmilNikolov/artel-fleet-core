@@ -47,7 +47,7 @@ def test_money_and_number_limits_are_explained_per_field():
     amount = _errors(ExpenseCreate, vehicle_id=vehicle, category="fuel", amount="99999999999", date="2026-01-01")
     assert amount == {"amount": "At most 10 digits before the decimal point"}
     negative = _errors(ExpenseCreate, vehicle_id=vehicle, category="fuel", amount="-5", date="2026-01-01")
-    assert negative == {"amount": "Must be at least 0"}
+    assert negative == {"amount": "Cannot be negative"}
     year = _errors(VehicleCreate, **{**VEHICLE, "year": "3000"})
     assert "year" in year and "2100" in year["year"]
     date = _errors(ExpenseCreate, vehicle_id=vehicle, category="fuel", amount="5", date="not-a-date")

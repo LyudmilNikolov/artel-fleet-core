@@ -17,6 +17,7 @@ from app.i18n.locales import resolve_locale
 from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
 from app.services.errors import render_error
 from app.services.notification_text import notification_text
+from app.utils.password_policy import MAX_LENGTH as PASSWORD_MAX, MIN_LENGTH as PASSWORD_MIN
 from app.utils.formatting import department_label, format_local_date, format_local_datetime, format_number, format_percent, money
 from app.utils.rate_limit import configure_limiter
 from app.web.csrf import get_token as get_csrf_token
@@ -77,6 +78,8 @@ def create_app() -> FastAPI:
             "csrf_token": get_csrf_token(request),
             "fuel_average": lambda cost, liters: Decimal(str(cost)) / Decimal(str(liters)) if liters else None,
             "money": lambda value: money(value, lang),
+            "password_min": PASSWORD_MIN,
+            "password_max": PASSWORD_MAX,
             "dept": lambda value: department_label(value, lang),
             "notice_text": lambda notification: notification_text(notification, lang),
             "fmt_number": lambda value, decimals=0: format_number(value, lang, decimals),

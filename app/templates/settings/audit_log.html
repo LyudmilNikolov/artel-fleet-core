@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ _('nav.audit_log') }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('nav.audit_log') }}{% endblock %}
+{# A stored code (document type, source, entity ...) in the UI language when a translation exists, else as stored #}
+{% macro nice(value, prefixes) -%}
+{%- set ns = namespace(out=value) -%}
+{%- if value is string -%}
+{%- for p in prefixes -%}{%- if ns.out == value -%}{%- set t = _(p ~ value) -%}{%- if t != p ~ value -%}{%- set ns.out = t -%}{%- endif -%}{%- endif -%}{%- endfor -%}
+{%- endif -%}
+{{ ns.out if ns.out is not none else '—' }}
+{%- endmacro %}
 {% block content %}
 <div class="fc-card p-4 mb-6">
     {% if filter_error %}
@@ -56,6 +64,8 @@
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for log in logs %}
+                {% set value_keys = ['document_type', 'source', 'entity_type'] %}
+                {% set value_prefixes = ['compliance_type.', 'driver_document_type.', 'mileage_source.', 'audit_entity.'] %}
                 {% set changes = log.changes or {} %}
                 {% set items = changes.items()|rejectattr('0', 'equalto', '_label')|list %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top">
@@ -80,7 +90,7 @@
                     <td class="px-4 py-3">
                         <span class="text-gray-700 dark:text-gray-300">{{ _('audit_entity.' + log.entity_type) }}</span>
                         {% if changes.get('_label') %}
-                        <span class="block text-xs text-gray-500">{{ changes.get('_label') }}</span>
+                        <span class="block text-xs text-gray-500">{{ nice(changes.get('_label'), ['notification_source.', 'compliance_type.', 'driver_document_type.', 'audit_entity.']) }}</span>
                         {% endif %}
                         {% if log.entity_id %}
                         <span class="block text-xs text-gray-400 font-mono">{{ log.entity_id|string|truncate(8, True, '') }}</span>
@@ -89,15 +99,15 @@
                     <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
                         {% if items %}
                         <details>
-                            <summary class="cursor-pointer select-none">{{ items|length }} {{ _('settings.fields') }}</summary>
+                            <summary class="cursor-pointer select-none">{{ items|length }} {{ _('settings.field_one') if items|length == 1 else _('settings.fields') }}</summary>
                             <ul class="mt-1 space-y-0.5">
                                 {% for key, value in items %}
                                 <li>
                                     <span class="font-medium">{{ key }}</span>:
                                     {% if value is mapping and 'new' in value %}
-                                    <span class="text-red-600 dark:text-red-400">{{ value.old if value.old is not none else '—' }}</span> →
-                                    <span class="text-green-600 dark:text-green-400">{{ value.new if value.new is not none else '—' }}</span>
-                                    {% else %}{{ value if value is not none else '—' }}{% endif %}
+                                    <span class="text-red-600 dark:text-red-400">{{ nice(value.old, value_prefixes) if key in value_keys else (value.old if value.old is not none else '—') }}</span> →
+                                    <span class="text-green-600 dark:text-green-400">{{ nice(value.new, value_prefixes) if key in value_keys else (value.new if value.new is not none else '—') }}</span>
+                                    {% else %}{{ nice(value, value_prefixes) if key in value_keys else (value if value is not none else '—') }}{% endif %}
                                 </li>
                                 {% endfor %}
                             </ul>

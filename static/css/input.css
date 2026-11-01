@@ -178,3 +178,9 @@ a.fc-notice-warning:hover { background-color: #fef9c3; }
 /* inline "note + button" form that wraps on narrow screens */
 .fc-inline-note{display:flex;flex:1 1 22rem;flex-wrap:wrap;align-items:center;gap:.5rem;min-width:0}
 .fc-inline-note input{flex:1 1 14rem;min-width:0}
+
+/* narrow, wrapping action column so wide tables fit a 1024px screen */
+.fc-col-action{max-width:6.5rem;white-space:normal}
+
+/* filter form that takes a full row on narrow screens and sits beside the action buttons on wide ones */
+.fc-filters-row{flex:1 1 40rem;min-width:0}

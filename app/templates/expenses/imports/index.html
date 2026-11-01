@@ -46,8 +46,8 @@
                 {% for p in waiting %}
                 <tr>
                     <td class="px-4 py-3 font-medium">{{ p.plate or '—' }}</td>
-                    <td class="px-4 py-3">{{ local_date(p.date) }}</td>
-                    <td class="px-4 py-3 text-right font-mono">{{ money(p.amount) if p.amount else (p.amount_text or '—') }}</td>
+                    <td class="whitespace-nowrap px-4 py-3">{{ local_date(p.date) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono">{{ money(p.amount) if p.amount else (p.amount_text or '—') }}</td>
                     <td class="px-4 py-3">{{ reason_text(p) }}</td>
                     <td class="px-4 py-3"><a href="/expenses/imports/{{ p.batch_id }}" class="text-primary-600 hover:underline">{{ p.filename }}</a></td>
                 </tr>
