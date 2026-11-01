@@ -326,9 +326,29 @@ async def test_every_excel_export_carries_the_summary_and_totals(db_session):
 
     rows = _sheet(await svc.export_fuel_excel(locale="en"))
     assert _value(rows, "Total liters")[1] == 60 and _value(rows, "Fuel cost")[1] == 90
-    assert _value(rows, "Total")[4:7] == (60, 90, 2)
+    # QA #9: same columns as the screen, including the average price per liter (cost / liters, to the cent)
+    header = next(r for r in rows if any(c and "price" in str(c).lower() for c in r))
+    assert header[6] == "Avg price / liter (EUR)"  # right after liters and cost, as on screen
+    vehicle_rows = [r for r in rows if r[4] in (40, 20)]
+    assert len(vehicle_rows) == 2 and all(Decimal(str(r[6])) == Decimal("1.5") for r in vehicle_rows)
+    total = _value(rows, "Total")
+    assert total[4:6] == (60, 90) and Decimal(str(total[6])) == Decimal("1.5") and total[7] == 2
 
     rows = _sheet(await svc.export_maintenance_excel(locale="en"))
     assert _value(rows, "Records")[1] == 2
     cost_rows = [r for r in rows if "Total cost (excl. cancelled)" in r]
     assert cost_rows[0][1] == 100 and cost_rows[-1][8] == 100  # summary and totals row ignore the cancelled 999
+
+
+@pytest.mark.asyncio
+async def test_fuel_export_average_price_is_rounded_to_cents(db_session):
+    """QA #9: 100.00 EUR for 60 L is 1.6666... per liter; the sheet holds 1.67, like the screen."""
+    truck = await vehicle(db_session, "tractor_unit")
+    await expense(db_session, truck, "100.00", date(2026, 3, 1), ExpenseCategory.FUEL, liters=Decimal("60"), km=1000)
+    svc = ReportService(db_session)
+    rows = _sheet(await svc.export_fuel_excel(ReportFilters(vehicle_id=truck.id), locale="en"))
+    row = next(r for r in rows if r[4] == 60)
+    assert Decimal(str(row[6])) == Decimal("1.67")
+    assert Decimal(str(_value(rows, "Total")[6])) == Decimal("1.67")
+    bg = _sheet(await svc.export_fuel_excel(ReportFilters(vehicle_id=truck.id), locale="bg"))
+    assert any(c == "Средна цена / литър (EUR)" for r in bg for c in r)
