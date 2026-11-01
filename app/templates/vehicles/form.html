@@ -65,8 +65,8 @@
 {% elif name in choices %}
 <select id="{{ name }}" name="{{ name }}" class="fc-select" x-model="drafts.{{ name }}" :disabled="!applies('{{ name }}')"><option value="">—</option>{% for value, key in choices[name] %}<option value="{{ value }}" {% if name == 'fuel_type' %}:disabled="!(rules.fuel[kind] || []).includes('{{ value }}')"{% endif %}>{{ _(key) }}</option>{% endfor %}</select>
 {% else %}
-{% if name == 'current_mileage' and vehicle %}<p class="text-sm">{{ _('vehicle.authoritative_mileage') }}: {{ fmt_number(vehicle.current_mileage) if vehicle.current_mileage is not none else '—' }} km</p>{% endif %}
 <input id="{{ name }}" {% if field_errors.get(name) %}aria-invalid="true"{% endif %} name="{{ name }}" type="{{ 'text' if field_errors.get(name) else 'number' }}" inputmode="decimal" x-model="drafts.{{ name }}" :disabled="!applies('{{ name }}')" step="{{ '1' if name in integer_bounds else '0.001' if decimal_bounds[name][1] == 3 else '0.1' if decimal_bounds[name][1] == 1 else '0.01' }}" class="fc-input">
+{% if name == 'current_mileage' and vehicle %}<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('vehicle.authoritative_mileage') }}: {{ fmt_number(vehicle.current_mileage) if vehicle.current_mileage is not none else '—' }} km</p>{% endif %}
 {% endif %}{{ errors(name) }}
 </div>{% endfor %}</fieldset>
 <div><label for="notes" class="fc-label">{{ _('common.notes') }}</label><textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ form_data.get('notes') or '' }}</textarea></div>

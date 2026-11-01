@@ -33,7 +33,7 @@
                         {% if log.source.value == 'manual' %}fc-badge-neutral
                         {% elif log.source.value == 'obd' %}fc-badge-info
                         {% else %}fc-badge-success{% endif %}">
-                        {{ log.source.value | upper }}
+                        {{ _('mileage_source.' + log.source.value) }}
                     </span>
                     {% if log.is_correction %}<span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium fc-badge-warning">{{ _('vtab.mileage_correction') }}</span>{% endif %}
                 </td>

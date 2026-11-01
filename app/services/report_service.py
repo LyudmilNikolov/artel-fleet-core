@@ -357,7 +357,7 @@ class ReportService:
             [
                 _("vehicle.registration", lang=locale),
                 _("vehicle.vehicle_type", lang=locale),
-                _("nav.vehicles", lang=locale),
+                _("reports.brand_model", lang=locale),
                 _("common.type", lang=locale),
                 _("common.title", lang=locale),
                 _("common.status", lang=locale),
@@ -422,7 +422,7 @@ class ReportService:
                     _("expense_category." + r["category"], lang=locale),
                     r["total"],
                     r["count"],
-                    float(r["total"] / grand_total) if grand_total else None,
+                    (r["total"] / grand_total).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP) if grand_total else None,
                 ],
                 formats=share,
             )

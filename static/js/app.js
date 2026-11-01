@@ -69,7 +69,8 @@ window.fcNumber = function(n, decimals) {
 // Localized native validation: a field's data-msg-required / data-msg-format replace the browser-language text.
 window.fcInvalid = function(el) {
     var v = el.validity;
-    el.setCustomValidity(v.valueMissing ? (el.dataset.msgRequired || '') : v.patternMismatch ? (el.dataset.msgFormat || '') : '');
+    var negative = v.patternMismatch && el.dataset.msgNegative && String(el.value).trim().charAt(0) === '-';
+    el.setCustomValidity(v.valueMissing ? (el.dataset.msgRequired || '') : negative ? el.dataset.msgNegative : v.patternMismatch ? (el.dataset.msgFormat || '') : '');
 };
 
 // Searchable vehicle picker shared by the maintenance and expense forms.

@@ -352,3 +352,25 @@ async def test_fuel_export_average_price_is_rounded_to_cents(db_session):
     assert Decimal(str(_value(rows, "Total")[6])) == Decimal("1.67")
     bg = _sheet(await svc.export_fuel_excel(ReportFilters(vehicle_id=truck.id), locale="bg"))
     assert any(c == "Средна цена / литър (EUR)" for r in bg for c in r)
+
+
+@pytest.mark.asyncio
+async def test_excel_exports_have_clean_numbers_and_honest_headers(db_session):
+    """QA #33: shares are stored to 0.01 %, not 16 digits; the maintenance sheet names brand / model correctly."""
+    truck = await vehicle(db_session, "tractor_unit")
+    for category in (ExpenseCategory.FUEL, ExpenseCategory.PARTS, ExpenseCategory.SERVICE):
+        await expense(db_session, truck, "10.00", date(2026, 3, 1), category)  # each category is a third
+    await maintenance(db_session, truck, MaintenanceStatus.COMPLETED, date(2026, 3, 1), date(2026, 3, 2), "100.00")
+    svc = ReportService(db_session)
+
+    rows = _sheet(await svc.export_expense_excel(locale="en"))
+    shares = [r[3] for r in rows if isinstance(r[3], float) and 0 < r[3] < 1]
+    assert len(shares) == 3 and all(len(repr(s)) <= 8 for s in shares), shares  # 0.3333, not 0.3333333333333333
+    assert all(s == 0.3333 for s in shares)
+
+    en = _sheet(await svc.export_maintenance_excel(locale="en"))
+    header = next(r for r in en if r[0] == "Registration / Internal ID")
+    assert header[2] == "Brand / Model" and "Vehicles" not in header
+    bg = _sheet(await svc.export_maintenance_excel(locale="bg"))
+    header_bg = next(r for r in bg if r[0] and str(r[0]).startswith("Регистрация"))
+    assert header_bg[2] == "Марка / модел"

@@ -24,7 +24,7 @@
 </div>
 {% else %}
 <div class="fc-notice fc-notice-info mb-6">
-    <p>{{ _('toll_import.preview_message') }}</p>
+    <p>{{ _('toll_import.preview_message') if (s.new_rows or s.invoice_updates) else _('toll_import.preview_nothing_new') }}</p>
     <div class="mt-3 flex flex-wrap gap-2">
         {% if s.new_rows or s.invoice_updates %}
         <form method="POST" action="/expenses/imports/{{ batch.id }}/apply">
@@ -75,8 +75,8 @@
                 {% for t in invoiced %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/expenses/{{ t.expense_id }}'">
                     <td class="px-4 py-3 font-medium"><a href="/expenses/{{ t.expense_id }}" class="text-primary-600 hover:underline">{{ t.plate }}</a></td>
-                    <td class="px-4 py-3">{{ local_date(t.date) }}</td>
-                    <td class="px-4 py-3 text-right font-mono">{{ money(t.amount) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3">{{ local_date(t.date) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono">{{ money(t.amount) }}</td>
                     <td class="px-4 py-3">
                         <span class="text-gray-400">{{ t.old_invoice or _('toll_import.not_invoiced') }}</span>
                         <span class="text-gray-400" aria-hidden="true">→</span>
@@ -114,8 +114,8 @@
                 <tr class="{{ 'opacity-60' if done }}">
                     <td class="px-4 py-3 text-right text-gray-500">{{ p.line }}</td>
                     <td class="px-4 py-3 font-medium">{{ p.plate or '—' }}</td>
-                    <td class="px-4 py-3">{{ local_date(p.date) }}</td>
-                    <td class="px-4 py-3 text-right font-mono">{{ money(p.amount) if p.amount else (p.amount_text or '—') }}</td>
+                    <td class="whitespace-nowrap px-4 py-3">{{ local_date(p.date) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono">{{ money(p.amount) if p.amount else (p.amount_text or '—') }}</td>
                     <td class="px-4 py-3">
                         {{ reason_text(p) }}
                         {% if p.reason == 'unknown_vehicle' and p.plate and not done %}

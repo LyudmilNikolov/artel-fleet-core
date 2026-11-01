@@ -45,6 +45,8 @@ def _describe(detail: dict, field: str, lang: str) -> str:
         limit = ctx.get("ge", ctx.get("gt", 0))
         if kind == "greater_than" and float(limit) == 0:
             return _("validation.positive", lang)
+        if float(limit) == 0:
+            return _("validation.not_negative", lang)
         return _("validation.min_value", lang, limit=_limit(limit, lang, field))
     if kind in ("less_than_equal", "less_than"):
         return _("validation.max_value", lang, limit=_limit(ctx.get("le", ctx.get("lt", 0)), lang, field))
