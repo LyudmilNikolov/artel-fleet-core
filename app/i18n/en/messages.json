@@ -398,6 +398,7 @@
   "report.fuel": "Fuel",
   "report.maintenance": "Maintenance",
   "report.total_expenses": "Total expenses",
+  "report.maintenance_cost": "Maintenance",
   "report.total_liters": "Total liters",
   "report.total_cost": "Total cost",
   "report.refuel_count": "Refuels",

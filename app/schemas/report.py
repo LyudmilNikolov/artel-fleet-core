@@ -106,6 +106,7 @@ class TCOReportRow(BaseModel):
     year: int | None
     purchase_price: Decimal | None
     total_expenses: Decimal
+    maintenance_cost: Decimal
     tco: Decimal
 
 

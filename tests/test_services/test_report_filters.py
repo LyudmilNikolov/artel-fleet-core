@@ -124,6 +124,34 @@ async def test_tco_filter_combinations(db_session):
 
 
 @pytest.mark.asyncio
+async def test_tco_includes_maintenance_cost_on_screen_and_in_excel(db_session):
+    """QA #1: TCO = purchase price + expenses + maintenance (cancelled excluded), same period rules as the maintenance report."""
+    truck = await vehicle(db_session, "tractor_unit")
+    await expense(db_session, truck, "100.00", date(2026, 3, 1))
+    await expense(db_session, truck, "50.00", date(2026, 3, 2))  # two expense rows must not multiply maintenance
+    await maintenance(db_session, truck, MaintenanceStatus.COMPLETED, date(2026, 3, 1), date(2026, 3, 5), "350.50")
+    await maintenance(db_session, truck, MaintenanceStatus.SCHEDULED, date(2026, 3, 9), None, "10.00")
+    await maintenance(db_session, truck, MaintenanceStatus.CANCELLED, date(2026, 3, 3), None, "999.00")
+    await maintenance(db_session, truck, MaintenanceStatus.COMPLETED, date(2025, 1, 1), date(2025, 1, 2), "70.00")
+    svc = ReportService(db_session)
+
+    row = next(r for r in await svc.tco_report(ReportFilters(vehicle_id=truck.id)) if r["id"] == str(truck.id))
+    assert row["total_expenses"] == Decimal("150.00")
+    assert row["maintenance_cost"] == Decimal("430.50")  # 350.50 + 10.00 + 70.00, cancelled ignored
+    assert row["tco"] == Decimal("580.50")
+
+    in_2026 = ReportFilters(vehicle_id=truck.id, start_date=date(2026, 1, 1))
+    row = (await svc.tco_report(in_2026))[0]
+    assert row["maintenance_cost"] == Decimal("360.50") and row["tco"] == Decimal("510.50")
+
+    rows = _sheet(await svc.export_tco_excel(in_2026, locale="en"))
+    header = next(r for r in rows if "Plate" in r or "Registration" in r or any("Maintenance" in str(c) for c in r))
+    assert any("Maintenance" in str(c) for c in header)
+    total = _value(rows, "Total")
+    assert total[6:9] == (150, Decimal("360.50"), Decimal("510.50")) or total[6:9] == (150, 360.5, 510.5)
+
+
+@pytest.mark.asyncio
 async def test_expense_analysis_filters(db_session):
     truck = await vehicle(db_session, "tractor_unit")
     van = await vehicle(db_session, "van")
@@ -293,8 +321,8 @@ async def test_every_excel_export_carries_the_summary_and_totals(db_session):
     assert toll_share.number_format == "0.0%"
 
     rows = _sheet(await svc.export_tco_excel(locale="en"))
-    assert _value(rows, "Fleet TCO")[1] == 120 and _value(rows, "Total vehicles")[1] == 2
-    assert _value(rows, "Total")[7] == 120
+    assert _value(rows, "Fleet TCO")[1] == 220 and _value(rows, "Total vehicles")[1] == 2  # 120 expenses + 100 maintenance
+    assert _value(rows, "Total")[8] == 220
 
     rows = _sheet(await svc.export_fuel_excel(locale="en"))
     assert _value(rows, "Total liters")[1] == 60 and _value(rows, "Fuel cost")[1] == 90

@@ -34,7 +34,8 @@ class ReportService:
                 "vehicle_type": row[5].value,
                 "purchase_price": Decimal(row[6]) if row[6] is not None else None,
                 "total_expenses": Decimal(row[7]),
-                "tco": (Decimal(row[6]) if row[6] is not None else Decimal("0")) + Decimal(row[7]),
+                "maintenance_cost": Decimal(row[8]),
+                "tco": (Decimal(row[6]) if row[6] is not None else Decimal("0")) + Decimal(row[7]) + Decimal(row[8]),
             }
             for row in rows
         ]
@@ -200,7 +201,7 @@ class ReportService:
     async def export_tco_excel(self, filters: ReportFilters | None = None, *, locale: str = "bg") -> bytes:
         """Excel export of the tco report for exactly the on-screen filters."""
         data = await self.tco_report(filters)
-        exp = ExcelExporter((_("report.tco", lang=locale) + " (EUR)"), monetary_columns=(6, 7, 8))
+        exp = ExcelExporter((_("report.tco", lang=locale) + " (EUR)"), monetary_columns=(6, 7, 8, 9))
         period = await self._subtitle(filters, locale)
         exp.add_title((_("report.tco", lang=locale) + " (EUR)"), period)
         purchase_total = sum((r["purchase_price"] or Decimal("0")) for r in data)
@@ -222,6 +223,7 @@ class ReportService:
                 _("vehicle.year", lang=locale),
                 (_("vehicle.purchase_price", lang=locale) + " (EUR)"),
                 (_("report.total_expenses", lang=locale) + " (EUR)"),
+                (_("report.maintenance_cost", lang=locale) + " (EUR)"),
                 (_("report.tco", lang=locale) + " (EUR)"),
             ]
         )
@@ -235,6 +237,7 @@ class ReportService:
                     r["year"],
                     r["purchase_price"],
                     r["total_expenses"],
+                    r["maintenance_cost"],
                     r["tco"],
                 ]
             )
@@ -248,6 +251,7 @@ class ReportService:
                     _("common.total", lang=locale),
                     purchase_total,
                     sum(r["total_expenses"] for r in data),
+                    sum(r["maintenance_cost"] for r in data),
                     tco_total,
                 ]
             )
