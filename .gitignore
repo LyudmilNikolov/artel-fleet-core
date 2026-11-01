@@ -67,3 +67,6 @@ package-lock.json
 # Celery
 celerybeat-schedule
 celerybeat-schedule.db
+
+# QA artefacts (contain test credentials)
+testing/
