@@ -91,6 +91,9 @@ async def _render_form(
     error: str | None = None,
 ):
     vehicle = expense.vehicle if expense else None
+    if vehicle is None and driver_scope_of(request).restricted:
+        # A driver may only ever see their own vehicle, also when a tampered id was submitted and rejected.
+        form_data = {**form_data, "vehicle_id": vehicle_choice_for(request, str(form_data.get("vehicle_id") or ""))}
     if vehicle is None and form_data.get("vehicle_id"):
         try:
             vehicle = await db.get(Vehicle, UUID(str(form_data["vehicle_id"])))

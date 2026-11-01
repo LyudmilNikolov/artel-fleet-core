@@ -37,8 +37,10 @@ from app.web.deps import web_require_roles
 
 router = APIRouter(prefix="/settings/notifications", tags=["web-notification-settings"])
 
-# Rules, global settings and channels are administrator-only: fleet managers only use the bell / inbox
+# Saving rules and the global settings are administrator-only. Fleet managers may read the rules (read-only
+# page) and manage their own channels (docs/plans/notifications.md).
 require_admin = web_require_roles(UserRole.ADMIN)
+require_staff = web_require_roles(UserRole.ADMIN, UserRole.FLEET_MANAGER)
 
 TIME_PATTERN = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 COMMON_TIMEZONES = ("Europe/Sofia", "UTC", "Europe/London", "Europe/Berlin", "Europe/Athens", "Europe/Istanbul")
@@ -209,12 +211,12 @@ async def _rules_page(
 
 
 @router.get("")
-async def notification_settings_home(user: User = Depends(require_admin)):
+async def notification_settings_home(user: User = Depends(require_staff)):
     return RedirectResponse(url="/settings/notifications/rules", status_code=302)
 
 
 @router.get("/rules", response_class=HTMLResponse)
-async def rules_page(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
+async def rules_page(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_staff)):
     return await _rules_page(request, db, user)
 
 
@@ -350,7 +352,7 @@ def _test_notice(request: Request) -> dict:
 
 @router.post("/channels/test/{channel}")
 async def channels_send_test(
-    channel: str, request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)
+    channel: str, request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_staff)
 ):
     """Send a test message to my own email address or saved Telegram chat (proves the channel works)."""
     home = "/settings/notifications/channels"
@@ -379,12 +381,12 @@ async def channels_send_test(
 
 
 @router.get("/channels", response_class=HTMLResponse)
-async def channels_page(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
+async def channels_page(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_staff)):
     return await _channels_page(request, db, user)
 
 
 @router.post("/channels")
-async def channels_save(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
+async def channels_save(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(require_staff)):
     raw = await request.form()
     form = {
         "email_enabled": bool(raw.get("email_enabled")),
