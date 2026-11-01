@@ -20,6 +20,7 @@ from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
 from app.services.policy_privacy import expense_description_for
+from app.web.form_errors import banner_for, field_errors_from
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -89,6 +90,7 @@ async def _render_form(
     form_data: dict,
     expense=None,
     error: str | None = None,
+    field_errors: dict | None = None,
 ):
     vehicle = expense.vehicle if expense else None
     if vehicle is None and driver_scope_of(request).restricted:
@@ -118,6 +120,7 @@ async def _render_form(
             document_categories=[] if driver_scope_of(request).restricted else DOCUMENT_CATEGORY_LIST,
             document_values=sorted(DOCUMENT_CATEGORIES),
             error=error,
+            field_errors=field_errors or {},
         ),
     )
 
@@ -129,15 +132,15 @@ async def _discard_failed_write(db: AsyncSession, user: User, exc: Exception) ->
         await db.refresh(user)
 
 
-def _error_text(exc: Exception, request: Request) -> str:
-    if isinstance(exc, (ValidationError, IntegrityError)):
-        key = (
-            next((d.get("ctx", {}).get("error") for d in exc.errors()), None)
-            if isinstance(exc, ValidationError)
-            else None
-        )
-        return render_error(key or "errors.invalid_input", request.state.locale)
-    return render_error(exc, request.state.locale)
+def _form_error(exc: Exception, request: Request) -> dict:
+    """``error`` banner and per-field ``field_errors`` for a rejected submit."""
+    lang = request.state.locale
+    if isinstance(exc, ValidationError):
+        field_errors = field_errors_from(exc, lang)
+        return {"error": banner_for(exc, field_errors, lang), "field_errors": field_errors}
+    if isinstance(exc, IntegrityError):
+        return {"error": render_error("errors.invalid_input", lang)}
+    return {"error": render_error(exc, lang)}
 
 
 @router.get("", response_class=HTMLResponse)
@@ -274,7 +277,7 @@ async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
     except (ValidationError, DomainError, IntegrityError) as exc:
         await _discard_failed_write(db, user, exc)
-        return await _render_form(request, db, user, form_data=raw, error=_error_text(exc, request))
+        return await _render_form(request, db, user, form_data=raw, **_form_error(exc, request))
     return RedirectResponse(url=f"/expenses/{expense.id}", status_code=303)
 
 
@@ -331,7 +334,7 @@ async def expense_update(
         expense = await service.get_by_id(expense_id)
         raw.setdefault("category", expense.category.value)
         raw["vehicle_id"] = str(expense.vehicle_id)
-        return await _render_form(request, db, user, form_data=raw, expense=expense, error=_error_text(exc, request))
+        return await _render_form(request, db, user, form_data=raw, expense=expense, **_form_error(exc, request))
     return RedirectResponse(url=f"/expenses/{expense_id}", status_code=303)
 
 

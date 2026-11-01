@@ -3,6 +3,8 @@
 {% block title %}{{ heading }} — {{ _('nav.maintenance') }}{% endblock %}
 {% block page_title %}{{ heading }}{% endblock %}
 {% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
+{% macro invalid(name) %}{% if field_errors and field_errors.get(name) %}aria-invalid="true"{% endif %}{% endmacro %}
+{% macro field_error(name) %}{% if field_errors and field_errors.get(name) %}<p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
 {% block content %}
 <div class="max-w-3xl">
     {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
@@ -14,39 +16,39 @@
             </div>
             <div>
                 <label class="fc-label" for="type">{{ _('common.type') }}</label>
-                <select id="type" name="type" class="fc-select" x-model="type">
+                <select id="type" {{ invalid('type') }} name="type" class="fc-select" x-model="type">
                     {% for t in types %}<option value="{{ t.value }}" {% if (form_data.get('type') or 'scheduled_service') == t.value %}selected{% endif %}>{{ _('maintenance_type.' + t.value) }}</option>{% endfor %}
-                </select>
+                </select>{{ field_error('type') }}
             </div>
             <div>
                 <label class="fc-label" for="status">{{ _('common.status') }}</label>
-                <select id="status" name="status" class="fc-select" x-model="status">
+                <select id="status" {{ invalid('status') }} name="status" class="fc-select" x-model="status">
                     {% for s in statuses %}<option value="{{ s.value }}" {% if (form_data.get('status') or 'scheduled') == s.value %}selected{% endif %}>{{ _('status.' + s.value) }}</option>{% endfor %}
-                </select>
+                </select>{{ field_error('status') }}
             </div>
             <div class="md:col-span-2">
                 <label class="fc-label" for="title">{{ _('maintenance.title') }}</label>
-                <input id="title" type="text" name="title" required maxlength="300" value="{{ value('title') }}" class="fc-input">
+                <input id="title" {{ invalid('title') }} type="text" name="title" required maxlength="300" value="{{ value('title') }}" class="fc-input">{{ field_error('title') }}
             </div>
             <div>
                 <label class="fc-label" for="scheduled_date">{{ _('maintenance.scheduled_date') }}</label>
-                <input id="scheduled_date" type="date" name="scheduled_date" value="{{ value('scheduled_date') }}" class="fc-input-date">
+                <input id="scheduled_date" {{ invalid('scheduled_date') }} type="date" name="scheduled_date" value="{{ value('scheduled_date') }}" class="fc-input-date">{{ field_error('scheduled_date') }}
             </div>
             <div x-show="status === 'completed'" {% if (form_data.get('status') or 'scheduled') != 'completed' %}style="display: none"{% endif %}>
                 <label class="fc-label" for="completed_date">{{ _('maintenance.completed_date') }}</label>
-                <input id="completed_date" type="date" name="completed_date" value="{{ value('completed_date') }}" class="fc-input-date">
+                <input id="completed_date" {{ invalid('completed_date') }} type="date" name="completed_date" value="{{ value('completed_date') }}" class="fc-input-date">{{ field_error('completed_date') }}
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('maintenance.completed_date_hint') }}</p>
             </div>
             {% with field_name='mileage_at_service', field_label=_('maintenance.mileage_at_service') %}{% include 'components/mileage_field.html' %}{% endwith %}
             <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-900/30" x-show="type === 'scheduled_service'" {% if (form_data.get('type') or 'scheduled_service') != 'scheduled_service' %}style="display: none"{% endif %}>
                 <div class="md:col-span-2" x-show="serviceItems.length" {% if picker.serviceItems | length == 0 %}style="display: none"{% endif %}>
                     <label class="fc-label" for="service_item">{{ _('maintenance.service_item') }}</label>
-                    <select id="service_item" name="service_item" class="fc-select" x-model="serviceItem" :disabled="type !== 'scheduled_service' || !serviceItems.length">
+                    <select id="service_item" {{ invalid('service_item') }} name="service_item" class="fc-select" x-model="serviceItem" :disabled="type !== 'scheduled_service' || !serviceItems.length">
                         <option value="">{{ _('maintenance.service_item_none') }}</option>
                         <template x-for="code in serviceItems" :key="code">
                             <option :value="code" x-text="itemLabels[code]" :selected="code === serviceItem"></option>
                         </template>
-                    </select>
+                    </select>{{ field_error('service_item') }}
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('maintenance.service_item_hint') }}</p>
                 </div>
                 {% for item, checks in checklist_options.items() %}
@@ -64,26 +66,26 @@
                 {% endfor %}
                 <div>
                     <label class="fc-label" for="next_service_mileage">{{ _('maintenance.next_service_mileage') }}</label>
-                    <input id="next_service_mileage" type="number" inputmode="numeric" min="0" max="10000000" step="1" name="next_service_mileage" value="{{ value('next_service_mileage') }}" class="fc-input" :disabled="type !== 'scheduled_service'">
+                    <input id="next_service_mileage" {{ invalid('next_service_mileage') }} type="number" inputmode="numeric" min="0" max="10000000" step="1" name="next_service_mileage" value="{{ value('next_service_mileage') }}" class="fc-input" :disabled="type !== 'scheduled_service'">{{ field_error('next_service_mileage') }}
                 </div>
                 <div>
                     <label class="fc-label" for="next_service_date">{{ _('maintenance.next_service_date') }}</label>
-                    <input id="next_service_date" type="date" name="next_service_date" value="{{ value('next_service_date') }}" class="fc-input-date" :disabled="type !== 'scheduled_service'">
+                    <input id="next_service_date" {{ invalid('next_service_date') }} type="date" name="next_service_date" value="{{ value('next_service_date') }}" class="fc-input-date" :disabled="type !== 'scheduled_service'">{{ field_error('next_service_date') }}
                 </div>
                 <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400">{{ _('maintenance.next_service_hint') }}</p>
             </div>
             <div>
                 <label class="fc-label" for="cost">{{ _('maintenance.cost') }} (EUR)</label>
-                <input id="cost" type="text" inputmode="decimal" name="cost" value="{{ value('cost') }}" class="fc-input">
+                <input id="cost" {{ invalid('cost') }} type="text" inputmode="decimal" name="cost" value="{{ value('cost') }}" class="fc-input">{{ field_error('cost') }}
             </div>
             <div>
                 <label class="fc-label" for="service_provider">{{ _('maintenance.service_provider') }}</label>
-                <input id="service_provider" type="text" name="service_provider" value="{{ value('service_provider') }}" class="fc-input">
+                <input id="service_provider" {{ invalid('service_provider') }} type="text" name="service_provider" value="{{ value('service_provider') }}" class="fc-input">{{ field_error('service_provider') }}
             </div>
         </div>
         <div>
             <label class="fc-label" for="description">{{ _('common.description') }}</label>
-            <textarea id="description" name="description" rows="3" class="fc-textarea">{{ value('description') }}</textarea>
+            <textarea id="description" {{ invalid('description') }} name="description" rows="3" class="fc-textarea">{{ value('description') }}</textarea>{{ field_error('description') }}
         </div>
         {% include 'components/mileage_warning.html' %}
         <div class="flex items-center gap-3">
