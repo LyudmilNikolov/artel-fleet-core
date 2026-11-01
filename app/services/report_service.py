@@ -260,7 +260,7 @@ class ReportService:
     async def export_fuel_excel(self, filters: ReportFilters | None = None, *, locale: str = "bg") -> bytes:
         """Excel export of the fuel report for exactly the on-screen filters."""
         data = await self.fuel_consumption(filters)
-        exp = ExcelExporter(_("report.fuel", lang=locale), monetary_columns=(6,))
+        exp = ExcelExporter(_("report.fuel", lang=locale), monetary_columns=(6, 7))
         period = await self._subtitle(filters, locale)
         exp.add_title(_("report.fuel", lang=locale), period)
         total_liters = sum(Decimal(str(r["total_liters"])) for r in data)
@@ -283,6 +283,7 @@ class ReportService:
                 _("vehicle.model", lang=locale),
                 _("report.total_liters", lang=locale),
                 (_("report.total_cost", lang=locale) + " (EUR)"),
+                (_("reports.avg_price_per_liter", lang=locale) + " (EUR)"),
                 _("report.refuel_count", lang=locale),
                 _("reports.l_per_100km", lang=locale),
             ]
@@ -296,6 +297,7 @@ class ReportService:
                     r["model"],
                     r["total_liters"],
                     r["total_cost"],
+                    r["avg_price"].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if r["total_liters"] else None,
                     r["refuel_count"],
                     r["l_per_100km"],
                 ]
@@ -311,7 +313,19 @@ class ReportService:
                 else None
             )
             exp.add_summary_row(
-                ["", "", "", _("common.total", lang=locale), total_liters, total_cost, total_refuels, fleet_l100]
+                [
+                    "",
+                    "",
+                    "",
+                    _("common.total", lang=locale),
+                    total_liters,
+                    total_cost,
+                    self.fuel_average(total_cost, total_liters).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    if total_liters
+                    else None,
+                    total_refuels,
+                    fleet_l100,
+                ]
             )
         return exp.to_bytes()
 
