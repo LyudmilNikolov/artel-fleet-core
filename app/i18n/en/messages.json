@@ -139,7 +139,6 @@
   "reports.date_range": "Date Range",
   "reports.export_excel": "Export to Excel",
   "reports.export_pdf": "Export to PDF",
-  "reports.export_csv": "Export to CSV",
   "reports.hub_description": "Select a report to view fleet analytics",
   "reports.view_report": "View report",
   "reports.tco_description": "Total cost of ownership per vehicle: fuel, maintenance, insurance, fines",
@@ -355,7 +354,7 @@
   "help.reports_filters_title": "Filters",
   "help.reports_filters_desc": "All reports have the same filters: vehicle (search by plate, brand or model), vehicle type (tractor units, trailers, vans, passenger cars, forklifts), and a start and end date. Maintenance history also filters by status; its dates apply to the service date (the completed date, or the scheduled date until the work is done). A vehicle outside the chosen type gives an empty report.",
   "help.reports_export_title": "Exporting Data",
-  "help.reports_export_desc": "Use the export button on a report to download it as Excel (.xlsx) or CSV. The file contains the same data as the page, with the filters you applied.",
+  "help.reports_export_desc": "Use the green Export to Excel button on a report to download it as Excel (.xlsx). The file contains the same data as the page, with the filters you applied, and starts with the same summary figures; tables end with a totals row.",
   "help.notifications_p1": "The bell icon in the top bar shows in-app notifications. Open it to read them or mark them as read.",
   "help.notifications_types_title": "Notification Types",
   "help.settings_p1": "Users and the audit log are available to administrators only. Everyone can change their own profile and password.",
@@ -376,7 +375,7 @@
   "help.tip_keyboard_title": "Quick Navigation",
   "help.tip_keyboard_desc": "Click on any row in a table to open the detail page. Use the sidebar to jump between modules.",
   "help.tip_export_title": "Data Export",
-  "help.tip_export_desc": "All reports can be exported to Excel (.xlsx) or CSV, with the filters you applied, for further analysis in spreadsheets.",
+  "help.tip_export_desc": "All reports can be exported to Excel (.xlsx), with the filters you applied and the report's summary, for further analysis in spreadsheets.",
   "reports.amounts_in_eur": "Amounts in EUR",
   "common.name": "Name",
   "btn.mark_all_read": "Mark all read",
@@ -1190,5 +1189,8 @@
   "toll_import.invoiced_hint": "These transactions are already imported and now have an invoice. Importing saves the invoice number on them; amounts do not change.",
   "toll_import.invoiced_hint_applied": "The invoice number was saved on these already imported transactions; amounts did not change.",
   "report.filter_category": "Category",
-  "error.report_invalid_category": "Unknown expense category."
+  "error.report_invalid_category": "Unknown expense category.",
+  "expense.date_from": "From",
+  "expense.date_to": "To",
+  "report.summary": "Summary"
 }

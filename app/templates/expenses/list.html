@@ -3,25 +3,41 @@
 {% block title %}{{ _('nav.expenses') }} — {{ _('app_name') }}{% endblock %}
 {% block page_title %}{{ _('nav.expenses') }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex flex-wrap items-center gap-3">
-    <form method="GET" action="/expenses" class="flex flex-wrap items-center gap-3 flex-1 min-w-0"
-          x-data='{ q: {{ q | tojson }}, type: {{ type_filter | tojson }}, category: {{ (category_filter.value if category_filter else "") | tojson }} }'
+<div class="mb-6 flex flex-wrap items-start gap-3">
+    <form method="GET" action="/expenses" class="flex flex-col gap-3 flex-1 min-w-0"
+          x-data='{ q: {{ q | tojson }}, type: {{ type_filter | tojson }}, category: {{ (category_filter.value if category_filter else "") | tojson }}, from: {{ date_from | tojson }}, to: {{ date_to | tojson }} }'
           hx-get="/expenses" hx-target="#expense-results" hx-swap="innerHTML" hx-push-url="true"
-          hx-trigger="input changed delay:300ms from:#expense-search, change from:#expense-type, change from:#expense-category, submit">
-        {{ vehicle_filter_fields('expense') }}
-        <div class="w-48">
-            <select id="expense-category" name="category" x-model="category" aria-label="{{ _('expense_category.title') }}" class="fc-select">
-                <option value="">{{ _('expense_category.title') }}</option>
-                {% for c in categories %}<option value="{{ c.value }}">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
-            </select>
+          hx-trigger="input changed delay:300ms from:#expense-search, change from:#expense-type, change from:#expense-category, change from:#expense-date-from, change from:#expense-date-to, submit">
+        <div class="fc-filters flex flex-wrap items-center gap-3">
+            {{ vehicle_filter_fields('expense') }}
+            <div class="w-48">
+                <select id="expense-category" name="category" x-model="category" aria-label="{{ _('expense_category.title') }}" class="fc-select">
+                    <option value="">{{ _('expense_category.title') }}</option>
+                    {% for c in categories %}<option value="{{ c.value }}">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
+                </select>
+            </div>
         </div>
-        <a href="/expenses" x-show="q || type || category" {% if not (q or type_filter or category_filter) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
+        <div class="fc-filters flex flex-wrap items-center gap-3">
+            <label for="expense-date-from" class="w-64 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span class="shrink-0">{{ _('expense.date_from') }}</span>
+                <input type="date" id="expense-date-from" name="date_from" x-model="from" max="9999-12-31" class="fc-filter-date flex-1 min-w-0">
+            </label>
+            <label for="expense-date-to" class="w-64 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span class="shrink-0">{{ _('expense.date_to') }}</span>
+                <input type="date" id="expense-date-to" name="date_to" x-model="to" max="9999-12-31" class="fc-filter-date flex-1 min-w-0">
+            </label>
+            <a href="/expenses" x-show="q || type || category || from || to" {% if not (q or type_filter or category_filter or date_from or date_to) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
+        </div>
     </form>
-    {% if can_edit %}
-    <a href="/expenses/imports" class="h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 ml-auto whitespace-nowrap">{{ _('toll_import.button') }}</a>
-    {% endif %}
-    {% if can_add %}
-    <a href="/expenses/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium {{ '' if can_edit else 'ml-auto' }} whitespace-nowrap">+ {{ _('expense.add') }}</a>
+    {% if can_edit or can_add %}
+    <div class="w-full sm:w-auto flex flex-wrap gap-3 sm:ml-auto">
+        {% if can_edit %}
+        <a href="/expenses/imports" class="flex-1 sm:flex-none h-10 px-4 inline-flex items-center justify-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{{ _('toll_import.button') }}</a>
+        {% endif %}
+        {% if can_add %}
+        <a href="/expenses/new" class="flex-1 sm:flex-none h-10 px-4 inline-flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium whitespace-nowrap">+ {{ _('expense.add') }}</a>
+        {% endif %}
+    </div>
     {% endif %}
 </div>
 <div id="expense-results">

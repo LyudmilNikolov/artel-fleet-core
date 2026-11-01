@@ -202,3 +202,66 @@ async def test_fleet_overview_cards_open_the_vehicle_list_with_that_status(clien
     # the target filter is applied by the vehicle list
     page = (await client.get("/vehicles", params={"status": "active"})).text.replace("&#34;", '"')
     assert 'status: "active"' in page
+
+
+@pytest.mark.asyncio
+async def test_expense_list_filters_by_date_range(client, db_session, fleet, fleet_manager_user):
+    service = ExpenseService(db_session)
+    for days_ago, vendor, category in ((40, "Old vendor", "parking"), (10, "Mid vendor", "washing"), (0, "New vendor", "parking")):
+        await service.create(
+            ExpenseCreate(
+                vehicle_id=fleet["van"].id,
+                category=category,
+                amount=Decimal("10.00"),
+                date=TODAY - timedelta(days=days_ago),
+                vendor=vendor,
+            ),
+            None,
+        )
+    await login(client, "testmanager")
+    day = lambda n: (TODAY - timedelta(days=n)).isoformat()  # noqa: E731
+
+    page = (await client.get("/expenses")).text
+    assert 'id="expense-date-from"' in page and 'id="expense-date-to"' in page
+
+    both = (await client.get("/expenses", params={"date_from": day(10), "date_to": day(10)})).text
+    assert "Mid vendor" in both and "Old vendor" not in both and "New vendor" not in both  # both ends inclusive
+
+    since = (await client.get("/expenses", params={"date_from": day(10)})).text
+    assert "Mid vendor" in since and "New vendor" in since and "Old vendor" not in since
+
+    until = (await client.get("/expenses", params={"date_to": day(10)})).text
+    assert "Old vendor" in until and "Mid vendor" in until and "New vendor" not in until
+
+    reversed_range = (await client.get("/expenses", params={"date_from": day(0), "date_to": day(10)})).text
+    assert "Mid vendor" in reversed_range and "New vendor" in reversed_range and "Old vendor" not in reversed_range
+
+    with_category = (await client.get("/expenses", params={"date_from": day(40), "category": "parking"})).text
+    assert "Old vendor" in with_category and "New vendor" in with_category and "Mid vendor" not in with_category
+
+    ignored = (await client.get("/expenses", params={"date_from": "", "date_to": "not-a-date"}))
+    assert ignored.status_code == 200 and "Old vendor" in ignored.text and "New vendor" in ignored.text
+    assert 'value="' + day(10) + '"' not in ignored.text
+
+    kept = (await client.get("/expenses", params={"date_from": day(10)})).text
+    assert day(10) in kept and "btn" in kept  # the chosen date stays in the form after reload
+
+
+@pytest.mark.asyncio
+async def test_expense_pagination_keeps_the_date_filter(client, db_session, fleet, fleet_manager_user):
+    for i in range(3):
+        await expense(db_session, fleet["van"], vendor=f"Van vendor {i}")
+    await login(client, "testmanager")
+    page = (await client.get("/expenses", params={"date_from": TODAY.isoformat(), "size": 2})).text
+    assert "page=2" in page and f"date_from={TODAY.isoformat()}" in page
+
+
+@pytest.mark.asyncio
+async def test_top_expensive_vehicle_links_to_its_filtered_expenses(client, db_session, fleet, fleet_manager_user):
+    await expense(db_session, fleet["tractor"], amount="500.00", vendor="Tractor vendor")
+    await expense(db_session, fleet["van"], vendor="Van vendor")
+    await login(client, "testmanager")
+    widget = (await client.get("/widgets/top-vehicles")).text
+    assert 'href="/expenses?q=CA1111AA"' in widget and f'href="/vehicles/{fleet["tractor"].id}"' not in widget
+    listed = (await client.get("/expenses", params={"q": "CA1111AA"})).text
+    assert "Tractor vendor" in listed and "Van vendor" not in listed

@@ -42,6 +42,9 @@ def test_dashboard_money_remains_exact(templates):
     assert 'const valuesExact = ["0.30"]' in rendered
     assert "valuesExact.map(Number)" in rendered
     assert "valuesDisplay[context.dataIndex]" in rendered
+    # Axis ticks scale with the value: thousands as "k", never "0.0M" for ordinary monthly totals.
+    assert "(v / 1000).toFixed(0) + 'k'" in rendered
+    assert "v => (v/1000000)" not in rendered
 
 
 def test_expense_form_has_no_currency_control_only_eur(templates):

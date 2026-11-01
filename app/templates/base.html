@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ lang }}" x-data="{ sidebarOpen: true, darkMode: localStorage.getItem('darkMode') === 'true' }"
+<html lang="{{ lang }}" x-data="{ sidebarOpen: window.innerWidth >= 1024, darkMode: localStorage.getItem('darkMode') === 'true' }"
       :class="{ 'dark': darkMode }">
 <head>
     <meta charset="UTF-8">
@@ -23,7 +23,7 @@
            x-transition:enter="transition-transform duration-200"
            x-transition:enter-start="-translate-x-full"
            x-transition:enter-end="translate-x-0"
-           class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+           class="fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         <!-- Logo -->
         <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700">
             <a href="{{ driver_scope.home if (driver_scope is defined and driver_scope and driver_scope.restricted) else '/' }}" class="flex items-center gap-2">
@@ -96,17 +96,21 @@
         </nav>
     </aside>
 
-    <!-- Main content -->
-    <div class="flex-1 flex flex-col" :class="sidebarOpen ? 'ml-64' : 'ml-0'">
+    <!-- Backdrop on small screens: tap outside the sidebar to close it -->
+    <div x-show="sidebarOpen" x-transition.opacity @click="sidebarOpen = false"
+         class="fixed inset-0 z-30 bg-black/40 lg:hidden" style="display: none"></div>
+
+    <!-- Main content (min-w-0 keeps wide tables scrolling inside their card, not the page) -->
+    <div class="flex-1 flex flex-col min-w-0" :class="sidebarOpen ? 'lg:ml-64' : ''">
         <!-- Topbar -->
-        <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 sticky top-0 z-20">
-            <div class="flex items-center gap-4">
+        <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 px-3 sm:px-6 sticky top-0 z-20">
+            <div class="flex items-center gap-2 sm:gap-4 min-w-0">
                 <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
-                <h1 class="text-lg font-semibold">{% block page_title %}{{ _('nav.dashboard') }}{% endblock %}</h1>
+                <h1 class="text-lg font-semibold truncate">{% block page_title %}{{ _('nav.dashboard') }}{% endblock %}</h1>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1 sm:gap-3 shrink-0">
                 <!-- Language switcher -->
                 <div x-data="{ open: false }" class="relative">
                     <button @click="open = !open" class="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -136,11 +140,11 @@
                 <!-- User menu -->
                 {% if user %}
                 <div x-data="{ open: false }" class="relative">
-                    <button @click="open = !open" class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                        <div class="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-700 dark:text-primary-300 text-sm font-medium">
+                    <button @click="open = !open" class="flex items-center gap-2 px-1 sm:px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <div class="w-8 h-8 shrink-0 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-700 dark:text-primary-300 text-sm font-medium">
                             {{ user.full_name[0]|upper }}
                         </div>
-                        <span class="text-sm font-medium">{{ user.full_name }}</span>
+                        <span class="hidden md:inline text-sm font-medium">{{ user.full_name }}</span>
                     </button>
                     <div x-show="open" @click.away="open = false"
                          class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
@@ -157,7 +161,7 @@
         </header>
 
         <!-- Page content -->
-        <main class="flex-1 p-6">
+        <main class="flex-1 p-4 sm:p-6">
             {% block content %}{% endblock %}
         </main>
     </div>

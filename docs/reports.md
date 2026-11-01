@@ -11,13 +11,16 @@ and **Maintenance history** (`/reports/tco|fuel|expenses|maintenance`, API under
 | `vehicle_type` | Group: `tractor_unit`, `trailer` (both trailer kinds), `van`, `passenger_car`, `forklift`; empty = all. Mapping lives in `app/vehicle_rules.py` (`vehicle_type_filter`, `type_group_of`). |
 | `start_date`, `end_date` | Inclusive, `YYYY-MM-DD`. |
 | `status` | Maintenance only. |
-| `category` | Expense analysis only: one expense category (`fuel`, `toll`, ...); empty = all. Applies to the page, the CSV export and `/api/v1/reports/expense-analysis`. |
+| `category` | Expense analysis only: one expense category (`fuel`, `toll`, ...); empty = all. Applies to the page, the Excel export and `/api/v1/reports/expense-analysis`. |
 
 - Vehicle and type work together (AND). The picker narrows to the chosen type and a mismatching vehicle is cleared;
   a hand-edited URL with a vehicle outside the type returns an empty report with a note.
 - Parsing is `parse_report_filters` (`app/schemas/report.py`) for web and API. Bad input gives a localized 422
   (`error.report_*`), never a 500.
 - Export links carry the same parameters, so an export always equals the screen.
+- Every export is Excel (.xlsx; the expense analysis was CSV until 2026-11). Each file starts with the title, the
+  filter line and a *Summary* block with the page's headline figures; each table ends with a bold totals row.
+  The expense analysis holds a by-category table (with share) and a monthly table (with average per transaction).
 - Queries live in `app/repositories/report_repo.py`; there is no per-vehicle querying.
 
 ## Rules

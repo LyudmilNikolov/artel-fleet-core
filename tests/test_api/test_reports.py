@@ -61,7 +61,7 @@ async def test_new_filters_are_optional_and_validated(client: AsyncClient, admin
     assert reversed_dates.status_code == 422 and "cannot be before" in reversed_dates.json()["detail"]
     assert (await client.get("/api/v1/reports/maintenance-history?status=nope", headers=headers)).status_code == 422
     assert (await client.get("/api/v1/reports/expense-analysis?category=toll", headers=headers)).status_code == 200
-    for path in ("expense-analysis", "export/expenses.csv"):
+    for path in ("expense-analysis", "export/expenses.xlsx"):
         bad = await client.get(f"/api/v1/reports/{path}?category=nope", headers={**headers, "Accept-Language": "en"})
         assert bad.status_code == 422 and bad.json()["detail"] == "Unknown expense category."
 
@@ -71,6 +71,6 @@ async def test_report_rbac_matrix(client: AsyncClient, viewer_token: str, manage
     """Data endpoints are open to any authenticated user; exports need admin or fleet manager."""
     viewer, manager = auth_header(viewer_token), auth_header(manager_token)
     assert (await client.get("/api/v1/reports/maintenance-history", headers=viewer)).status_code == 200
-    for export in ("tco.xlsx", "fuel.xlsx", "maintenance.xlsx", "expenses.csv"):
+    for export in ("tco.xlsx", "fuel.xlsx", "maintenance.xlsx", "expenses.xlsx"):
         assert (await client.get(f"/api/v1/reports/export/{export}", headers=viewer)).status_code == 403
         assert (await client.get(f"/api/v1/reports/export/{export}", headers=manager)).status_code == 200

@@ -7,11 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.i18n import _
+from app.models.maintenance import MaintenanceStatus
 from app.models.vehicle import Vehicle
 from app.repositories.report_repo import ReportRepository
 from app.schemas.report import MaintenanceReportFilters, ReportFilters
 from app.services.errors import DomainError
-from app.utils.export import CSVExporter, ExcelExporter
+from app.utils.export import ExcelExporter
 from app.vehicle_rules import vehicle_display_label
 
 
@@ -202,6 +203,16 @@ class ReportService:
         exp = ExcelExporter((_("report.tco", lang=locale) + " (EUR)"), monetary_columns=(6, 7, 8))
         period = await self._subtitle(filters, locale)
         exp.add_title((_("report.tco", lang=locale) + " (EUR)"), period)
+        purchase_total = sum((r["purchase_price"] or Decimal("0")) for r in data)
+        tco_total = sum((r["tco"] for r in data), Decimal("0"))
+        exp.add_summary(
+            _("report.summary", lang=locale),
+            [
+                (_("reports.total_vehicles", lang=locale), len(data), False),
+                (_("reports.total_purchase_value", lang=locale), purchase_total, True),
+                (_("reports.fleet_tco", lang=locale), tco_total, True),
+            ],
+        )
         exp.add_headers(
             [
                 _("vehicle.registration", lang=locale),
@@ -235,9 +246,9 @@ class ReportService:
                     "",
                     "",
                     _("common.total", lang=locale),
-                    sum((r["purchase_price"] or Decimal("0")) for r in data),
+                    purchase_total,
                     sum(r["total_expenses"] for r in data),
-                    sum(r["tco"] for r in data),
+                    tco_total,
                 ]
             )
         return exp.to_bytes()
@@ -248,6 +259,18 @@ class ReportService:
         exp = ExcelExporter(_("report.fuel", lang=locale), monetary_columns=(6,))
         period = await self._subtitle(filters, locale)
         exp.add_title(_("report.fuel", lang=locale), period)
+        total_liters = sum(Decimal(str(r["total_liters"])) for r in data)
+        total_cost = sum((r["total_cost"] for r in data), Decimal("0"))
+        total_refuels = sum(r["refuel_count"] for r in data)
+        exp.add_summary(
+            _("report.summary", lang=locale),
+            [
+                (_("reports.total_vehicles", lang=locale), len(data), False),
+                (_("reports.total_liters", lang=locale), total_liters, False),
+                (_("reports.total_fuel_cost", lang=locale), total_cost, True),
+                (_("reports.total_refuels", lang=locale), total_refuels, False),
+            ],
+        )
         exp.add_headers(
             [
                 _("vehicle.registration", lang=locale),
@@ -273,6 +296,19 @@ class ReportService:
                     r["l_per_100km"],
                 ]
             )
+        if data:
+            eligible = [r for r in data if r["l_per_100km"] is not None]
+            eligible_km = sum(r["distance_km"] for r in eligible)
+            fleet_l100 = (
+                (sum(r["efficiency_liters"] for r in eligible) * 100 / eligible_km).quantize(
+                    Decimal("0.1"), rounding=ROUND_HALF_UP
+                )
+                if eligible_km > 0
+                else None
+            )
+            exp.add_summary_row(
+                ["", "", "", _("common.total", lang=locale), total_liters, total_cost, total_refuels, fleet_l100]
+            )
         return exp.to_bytes()
 
     async def export_maintenance_excel(
@@ -283,6 +319,22 @@ class ReportService:
         exp = ExcelExporter(_("report.maintenance", lang=locale), monetary_columns=(9,))
         period = await self._subtitle(filters, locale)
         exp.add_title(_("report.maintenance", lang=locale), period)
+        cost_total = sum(
+            (r["cost"] for r in data if r["cost"] is not None and r["status"] != MaintenanceStatus.CANCELLED.value),
+            Decimal("0"),
+        )
+        exp.add_summary(
+            _("report.summary", lang=locale),
+            [
+                (_("reports.records", lang=locale), len(data), False),
+                (
+                    _("reports.completed_count", lang=locale),
+                    sum(1 for r in data if r["status"] == MaintenanceStatus.COMPLETED.value),
+                    False,
+                ),
+                (_("reports.total_cost_excl_cancelled", lang=locale), cost_total, True),
+            ],
+        )
         exp.add_headers(
             [
                 _("vehicle.registration", lang=locale),
@@ -312,22 +364,78 @@ class ReportService:
                     r["service_provider"],
                 ]
             )
+        if data:
+            exp.add_summary_row(
+                ["", "", "", "", "", "", "", _("reports.total_cost_excl_cancelled", lang=locale), cost_total]
+            )
         return exp.to_bytes()
 
-    async def export_expense_csv(self, filters: ReportFilters | None = None, *, locale: str = "bg") -> bytes:
-        """CSV export of the expense categories for exactly the on-screen filters."""
+    async def export_expense_excel(self, filters: ReportFilters | None = None, *, locale: str = "bg") -> bytes:
+        """Excel export of the expense analysis for exactly the on-screen filters: summary, categories, months."""
         analysis = await self.expense_analysis(filters)
-        exp = CSVExporter()
+        grand_total = analysis.get("grand_total", Decimal("0"))
+        by_category = analysis.get("by_category", [])
+        monthly = analysis.get("monthly", [])
+        total_count = analysis.get("total_count", sum(r["count"] for r in by_category))
+        title = _("reports.expense_analysis", lang=locale) + " (EUR)"
+        exp = ExcelExporter(title, monetary_columns=(2, 4))
+        exp.add_title(title, await self._subtitle(filters, locale))
+        exp.add_summary(
+            _("report.summary", lang=locale),
+            [
+                (_("reports.grand_total", lang=locale), grand_total, True),
+                (_("reports.total_transactions", lang=locale), total_count, False),
+                (_("reports.categories_count", lang=locale), len(by_category), False),
+            ],
+        )
+        share = {4: "0.0%"}
+        exp.add_section(_("reports.by_category", lang=locale))
         exp.add_headers(
             [
                 _("common.category", lang=locale),
-                (_("report.total_amount", lang=locale) + " (EUR)"),
-                _("report.transaction_count", lang=locale),
+                _("reports.amount", lang=locale) + " (EUR)",
+                _("reports.count", lang=locale),
+                _("reports.share", lang=locale),
             ]
         )
-        for r in analysis["by_category"]:
-            exp.add_row([_("expense_category." + r["category"], lang=locale), r["total"], r["count"]])
+        for r in by_category:
+            exp.add_row(
+                [
+                    _("expense_category." + r["category"], lang=locale),
+                    r["total"],
+                    r["count"],
+                    float(r["total"] / grand_total) if grand_total else None,
+                ],
+                formats=share,
+            )
+        if by_category:
+            exp.add_summary_row(
+                [_("common.total", lang=locale), grand_total, total_count, 1.0 if grand_total else None], formats=share
+            )
+        exp.add_blank()
+        exp.add_section(_("reports.monthly_breakdown", lang=locale))
+        exp.add_headers(
+            [
+                _("reports.month", lang=locale),
+                _("reports.amount", lang=locale) + " (EUR)",
+                _("reports.count", lang=locale),
+                _("reports.avg_per_transaction", lang=locale) + " (EUR)",
+            ]
+        )
+        for r in monthly:
+            exp.add_row([r["month"][:7], r["total"], r["count"], self._average(r["total"], r["count"])])
+        if monthly:
+            month_total = sum((r["total"] for r in monthly), Decimal("0"))
+            month_count = sum(r["count"] for r in monthly)
+            exp.add_summary_row(
+                [_("common.total", lang=locale), month_total, month_count, self._average(month_total, month_count)]
+            )
         return exp.to_bytes()
+
+    @staticmethod
+    def _average(total: Decimal, count: int) -> Decimal | None:
+        """Average per transaction rounded half-up to cents, as on the report page."""
+        return (total / count).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if count else None
 
     @staticmethod
     def _period_label(start_date: dt.date | None, end_date: dt.date | None, locale: str) -> str:

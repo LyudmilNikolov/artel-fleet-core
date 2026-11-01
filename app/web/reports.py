@@ -150,7 +150,7 @@ async def vehicle_options(
     )
 
 
-# Excel/CSV exports from web UI: same filters as the page they are linked from
+# Excel exports from web UI: same filters as the page they are linked from
 
 
 async def _export(request: Request, db: AsyncSession, build, filename: str, media_type: str, cls=ReportFilters):
@@ -199,13 +199,13 @@ async def web_export_maintenance(request: Request, db: AsyncSession = Depends(ge
     )
 
 
-@router.get("/export/expenses.csv")
+@router.get("/export/expenses.xlsx")
 async def web_export_expenses(request: Request, db: AsyncSession = Depends(get_db)):
     return await _export(
         request,
         db,
-        lambda s, f, loc: s.export_expense_csv(f, locale=loc),
-        "expense_analysis.csv",
-        "text/csv",
+        lambda s, f, loc: s.export_expense_excel(f, locale=loc),
+        "expense_analysis.xlsx",
+        XLSX,
         ExpenseReportFilters,
     )

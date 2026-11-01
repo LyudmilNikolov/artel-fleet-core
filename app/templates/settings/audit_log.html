@@ -6,7 +6,7 @@
     {% if filter_error %}
     <div role="alert" class="mb-4 fc-notice fc-notice-danger">{{ filter_error }}</div>
     {% endif %}
-    <form method="GET" action="/settings/audit" class="flex flex-wrap items-end gap-3">
+    <form method="GET" action="/settings/audit" class="fc-filters flex flex-wrap items-end gap-3">
         <div>
             <label for="start_date" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ _('reports.start_date') }}</label>
             <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="fc-filter-date">

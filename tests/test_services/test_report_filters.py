@@ -215,8 +215,12 @@ async def test_exports_use_the_same_filters(db_session):
     sheet = list(load_workbook(BytesIO(await svc.export_maintenance_excel(maint, locale="en"))).active.values)
     assert "Vehicle type: Van" in sheet[1][0] and "Status: Completed" in sheet[1][0]
     assert [r[0] for r in sheet if r[0] and r[0].startswith("CA")] == [van.license_plate]
-    csv_rows = (await svc.export_expense_csv(ReportFilters(vehicle_id=truck.id), locale="en")).decode("utf-8-sig")
-    assert "12.34" in csv_rows and "1.00" not in csv_rows.replace("12.34", "")
+    expense_rows = list(
+        load_workbook(
+            BytesIO(await svc.export_expense_excel(ReportFilters(vehicle_id=truck.id), locale="en"))
+        ).active.values
+    )
+    assert next(r for r in expense_rows if r[0] == "Grand total")[1] == 12.34
 
 
 def test_category_filter_parses_and_rejects_unknown_values():
@@ -229,7 +233,7 @@ def test_category_filter_parses_and_rejects_unknown_values():
 
 
 @pytest.mark.asyncio
-async def test_expense_analysis_and_csv_filter_by_category(db_session):
+async def test_expense_analysis_and_export_filter_by_category(db_session):
     truck = await vehicle(db_session, "tractor_unit")
     van = await vehicle(db_session, "van")
     await expense(db_session, truck, "10.00", date(2026, 3, 1), ExpenseCategory.TOLL)
@@ -247,6 +251,56 @@ async def test_expense_analysis_and_csv_filter_by_category(db_session):
     ]
     truck_tolls = ExpenseReportFilters(category=ExpenseCategory.TOLL, vehicle_id=truck.id)
     assert (await svc.expense_analysis(truck_tolls))["grand_total"] == Decimal("30.00")
-    csv_text = (await svc.export_expense_csv(truck_tolls, locale="en")).decode("utf-8-sig")
-    assert "30.00" in csv_text and "99.00" not in csv_text
+    rows = list(load_workbook(BytesIO(await svc.export_expense_excel(truck_tolls, locale="en"))).active.values)
+    assert next(r for r in rows if r[0] == "Grand total")[1] == 30
+    assert [r[0] for r in rows if r[0] in ("Toll", "Fuel")] == ["Toll"]
     assert "Category: Toll" in await svc.filter_label(truck_tolls, "en")
+
+
+def _sheet(content: bytes) -> list[tuple]:
+    return list(load_workbook(BytesIO(content)).active.values)
+
+
+def _value(rows: list[tuple], label: str):
+    """Value next to a summary label, or the cell values of a totals row."""
+    return next(r for r in rows if label in r)
+
+
+@pytest.mark.asyncio
+async def test_every_excel_export_carries_the_summary_and_totals(db_session):
+    truck = await vehicle(db_session, "tractor_unit")
+    van = await vehicle(db_session, "van")
+    await expense(db_session, truck, "10.00", date(2026, 3, 1), ExpenseCategory.TOLL)
+    await expense(db_session, truck, "20.00", date(2026, 4, 1), ExpenseCategory.TOLL)
+    await expense(db_session, truck, "60.00", date(2026, 3, 5), ExpenseCategory.FUEL, liters=Decimal("40"), km=1000)
+    await expense(db_session, van, "30.00", date(2026, 4, 2), ExpenseCategory.FUEL, liters=Decimal("20"), km=1000)
+    await maintenance(db_session, van, MaintenanceStatus.COMPLETED, date(2026, 3, 1), date(2026, 3, 2), "100.00")
+    await maintenance(db_session, van, MaintenanceStatus.CANCELLED, date(2026, 3, 3), None, "999.00")
+    svc = ReportService(db_session)
+
+    rows = _sheet(await svc.export_expense_excel(locale="en"))
+    assert "Summary" in [r[0] for r in rows]
+    assert _value(rows, "Grand total")[1] == 120 and _value(rows, "Total transactions")[1] == 4
+    assert _value(rows, "Categories")[1] == 2
+    category_total, month_total = [r for r in rows if r[0] == "Total"]
+    assert category_total[1:] == (120, 4, 1)  # amount, count, share 100 %
+    assert month_total[1:] == (120, 4, 30)  # amount, count, average per transaction
+    assert next(r for r in rows if r[0] == "Toll")[1:] == (30, 2, 0.25)
+    assert [r[0] for r in rows if r[0] in ("2026-03", "2026-04")] == ["2026-03", "2026-04"]
+    wb = load_workbook(BytesIO(await svc.export_expense_excel(locale="bg")))
+    assert any(c.value == "Обобщение" for c in wb.active["A"])
+    toll_share = next(r for r in wb.active.iter_rows() if r[0].value == "Пътна такса")[3]
+    assert toll_share.number_format == "0.0%"
+
+    rows = _sheet(await svc.export_tco_excel(locale="en"))
+    assert _value(rows, "Fleet TCO")[1] == 120 and _value(rows, "Total vehicles")[1] == 2
+    assert _value(rows, "Total")[7] == 120
+
+    rows = _sheet(await svc.export_fuel_excel(locale="en"))
+    assert _value(rows, "Total liters")[1] == 60 and _value(rows, "Fuel cost")[1] == 90
+    assert _value(rows, "Total")[4:7] == (60, 90, 2)
+
+    rows = _sheet(await svc.export_maintenance_excel(locale="en"))
+    assert _value(rows, "Records")[1] == 2
+    cost_rows = [r for r in rows if "Total cost (excl. cancelled)" in r]
+    assert cost_rows[0][1] == 100 and cost_rows[-1][8] == 100  # summary and totals row ignore the cancelled 999

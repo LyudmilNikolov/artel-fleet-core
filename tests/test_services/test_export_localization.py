@@ -1,6 +1,5 @@
-import csv
 from decimal import Decimal
-from io import BytesIO, StringIO
+from io import BytesIO
 from unittest.mock import AsyncMock
 
 import pytest
@@ -43,9 +42,7 @@ async def test_export_status_and_category_labels_are_localized():
         assert row[4] == "User content"
         assert row[6] == "2026-01-02"
         assert row[8] == 0.3
-        output = await service.export_expense_csv(locale=locale)
-        assert output.startswith(b"\xef\xbb\xbf")
-        csv_rows = list(csv.reader(StringIO(output.decode("utf-8-sig"))))
-        assert csv_rows[0][0] == expected_category
-        assert "EUR" in csv_rows[0][1]
-        assert csv_rows[1] == [expected_fuel, "0.30", "2"]
+        expense_rows = list(load_workbook(BytesIO(await service.export_expense_excel(locale=locale))).active.values)
+        header = next(r for r in expense_rows if r[0] == expected_category)
+        assert "EUR" in header[1]
+        assert next(r for r in expense_rows if r[0] == expected_fuel)[:3] == (expected_fuel, 0.3, 2)

@@ -4,7 +4,7 @@
 {% block page_title %}{{ _('nav.maintenance') }}{% endblock %}
 {% block content %}
 <div class="mb-6 flex flex-wrap items-center gap-3">
-    <form method="GET" action="/maintenance" class="flex flex-wrap items-center gap-3 flex-1 min-w-0"
+    <form method="GET" action="/maintenance" class="fc-filters flex flex-wrap items-center gap-3 flex-1 min-w-0"
           x-data='{ q: {{ q | tojson }}, type: {{ type_filter | tojson }}, status: {{ status_filter | tojson }}, when: {{ when_filter | tojson }} }'
           hx-get="/maintenance" hx-target="#maintenance-results" hx-swap="innerHTML" hx-push-url="true"
           hx-trigger="input changed delay:300ms from:#maintenance-search, change from:#maintenance-type, change from:#maintenance-status, change from:#maintenance-when, submit">
@@ -25,10 +25,10 @@
         </div>
         <a href="/maintenance" x-show="q || type || status || when" {% if not (q or type_filter or status_filter or when_filter) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
     </form>
-    <div class="flex items-center gap-3 ml-auto">
-        <a href="/maintenance/due" class="h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{{ _('maintenance.service_due') }}</a>
+    <div class="w-full sm:w-auto flex flex-wrap items-center gap-3 sm:ml-auto">
+        <a href="/maintenance/due" class="flex-1 sm:flex-none justify-center h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{{ _('maintenance.service_due') }}</a>
         {% if can_add %}
-        <a href="/maintenance/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium whitespace-nowrap">+ {{ _('maintenance.add') }}</a>
+        <a href="/maintenance/new" class="flex-1 sm:flex-none justify-center h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium whitespace-nowrap">+ {{ _('maintenance.add') }}</a>
         {% endif %}
     </div>
 </div>

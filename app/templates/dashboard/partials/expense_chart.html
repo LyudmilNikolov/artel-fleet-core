@@ -76,7 +76,8 @@
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                callback: v => (v/1000000).toFixed(1) + 'M',
+                                callback: v => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M'
+                                    : v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v,
                                 color: document.documentElement.classList.contains('dark') ? '#9CA3AF' : '#6B7280'
                             },
                             grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(75,85,99,0.3)' : 'rgba(229,231,235,0.8)' }

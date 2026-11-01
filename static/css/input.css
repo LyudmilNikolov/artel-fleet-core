@@ -35,9 +35,13 @@
     .fc-filter-input { @apply h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500; }
     .fc-filter-select { @apply h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white; }
     .fc-filter-date {
-        @apply h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+        @apply h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
         font-size: 16px;
     }
+    /* A checkbox filter drawn as a control of the same height and border as the inputs next to it. */
+    .fc-filter-toggle { @apply h-10 px-3 inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 cursor-pointer select-none whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors; }
+    /* Set by Alpine while ticked (a :has() rule misses Chrome's restyle when dark mode is switched on after load). */
+    .fc-filter-toggle-on { @apply border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500 dark:bg-primary-900/30 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/50; }
 
     /* Cards */
     .fc-card { @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700; }
@@ -154,3 +158,15 @@ a.fc-notice-warning:hover { background-color: #fef9c3; }
 .dark .fc-notice-indigo { background-color: rgba(49, 46, 129, 0.3); color: #a5b4fc; border-color: #3730a3; }
 .fc-notice-purple { background-color: #faf5ff; color: #6b21a8; border-color: #e9d5ff; }
 .dark .fc-notice-purple { background-color: rgba(88, 28, 135, 0.3); color: #d8b4fe; border-color: #6b21a8; }
+
+/* Filter bars on phones: every control takes the full width, one per line. */
+@media (max-width: 639px) {
+    .fc-filters,
+    .fc-filters > *,
+    .fc-filters input:not([type="checkbox"]):not([type="hidden"]),
+    .fc-filters select {
+        width: 100%;
+    }
+    .fc-filters .fc-filter-toggle { justify-content: flex-start; }
+    .fc-filters button[type="submit"], .fc-filters .fc-btn-reset { justify-content: center; }
+}
