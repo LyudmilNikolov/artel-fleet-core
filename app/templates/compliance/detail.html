@@ -67,7 +67,7 @@
             <dd class="mt-1 text-sm"><a href="/expenses/{{ entry.expense_id }}" class="text-primary-600 hover:underline">{{ _('compliance.linked_expense_open') }}</a></dd>
         </div>
         {% endif %}
-        {{ field(_('compliance.policy_number'), entry.policy_number) }}
+        {{ field(_('compliance.policy_number'), policy(entry.policy_number)) }}
         {% if entry.renewed_from_id %}
         <div>
             <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.renewed_from') }}</dt>

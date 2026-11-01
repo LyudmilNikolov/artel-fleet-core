@@ -19,6 +19,7 @@ from app.services.expense_service import ExpenseService
 from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
+from app.services.policy_privacy import expense_description_for
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -285,7 +286,7 @@ async def expense_detail(request: Request, expense_id: UUID, db: AsyncSession = 
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="expenses/detail.html",
-        context=_ctx(request, user, expense=expense),
+        context=_ctx(request, user, expense=expense, description=expense_description_for(user, expense)),
     )
 
 

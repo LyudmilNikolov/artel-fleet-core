@@ -63,7 +63,7 @@
                     {% if not e.applicable %}<span class="block text-xs text-gray-400">{{ _('compliance.not_applicable_type') }}</span>{% endif %}
                 </td>
                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap text-xs">{{ e.start_date }} — {{ e.end_date }}</td>
-                <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ e.policy_number or '—' }}</td>
+                <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ policy(e.policy_number) or '—' }}</td>
                 <td class="px-4 py-3 text-right font-mono whitespace-nowrap">{{ money(e.amount) }}</td>
             </tr>
             {% endfor %}

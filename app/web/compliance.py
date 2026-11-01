@@ -17,6 +17,7 @@ from app.schemas.compliance import ComplianceCreate, ComplianceRenew, Compliance
 from app.services.compliance_service import ComplianceService
 from app.services.errors import DomainError, render_error
 from app.vehicle_rules import ComplianceType, compliance_types_for
+from app.services.policy_privacy import policy_number_for
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, web_require_roles
 
 router = APIRouter(prefix="/compliance", tags=["web-compliance"])
@@ -32,6 +33,7 @@ def _ctx(request: Request, user: User, **values) -> dict:
         "active_page": "compliance",
         "can_edit": user.role in (UserRole.ADMIN, UserRole.FLEET_MANAGER),
         "can_upload": can_contribute(request, user),  # an assigned driver uploads scans for their own vehicle
+        "policy": lambda value: policy_number_for(user, value),  # viewers see numbers masked
         **values,
         **request.app.state.template_globals(request),
     }
