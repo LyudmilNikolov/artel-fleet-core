@@ -10,17 +10,23 @@ from app.models.user import User
 from app.repositories.base import BaseRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
-from app.services.errors import DomainError, MileageBelowCurrentError, error_detail
+from app.services.errors import DomainError, error_detail
+from app.services.policy_privacy import expense_description_for
 from app.services.expense_service import ExpenseService
 from app.vehicle_rules import vehicle_type_filter
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
+def _read(expense, user: User) -> ExpenseRead:
+    """Serialize an expense; for viewers the linked policy number inside the description is masked."""
+    item = ExpenseRead.model_validate(expense)
+    item.description = expense_description_for(user, expense)
+    return item
+
+
 def _http_error(exc: DomainError) -> HTTPException:
-    """404 for unknown records/vehicles, 409 when a lower mileage needs confirmation, else 400."""
-    if isinstance(exc, MileageBelowCurrentError):
-        return HTTPException(status_code=409, detail=error_detail(exc))
+    """404 for unknown records/vehicles, else 400."""
     not_found = exc.key in ("error.expense_not_found", "error.vehicle_not_found")
     return HTTPException(status_code=404 if not_found else 400, detail=error_detail(exc))
 
@@ -33,7 +39,7 @@ async def list_expenses(
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """``q`` and ``vehicle_type`` (a type, or ``trailer``) filter by vehicle."""
     try:
@@ -43,7 +49,7 @@ async def list_expenses(
     service = ExpenseService(db)
     items, total = await service.list_all(category=category, q=q, vehicle_types=types, page=page, size=size)
     return PaginatedResponse(
-        items=[ExpenseRead.model_validate(i) for i in items],
+        items=[_read(i, user) for i in items],
         total=total,
         page=page,
         size=size,
@@ -52,12 +58,12 @@ async def list_expenses(
 
 
 @router.get("/{expense_id}", response_model=ExpenseRead)
-async def get_expense(expense_id: UUID, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
+async def get_expense(expense_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     service = ExpenseService(db)
     expense = await service.get_by_id(expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="error.expense_not_found")
-    return expense
+    return _read(expense, user)
 
 
 @router.post("", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)

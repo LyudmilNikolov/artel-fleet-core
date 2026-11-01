@@ -26,7 +26,7 @@
                     </td>
                     <td class="hidden sm:table-cell px-3 sm:px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ e.start_date }} — {{ e.end_date }}</td>
                     <td class="hidden lg:table-cell px-4 py-3">{{ e.provider or '—' }}</td>
-                    <td class="hidden lg:table-cell px-4 py-3 font-mono text-xs">{{ e.policy_number or '—' }}</td>
+                    <td class="hidden lg:table-cell px-4 py-3 font-mono text-xs">{{ policy(e.policy_number) or '—' }}</td>
                     <td class="px-3 sm:px-4 py-3 text-right font-mono whitespace-nowrap">{{ money(e.amount) }}</td>
                 </tr>
                 {% else %}<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}

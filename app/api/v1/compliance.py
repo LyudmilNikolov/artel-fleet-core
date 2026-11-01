@@ -21,8 +21,16 @@ from app.schemas.compliance import (
 )
 from app.services.compliance_service import ComplianceService
 from app.services.errors import DomainError, error_detail
+from app.services.policy_privacy import policy_number_for
 
 router = APIRouter(prefix="/compliance-documents", tags=["compliance-documents"])
+
+
+def _read(entry, user: User) -> ComplianceRead:
+    """Serialize an entry; viewers get the policy number masked."""
+    item = ComplianceRead.model_validate(entry)
+    item.policy_number = policy_number_for(user, item.policy_number)
+    return item
 
 
 def _bad_request(exc: DomainError) -> HTTPException:
@@ -40,7 +48,7 @@ async def list_compliance_documents(
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     items, total = await ComplianceService(db).list_entries(
         vehicle_id=vehicle_id,
@@ -52,7 +60,7 @@ async def list_compliance_documents(
         size=size,
     )
     return PaginatedResponse(
-        items=[ComplianceRead.model_validate(i) for i in items],
+        items=[_read(i, user) for i in items],
         total=total,
         page=page,
         size=size,
@@ -77,12 +85,12 @@ async def compliance_types(
 
 @router.get("/{entry_id}", response_model=ComplianceRead)
 async def get_compliance_document(
-    entry_id: UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)
+    entry_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     view = await ComplianceService(db).get(entry_id)
     if not view:
         raise HTTPException(status_code=404, detail="error.compliance_not_found")
-    return ComplianceRead.model_validate(view)
+    return _read(view, user)
 
 
 @router.post("", response_model=ComplianceRead, status_code=status.HTTP_201_CREATED)

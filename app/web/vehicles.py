@@ -13,6 +13,7 @@ from app.services.compliance_service import ComplianceService
 from app.services.errors import DomainError, render_error
 from app.services.expense_service import ExpenseService
 from app.services.maintenance_service import MaintenanceService
+from app.services.policy_privacy import policy_number_for
 from app.services.mileage_service import MileageService
 from app.services.service_due_service import ServiceDueService
 from app.services.vehicle_service import VehicleService
@@ -379,6 +380,7 @@ async def vehicle_tab_compliance(
             "request": request,
             "summary": summary,
             "can_edit": user.role.value in ("admin", "fleet_manager"),
+            "policy": lambda value: policy_number_for(user, value),  # viewers see numbers masked
             "vehicle_id": str(vehicle_id),
             **ctx,
         },
