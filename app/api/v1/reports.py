@@ -26,7 +26,7 @@ REPORT_NAMES = {
     "tco.xlsx": ("tco_report", "xlsx"),
     "fuel.xlsx": ("fuel_consumption", "xlsx"),
     "maintenance.xlsx": ("maintenance_history", "xlsx"),
-    "expenses.csv": ("expense_analysis", "csv"),
+    "expenses.xlsx": ("expense_analysis", "xlsx"),
 }
 
 
@@ -207,15 +207,15 @@ async def export_maintenance_excel(
     )
 
 
-@router.get("/export/expenses.csv")
-async def export_expenses_csv(
+@router.get("/export/expenses.xlsx")
+async def export_expenses_excel(
     request: Request,
     filters: ExpenseReportFilters = Depends(expense_filters),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_fleet_manager),
 ):
     svc = ReportService(db)
-    data = await svc.export_expense_csv(filters, locale=getattr(request.state, "locale", "bg"))
+    data = await svc.export_expense_excel(filters, locale=getattr(request.state, "locale", "bg"))
     await AuditService(db).log_export(
         user_id=user.id,
         report=REPORT_NAMES[request.url.path.rsplit("/", 1)[-1]][0],
@@ -224,6 +224,6 @@ async def export_expenses_csv(
     )
     return Response(
         content=data,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=expense_analysis.csv"},
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=expense_analysis.xlsx"},
     )

@@ -3,27 +3,27 @@
 {% block page_title %}{{ _('nav.compliance') }}{% endblock %}
 {% block content %}
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-    <form method="GET" action="/compliance" class="flex flex-wrap items-center gap-3"
+    <form method="GET" action="/compliance" class="fc-filters flex flex-wrap items-center gap-3 flex-1 min-w-0"
           hx-get="/compliance" hx-target="#compliance-table" hx-swap="innerHTML" hx-push-url="true"
           hx-trigger="submit, change, keyup delay:400ms">
         <input type="search" name="q" value="{{ filters.q }}" placeholder="{{ _('compliance.vehicle_search_placeholder') }}"
-               class="h-10 px-4 w-64 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
-        <select name="document_type" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+               class="fc-input w-64">
+        <select name="document_type" aria-label="{{ _('compliance.type') }}" class="fc-select w-auto">
             <option value="">{{ _('compliance.type') }}</option>
             {% for t in types %}<option value="{{ t.value }}" {% if filters.document_type == t.value %}selected{% endif %}>{{ _('compliance_type.' + t.value) }}</option>{% endfor %}
         </select>
-        <select name="status" class="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+        <select name="status" aria-label="{{ _('common.status') }}" class="fc-select w-auto">
             <option value="">{{ _('common.status') }}</option>
             {% for s in statuses %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ _('compliance_status.' + s) }}</option>{% endfor %}
         </select>
-        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" name="include_history" value="true" class="fc-checkbox" {% if filters.include_history %}checked{% endif %}>
+        <label class="fc-filter-toggle" x-data="{ on: {{ 'true' if filters.include_history else 'false' }} }" :class="on && 'fc-filter-toggle-on'">
+            <input type="checkbox" name="include_history" value="true" class="fc-checkbox" x-model="on" {% if filters.include_history %}checked{% endif %}>
             {{ _('compliance.include_history') }}
         </label>
-        <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+        <button type="submit" class="fc-btn-filter">{{ _('btn.filter') }}</button>
     </form>
     {% if can_edit %}
-    <a href="/compliance/new" class="h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('compliance.add') }}</a>
+    <a href="/compliance/new" class="w-full sm:w-auto justify-center whitespace-nowrap h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('compliance.add') }}</a>
     {% endif %}
 </div>
 <div id="compliance-table">

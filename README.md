@@ -71,7 +71,7 @@ Open http://localhost:8000 in your browser.
 | **Expenses**              | Cost tracking by category in EUR, fuel liters with derived price per liter, links to vehicle documents.                                                                                                                                                                                      |
 | **Documents & Deadlines** | Civil liability, CASCO, technical inspection (ГТП) and tachograph validity per vehicle, with renewal and computed expiry status. See [compliance documents](docs/compliance-documents.md)                                                                                                    |
 | **Documents**             | File upload / download through MinIO (S3)                                                                                                                                                                                                                                                    |
-| **Reports**               | TCO, fuel consumption, expense analysis and maintenance history with shared filters and Excel / CSV export. See [reports](docs/reports.md)                                                                                                                                                   |
+| **Reports**               | TCO, fuel consumption, expense analysis and maintenance history with shared filters and Excel export (summary and totals included). See [reports](docs/reports.md)                                                                                                                                                   |
 | **Notifications**         | Bell, inbox and per-document pages; configurable reminder rules sent by email and Telegram (see below)                                                                                                                                                                                       |
 | **Audit Log**             | Append-only trail of create / update / delete / login / export actions (admin only)                                                                                                                                                                                                          |
 
@@ -127,8 +127,7 @@ strings (an intentional API change); consumers must parse them as decimal values
 Charts use numeric coordinates only for drawing and preserve exact amounts for
 labels. Pages display two decimals and the `EUR` code in either locale.
 
-Excel and BOM-prefixed UTF-8 CSV exports have localized headings and enum labels.
-CSV amounts remain decimal strings and dates remain ISO. Excel money cells use
+Excel exports have localized headings and enum labels. Excel money cells use
 EUR formatting; values beyond Excel's reliable precision are stored as exact text.
 PDF report export is not implemented.
 

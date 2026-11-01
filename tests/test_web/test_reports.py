@@ -111,9 +111,13 @@ async def test_expense_report_filters_by_category(client, db_session, admin_user
     assert 'name="category"' in page.text and '<option value="toll" selected' in page.text
     assert "12,34" in page.text or "12.34" in page.text
     assert "56,78" not in page.text and "56.78" not in page.text
-    assert "/reports/export/expenses.csv?category=toll" in page.text
-    export = (await client.get("/reports/export/expenses.csv?category=toll")).text
-    assert "12.34" in export and "56.78" not in export
+    assert "/reports/export/expenses.xlsx?category=toll" in page.text and "Export to Excel" in page.text
+    assert "fc-btn-export" in page.text and "CSV" not in page.text
+    export = await client.get("/reports/export/expenses.xlsx?category=toll")
+    assert export.headers["content-type"].startswith("application/vnd.openxmlformats")
+    rows = list(load_workbook(BytesIO(export.content)).active.values)
+    assert next(r for r in rows if r[0] == "Grand total")[1] == 12.34
+    assert not any(r[0] == "Parking" for r in rows)
     assert (await client.get("/reports/expenses?category=nope")).status_code == 422
     # other report pages have no category select
     assert 'name="category"' not in (await client.get("/reports/tco")).text

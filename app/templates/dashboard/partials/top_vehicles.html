@@ -7,7 +7,7 @@
     {% if vehicles|length > 0 %}
     <div class="space-y-3">
         {% for v in vehicles %}
-        <a href="/vehicles/{{ v.id }}" class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+        <a href="/expenses?{{ {'q': v.license_plate} | urlencode }}" class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
             <div class="flex items-center gap-3">
                 <div class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 text-sm font-bold text-gray-600 dark:text-gray-300">
                     {{ loop.index }}

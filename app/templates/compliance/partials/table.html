@@ -3,30 +3,31 @@
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.vehicle') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.type') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.period') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.provider') }}</th>
-                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.policy_number') }}</th>
-                <th class="px-4 py-3 text-right font-medium text-gray-500">{{ _('compliance.amount') }}</th>
+                <th class="px-3 sm:px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+                <th class="px-3 sm:px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.vehicle') }}</th>
+                <th class="px-3 sm:px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.type') }}</th>
+                <th class="hidden sm:table-cell px-3 sm:px-4 py-3 text-left font-medium text-gray-500">{{ _('common.period') }}</th>
+                <th class="hidden lg:table-cell px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.provider') }}</th>
+                <th class="hidden lg:table-cell px-4 py-3 text-left font-medium text-gray-500">{{ _('compliance.policy_number') }}</th>
+                <th class="px-3 sm:px-4 py-3 text-right font-medium text-gray-500">{{ _('compliance.amount') }}</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for e in items %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/compliance/{{ e.id }}'">
-                    <td class="px-4 py-3 whitespace-nowrap">{{ status_badge(e, history=not e.is_current) }}</td>
-                    <td class="px-4 py-3">
+                    <td class="px-3 sm:px-4 py-3 whitespace-nowrap">{{ status_badge(e, history=not e.is_current) }}</td>
+                    <td class="px-3 sm:px-4 py-3">
                         <a href="/vehicles/{{ e.vehicle.id }}" class="font-medium text-primary-600 hover:underline" onclick="event.stopPropagation()">{{ e.vehicle.license_plate }}</a>
                         <span class="block text-xs text-gray-500">{{ e.vehicle.brand }} {{ e.vehicle.model }}</span>
                     </td>
-                    <td class="px-4 py-3">
+                    <td class="px-3 sm:px-4 py-3">
                         {{ _('compliance_type.' + e.document_type) }}
                         {% if not e.applicable %}<span class="block text-xs text-gray-400">{{ _('compliance.not_applicable_type') }}</span>{% endif %}
+                        <span class="sm:hidden block text-xs text-gray-500 whitespace-nowrap">{{ e.start_date }} — {{ e.end_date }}</span>
                     </td>
-                    <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ e.start_date }} — {{ e.end_date }}</td>
-                    <td class="px-4 py-3">{{ e.provider or '—' }}</td>
-                    <td class="px-4 py-3 font-mono text-xs">{{ e.policy_number or '—' }}</td>
-                    <td class="px-4 py-3 text-right font-mono whitespace-nowrap">{{ money(e.amount) }}</td>
+                    <td class="hidden sm:table-cell px-3 sm:px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ e.start_date }} — {{ e.end_date }}</td>
+                    <td class="hidden lg:table-cell px-4 py-3">{{ e.provider or '—' }}</td>
+                    <td class="hidden lg:table-cell px-4 py-3 font-mono text-xs">{{ e.policy_number or '—' }}</td>
+                    <td class="px-3 sm:px-4 py-3 text-right font-mono whitespace-nowrap">{{ money(e.amount) }}</td>
                 </tr>
                 {% else %}<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
             </tbody>

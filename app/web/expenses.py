@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -38,6 +39,14 @@ GENERAL_CATEGORIES = [
 ]
 LISTED_CATEGORIES = [c for c in ExpenseCategory if c.value not in RETIRED_EXPENSE_CATEGORIES]
 DOCUMENT_CATEGORY_LIST = [c for c in ExpenseCategory if c.value in DOCUMENT_CATEGORIES]
+
+
+def _filter_date(value: str | None) -> date | None:
+    """A date filter from the query string; empty or invalid values mean no limit."""
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
 
 
 def _ctx(request: Request, user: User, **values) -> dict:
@@ -135,6 +144,8 @@ async def expense_list(
     category: str | None = None,
     q: str | None = None,
     vehicle_type: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -142,6 +153,9 @@ async def expense_list(
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    start, end = _filter_date(date_from), _filter_date(date_to)
+    if start and end and start > end:
+        start, end = end, start  # a reversed range is read as meant, not as an empty list
     try:
         category_enum = ExpenseCategory(category) if category else None
     except ValueError:
@@ -155,6 +169,8 @@ async def expense_list(
         q=q,
         vehicle_types=types,
         vehicle_ids=driver_scope_of(request).vehicle_filter,
+        date_from=start,
+        date_to=end,
         page=page,
         size=size,
     )
@@ -175,6 +191,8 @@ async def expense_list(
             type_filters=LIST_TYPE_FILTERS,
             category_filter=category_enum,
             categories=LISTED_CATEGORIES,
+            date_from=start.isoformat() if start else "",
+            date_to=end.isoformat() if end else "",
         ),
     )
 

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
@@ -136,11 +137,18 @@ class ExpenseService:
         q: str | None = None,
         vehicle_types: Sequence[VehicleType] | None = None,
         vehicle_ids: Sequence[UUID] | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
         page: int = 1,
         size: int = 50,
     ) -> tuple[list[Expense], int]:
-        """List expenses, newest first; filter by category, vehicle (search text, type) or ``vehicle_ids``."""
+        """List expenses, newest first; filter by category, vehicle (search text, type), ``vehicle_ids``
+        or an inclusive date range (either end may be open)."""
         conditions = []
+        if date_from:
+            conditions.append(Expense.date >= date_from)
+        if date_to:
+            conditions.append(Expense.date <= date_to)
         if vehicle_ids is not None:
             conditions.append(Expense.vehicle_id.in_(list(vehicle_ids)))
         if category:

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from app.models.expense import Currency, Expense
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 from app.schemas.report import TCOReportRow
-from app.utils.export import CSVExporter, ExcelExporter
+from app.utils.export import ExcelExporter
 from app.utils.formatting import money
 
 
@@ -55,10 +55,6 @@ def test_export_roundtrip():
     assert "EUR" in ws["A2"].number_format
     assert ws["B2"].number_format == "General"
     assert ws["A3"].value == "123456789012345.67"
-    csv = CSVExporter()
-    csv.add_headers(["Стойност (EUR)"])
-    csv.add_row([Decimal("0.30")])
-    assert csv.to_bytes().decode("utf-8-sig") == "Стойност (EUR)\r\n0.30\r\n"
 
 
 def test_report_json_keeps_decimal_strings():
@@ -88,11 +84,10 @@ async def test_localized_exports_keep_exact_values(monkeypatch):
         return {"by_category": [{"category": "fuel", "total": Decimal("0.30"), "count": 2}]}
 
     monkeypatch.setattr(service, "expense_analysis", analysis)
-    bg = (await service.export_expense_csv(locale="bg")).decode("utf-8-sig")
-    en = (await service.export_expense_csv(locale="en")).decode("utf-8-sig")
-    assert "EUR" in bg and "EUR" in en
-    assert "Гориво" in bg and "Fuel" in en
-    assert "0.30" in bg and "0.30" in en
+    for locale, fuel in (("bg", "Гориво"), ("en", "Fuel")):
+        ws = load_workbook(BytesIO(await service.export_expense_excel(locale=locale))).active
+        row = next(r for r in ws.iter_rows() if r[0].value == fuel)
+        assert row[1].value == 0.3 and "EUR" in row[1].number_format
 
 
 @pytest.mark.parametrize(

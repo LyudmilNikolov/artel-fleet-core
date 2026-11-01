@@ -1,4 +1,4 @@
-"""Export utilities for Excel and CSV generation."""
+"""Export utilities for Excel generation."""
 
 import io
 from datetime import date
@@ -7,6 +7,8 @@ from decimal import Decimal
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
+MONEY_FORMAT = '#,##0.00 "EUR"'
 
 
 class ExcelExporter:
@@ -40,14 +42,40 @@ class ExcelExporter:
             cell.alignment = Alignment(horizontal="center")
         self._row += 1
 
-    def add_row(self, values: list):
-        """Add a data row."""
+    def add_row(self, values: list, formats: dict[int, str] | None = None):
+        """Add a data row. ``formats`` maps a 1-based column to an Excel number format (e.g. ``"0.0%"``)."""
         for col, value in enumerate(values, 1):
             cell = self.ws.cell(row=self._row, column=col, value=self._excel_value(value))
-            if col in self.monetary_columns and isinstance(value, (int, float, Decimal)):
-                cell.number_format = '#,##0.00 "EUR"'
+            if formats and col in formats:
+                cell.number_format = formats[col]
+            elif col in self.monetary_columns and isinstance(value, (int, float, Decimal)):
+                cell.number_format = MONEY_FORMAT
             elif isinstance(value, date):
                 cell.number_format = "YYYY-MM-DD"
+        self._row += 1
+
+    def add_section(self, title: str):
+        """Add a bold section heading (e.g. "By category") above a table."""
+        self.ws.cell(row=self._row, column=1, value=title).font = Font(bold=True, size=12)
+        self._row += 1
+
+    def add_summary(self, title: str, items: list[tuple[str, object, bool]]):
+        """Add the report's headline figures as label / value rows, followed by a blank row.
+
+        Each item is ``(label, value, is_money)``; money values get the EUR number format.
+        """
+        self.add_section(title)
+        for label, value, is_money in items:
+            self.ws.cell(row=self._row, column=1, value=label)
+            cell = self.ws.cell(row=self._row, column=2, value=self._excel_value(value))
+            cell.font = Font(bold=True)
+            if is_money and isinstance(value, (int, float, Decimal)):
+                cell.number_format = MONEY_FORMAT
+            self._row += 1
+        self._row += 1
+
+    def add_blank(self):
+        """Leave an empty row (between tables)."""
         self._row += 1
 
     @staticmethod
@@ -61,13 +89,15 @@ class ExcelExporter:
         for row in rows:
             self.add_row(row)
 
-    def add_summary_row(self, values: list):
-        """Add a bold summary row."""
+    def add_summary_row(self, values: list, formats: dict[int, str] | None = None):
+        """Add a bold totals row under a table."""
         for col, value in enumerate(values, 1):
             cell = self.ws.cell(row=self._row, column=col, value=self._excel_value(value))
             cell.font = Font(bold=True)
-            if col in self.monetary_columns and isinstance(value, (int, float, Decimal)):
-                cell.number_format = '#,##0.00 "EUR"'
+            if formats and col in formats:
+                cell.number_format = formats[col]
+            elif col in self.monetary_columns and isinstance(value, (int, float, Decimal)):
+                cell.number_format = MONEY_FORMAT
         self._row += 1
 
     def auto_width(self):
@@ -88,28 +118,3 @@ class ExcelExporter:
         self.wb.save(buffer)
         buffer.seek(0)
         return buffer.getvalue()
-
-
-class CSVExporter:
-    """Generate CSV from tabular data."""
-
-    def __init__(self):
-        self._rows: list[list[str]] = []
-
-    def add_headers(self, headers: list[str]):
-        self._rows.append(headers)
-
-    def add_row(self, values: list):
-        self._rows.append([str(v) if v is not None else "" for v in values])
-
-    def add_rows(self, rows: list[list]):
-        for row in rows:
-            self.add_row(row)
-
-    def to_bytes(self) -> bytes:
-        import csv
-
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
-        writer.writerows(self._rows)
-        return buffer.getvalue().encode("utf-8-sig")
