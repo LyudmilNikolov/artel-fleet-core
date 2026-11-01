@@ -430,6 +430,9 @@ class TollImportService:
                 type=NotificationType.SYSTEM,
                 entity_type="expense_import",
                 entity_id=batch.id,
+                title_key="toll_import.notify_title",
+                message_key="toll_import.notify_message_plates" if unknown else "toll_import.notify_message",
+                params={"count": len(batch.problems), "filename": batch.filename, "plates": ", ".join(unknown)},
             )
         )
 

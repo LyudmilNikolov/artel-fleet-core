@@ -371,6 +371,9 @@ class DriverDocumentChangeService:
                         type=_("driver_document_type." + change.document_type, lang),
                     ),
                     type=NotificationType.SYSTEM,
+                    title_key="driver_doc.notify_pending_title",
+                    message_key="driver_doc.notify_pending_message",
+                    params={"driver": driver.full_name, "type": {"t": "driver_document_type." + change.document_type}},
                 )
             )
         await self.session.flush()
@@ -391,6 +394,12 @@ class DriverDocumentChangeService:
                 title=_(f"driver_doc.notify_{outcome}_title", lang),
                 message=message,
                 type=NotificationType.SYSTEM,
+                title_key=f"driver_doc.notify_{outcome}_title",
+                message_key=f"driver_doc.notify_{outcome}_message",
+                params={
+                    "type": {"t": "driver_document_type." + change.document_type},
+                    **({"note": change.decision_note} if change.decision_note else {}),
+                },
             )
         )
         await self.session.flush()
