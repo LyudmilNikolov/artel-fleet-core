@@ -80,9 +80,22 @@ class SecurityHeadersMiddleware:
         async def send_with_headers(message):
             if message["type"] == "http.response.start":
                 present = {name.lower() for name, _ in message.get("headers", [])}
+                extra = []
+                content_type = dict(message.get("headers", [])).get(b"content-type", b"")
+                if (
+                    content_type.startswith(b"text/html")
+                    and b"cache-control" not in present
+                    and not scope["path"].startswith("/static/")
+                ):
+                    # App pages hold live data and one-time forms: Back/forward must reload, not replay an old page.
+                    extra.append((b"cache-control", b"no-store"))
                 message = {
                     **message,
-                    "headers": [*message.get("headers", []), *(h for h in self._headers() if h[0] not in present)],
+                    "headers": [
+                        *message.get("headers", []),
+                        *extra,
+                        *(h for h in self._headers() if h[0] not in present),
+                    ],
                 }
             await send(message)
 

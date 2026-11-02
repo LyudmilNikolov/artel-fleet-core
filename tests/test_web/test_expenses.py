@@ -1,5 +1,7 @@
 """Web forms validate currency even though the control is fixed to EUR."""
 
+import re
+
 import pytest
 
 
@@ -279,3 +281,50 @@ async def test_form_rules_no_currency_no_generic_insurance_trailer_blocks(client
         data={"category": "insurance", "amount": "2.50", "date": "2026-01-01", "vendor": "Legacy"},
     )
     assert response.status_code == 303
+
+
+# ---- QA #39: Back button / repeat submit -----------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pages_are_not_cached_and_static_files_are(client, db_session, fleet_manager_user):
+    await _login(client)
+    page = await client.get("/expenses/new")
+    assert page.headers["cache-control"] == "no-store"
+    assert "no-store" not in (await client.get("/static/js/app.js")).headers.get("cache-control", "")
+
+
+@pytest.mark.asyncio
+async def test_repeat_submit_of_the_same_form_creates_one_expense(client, db_session, fleet_manager_user):
+    await _login(client)
+    truck = await _vehicle(db_session)
+    await db_session.commit()
+    form = await client.get("/expenses/new", params={"vehicle_id": str(truck.id)})
+    token = re.search(r'name="submit_token" value="([^"]+)"', form.text).group(1)
+    data = {
+        "vehicle_id": str(truck.id),
+        "category": "parking",
+        "amount": "12.50",
+        "date": "2026-01-01",
+        "submit_token": token,
+    }
+    before = await _count(db_session, Expense)
+    first = await client.post("/expenses/new", data=data)
+    again = await client.post("/expenses/new", data=data)  # Back to the old form, submit again
+    assert first.status_code == again.status_code == 303
+    assert first.headers["location"] == again.headers["location"]
+    assert await _count(db_session, Expense) == before + 1
+
+
+@pytest.mark.asyncio
+async def test_failed_submit_keeps_its_token_and_then_saves_once(client, db_session, fleet_manager_user):
+    await _login(client)
+    truck = await _vehicle(db_session)
+    await db_session.commit()
+    token = "T" * 22
+    data = {"vehicle_id": str(truck.id), "category": "parking", "amount": "-5", "date": "2026-01-01"}
+    bad = await client.post("/expenses/new", data={**data, "submit_token": token})
+    assert bad.status_code == 400 and f'value="{token}"' in bad.text  # same token on the re-rendered form
+    before = await _count(db_session, Expense)
+    ok = await client.post("/expenses/new", data={**data, "amount": "5", "submit_token": token})
+    assert ok.status_code == 303 and await _count(db_session, Expense) == before + 1
