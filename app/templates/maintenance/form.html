@@ -10,12 +10,13 @@
     {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
     <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
           x-data='vehiclePicker({{ picker | tojson }}, { status: {{ (form_data.get("status") or "scheduled") | tojson }}, type: {{ (form_data.get("type") or "scheduled_service") | tojson }}, serviceItem: {{ (form_data.get("service_item") or "") | tojson }}, checks: {{ (form_data.get("service_checklist") or []) | tojson }}, itemLabels: {{ item_labels | tojson }} })'>
+        {% include 'components/required_hint.html' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
-                {% with options_url='/maintenance/vehicle-options', locked=record %}{% include 'components/vehicle_picker.html' %}{% endwith %}
+                {% with options_url='/maintenance/vehicle-options', locked=record, picker_required=true %}{% include 'components/vehicle_picker.html' %}{% endwith %}
             </div>
             <div>
-                <label class="fc-label" for="type">{{ _('common.type') }}</label>
+                <label class="fc-label fc-req" for="type">{{ _('common.type') }}</label>
                 <select id="type" {{ invalid('type') }} name="type" class="fc-select" x-model="type">
                     {% for t in types %}<option value="{{ t.value }}" {% if (form_data.get('type') or 'scheduled_service') == t.value %}selected{% endif %}>{{ _('maintenance_type.' + t.value) }}</option>{% endfor %}
                 </select>{{ field_error('type') }}
@@ -27,7 +28,7 @@
                 </select>{{ field_error('status') }}
             </div>
             <div class="md:col-span-2">
-                <label class="fc-label" for="title">{{ _('maintenance.title') }}</label>
+                <label class="fc-label fc-req" for="title">{{ _('maintenance.title') }}</label>
                 <input id="title" {{ invalid('title') }} type="text" name="title" required maxlength="300" value="{{ value('title') }}" class="fc-input">{{ field_error('title') }}
             </div>
             <div>

@@ -12,13 +12,14 @@
     <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6"
           x-data='vehiclePicker({{ picker | tojson }}, { category: {{ (form_data.get("category") or "other") | tojson }}, documentCategories: {{ document_values | tojson }}, enforce: {{ 'false' if expense else 'true' }}, initialCategory: {{ (expense.category.value if expense else '') | tojson }}, amount: {{ (form_data.get('amount') | string if form_data.get('amount') is not none else '') | tojson }}, liters: {{ (form_data.get('fuel_liters') | string if form_data.get('fuel_liters') is not none else '') | tojson }} })'
           x-effect="if (enforce && documentCategories.includes(category) && !docTypes.includes(category)) category = 'other'; if (blocked.includes(category) && category !== initialCategory) category = 'other'">
+        {% include 'components/required_hint.html' %}
         {% if submit_token %}<input type="hidden" name="submit_token" value="{{ submit_token }}">{% endif %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
-                {% with options_url='/expenses/vehicle-options', locked=expense %}{% include 'components/vehicle_picker.html' %}{% endwith %}
+                {% with options_url='/expenses/vehicle-options', locked=expense, picker_required=true %}{% include 'components/vehicle_picker.html' %}{% endwith %}
             </div>
             <div>
-                <label class="fc-label" for="category">{{ _('common.category') }}</label>
+                <label class="fc-label fc-req" for="category">{{ _('common.category') }}</label>
                 <select id="category" {{ invalid('category') }} name="category" x-model="category" class="fc-select" {% if linked %}disabled{% endif %}>
                     {% for c in general_categories %}<option value="{{ c.value }}" :disabled="blocked.includes('{{ c.value }}') && initialCategory !== '{{ c.value }}'">{{ _('expense_category.' + c.value) }}</option>{% endfor %}
                     {% if legacy_category %}<option value="{{ legacy_category.value }}">{{ _('expense_category.' + legacy_category.value) }}</option>{% endif %}
@@ -29,13 +30,13 @@
                 {% if linked %}<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('expense.category_locked') }}</p>{% endif %}
             </div>
             <div>
-                <label class="fc-label" for="amount">{{ _('common.amount') }} (EUR)</label>
+                <label class="fc-label fc-req" for="amount">{{ _('common.amount') }} (EUR)</label>
                 <input id="amount" {{ invalid('amount') }} type="text" inputmode="decimal" name="amount" required x-model="amount" value="{{ value('amount') }}" class="fc-input"
                        pattern="[0-9]+([.,][0-9]{1,2})?" data-msg-required="{{ _('validation.amount_required') }}" data-msg-format="{{ _('validation.money_format') }}" data-msg-negative="{{ _('validation.amount_negative') }}"
                        oninvalid="fcInvalid(this)" oninput="this.setCustomValidity('')">{{ field_error('amount') }}
             </div>
             <div>
-                <label class="fc-label" for="date">{{ _('common.date') }}</label>
+                <label class="fc-label fc-req" for="date">{{ _('common.date') }}</label>
                 <input id="date" {{ invalid('date') }} type="date" name="date" required value="{{ value('date') }}" class="fc-input-date">{{ field_error('date') }}
             </div>
             <div>
@@ -46,7 +47,7 @@
         </div>
         <div x-show="category === 'fuel'" {% if form_data.get('category') != 'fuel' %}style="display: none"{% endif %} x-transition class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div>
-                <label class="fc-label" for="fuel_liters">{{ _('expense.fuel_liters') }}</label>
+                <label class="fc-label" for="fuel_liters" :class="category === 'fuel' &amp;&amp; 'fc-req'">{{ _('expense.fuel_liters') }}</label>
                 <input id="fuel_liters" {{ invalid('fuel_liters') }} type="text" inputmode="decimal" name="fuel_liters" x-model="liters" value="{{ value('fuel_liters') }}" class="fc-input"
                        :disabled="category !== 'fuel'" :required="category === 'fuel'"
                        pattern="[0-9]+([.,][0-9]{1,2})?" data-msg-required="{{ _('validation.liters_required') }}" data-msg-format="{{ _('validation.liters_format') }}"
@@ -70,11 +71,11 @@
             <p class="text-sm text-gray-700 dark:text-gray-300">{{ _('expense.document_hint') }}</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="fc-label" for="valid_from">{{ _('compliance.start_date') }}</label>
+                    <label class="fc-label" for="valid_from" :class="documentCategories.includes(category) &amp;&amp; 'fc-req'">{{ _('compliance.start_date') }}</label>
                     <input id="valid_from" {{ invalid('valid_from') }} type="date" name="valid_from" value="{{ value('valid_from') }}" class="fc-input-date">{{ field_error('valid_from') }}
                 </div>
                 <div>
-                    <label class="fc-label" for="valid_until">{{ _('compliance.end_date') }}</label>
+                    <label class="fc-label" for="valid_until" :class="documentCategories.includes(category) &amp;&amp; 'fc-req'">{{ _('compliance.end_date') }}</label>
                     <input id="valid_until" {{ invalid('valid_until') }} type="date" name="valid_until" value="{{ value('valid_until') }}" class="fc-input-date">{{ field_error('valid_until') }}
                 </div>
                 <div class="md:col-span-2">

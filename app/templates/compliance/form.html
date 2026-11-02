@@ -26,9 +26,10 @@
                   this.open = false;
               }
           }'>
+        {% include 'components/required_hint.html' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
-                <label class="fc-label" for="vehicle-search">{{ _('compliance.vehicle') }}</label>
+                <label class="fc-label fc-req" for="vehicle-search">{{ _('compliance.vehicle') }}</label>
                 {% if mode == 'create' %}
                 <input type="hidden" name="vehicle_id" :value="vehicleId" value="{{ picker.vehicleId }}">
                 <div class="relative" @click.outside="open = false">
@@ -50,7 +51,7 @@
                 {{ field_error('vehicle_id') }}
             </div>
             <div class="md:col-span-2">
-                <label class="fc-label" for="document_type">{{ _('compliance.type') }}</label>
+                <label class="fc-label fc-req" for="document_type">{{ _('compliance.type') }}</label>
                 {% if mode == 'create' %}
                 <select id="document_type" name="document_type" class="fc-select" required x-model="selectedType" :disabled="!types.length">
                     <option value="" x-show="!types.length">{{ _('compliance.choose_vehicle_first') }}</option>
@@ -64,12 +65,12 @@
                 {{ field_error('document_type') }}
             </div>
             <div>
-                <label class="fc-label" for="start_date">{{ _('compliance.start_date') }}</label>
+                <label class="fc-label fc-req" for="start_date">{{ _('compliance.start_date') }}</label>
                 <input id="start_date" type="date" name="start_date" required value="{{ value('start_date') }}" class="fc-input-date">
                 {{ field_error('start_date') }}
             </div>
             <div>
-                <label class="fc-label" for="end_date">{{ _('compliance.end_date') }}</label>
+                <label class="fc-label fc-req" for="end_date">{{ _('compliance.end_date') }}</label>
                 <input id="end_date" type="date" name="end_date" required value="{{ value('end_date') }}" class="fc-input-date">
                 {{ field_error('end_date') }}
             </div>
