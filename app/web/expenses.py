@@ -20,6 +20,7 @@ from app.services.validity import local_today
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, vehicle_type_filter
 from app.services.policy_privacy import expense_description_for
+from app.web import repeat_submit
 from app.web.form_errors import banner_for, field_errors_from
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
@@ -121,6 +122,7 @@ async def _render_form(
             document_values=sorted(DOCUMENT_CATEGORIES),
             error=error,
             field_errors=field_errors or {},
+            submit_token=None if expense else repeat_submit.token_for_form(form_data.get(repeat_submit.FIELD)),
         ),
     )
 
@@ -246,6 +248,8 @@ async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/", status_code=302)
     scope = driver_scope_of(request)
     raw = _submitted(await request.form())
+    if earlier := repeat_submit.saved_url(request, raw.get(repeat_submit.FIELD)):
+        return RedirectResponse(url=earlier, status_code=303)  # already saved: show it, don't add a duplicate
     try:
         if not raw.get("vehicle_id"):
             raise DomainError("error.expense_vehicle_required")
@@ -278,10 +282,11 @@ async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
     except (ValidationError, DomainError, IntegrityError) as exc:
         await _discard_failed_write(db, user, exc)
         return await _render_form(request, db, user, form_data=raw, **_form_error(exc, request))
+    repeat_submit.remember(request, raw.get(repeat_submit.FIELD), f"/expenses/{expense.id}")
     return RedirectResponse(url=f"/expenses/{expense.id}", status_code=303)
 
 
-@router.get("/{expense_id}", response_class=HTMLResponse)
+@router.get("/{expense_id}",response_class=HTMLResponse)
 async def expense_detail(request: Request, expense_id: UUID, db: AsyncSession = Depends(get_db)):
     user = await get_web_user(request, db)
     if not user:
