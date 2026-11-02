@@ -23,6 +23,7 @@ from app.services.driver_access import (
 from app.services.driver_document_change_service import DriverDocumentChangeService
 from app.services.driver_document_service import DriverDocumentService
 from app.services.errors import DomainError, render_error
+from app.web.flash import deny, flash
 from app.web.deps import get_web_user, web_require_roles
 
 router = APIRouter(prefix="/driver-documents", tags=["web-driver-documents"])
@@ -145,7 +146,7 @@ async def driver_document_new(
     if not driver:
         return RedirectResponse(url="/drivers", status_code=302)
     if not can_edit_driver_documents(user, driver):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     return await _render_form(request, user, driver, mode="create", form_data={"document_type": document_type})
 
 
@@ -159,7 +160,7 @@ async def driver_document_create(request: Request, db: AsyncSession = Depends(ge
     if not driver:
         return RedirectResponse(url="/drivers", status_code=302)
     if not can_edit_driver_documents(user, driver):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     try:
         if not is_manager(user):  # a driver proposes; a manager approves before anything changes
             await _submit_change(db, user, ChangeAction.CREATE, driver, raw, document_type=raw.get("document_type"))
@@ -225,6 +226,7 @@ async def approve_change(
             status_code=422,
             context=_ctx(request, user, changes=await service.list_pending(), error=error),
         )
+    flash(request, "flash.change_approved")
     return RedirectResponse(url=next_url, status_code=303)
 
 
@@ -248,6 +250,7 @@ async def request_changes(
                 request, user, changes=await service.list_pending(), error=render_error(exc, request.state.locale)
             ),
         )
+    flash(request, "flash.change_revision_requested")
     return RedirectResponse(url=_next_url(form.get("next"), "/driver-documents/pending"), status_code=303)
 
 
@@ -259,6 +262,7 @@ async def reject_change(
     form = await request.form()
     try:
         await DriverDocumentChangeService(db).reject(change_id, user.id)
+        flash(request, "flash.change_rejected")
     except DomainError:
         pass
     return RedirectResponse(url=_next_url(form.get("next"), "/driver-documents/pending"), status_code=303)
@@ -272,7 +276,7 @@ async def resubmit_form(request: Request, change_id: UUID, db: AsyncSession = De
         return RedirectResponse(url="/login", status_code=302)
     change = await _own_revision(db, user, change_id)
     if change is None:
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     return await _render_resubmit(request, db, user, change, {**change.payload, "document_type": change.document_type})
 
 
@@ -283,7 +287,7 @@ async def resubmit_change(request: Request, change_id: UUID, db: AsyncSession = 
         return RedirectResponse(url="/login", status_code=302)
     change = await _own_revision(db, user, change_id)
     if change is None:
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     raw = _submitted(await request.form())
     try:
         await DriverDocumentChangeService(db).resubmit(change_id, user.id, {n: raw.get(n) for n in FORM_FIELDS})
@@ -374,7 +378,7 @@ async def driver_document_edit(request: Request, entry_id: UUID, db: AsyncSessio
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
     if not can_edit_driver_documents(user, source.driver):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     form_data = {name: getattr(source, name) for name in FORM_FIELDS}
     form_data["document_type"] = source.document_type
     return await _render_form(request, user, source.driver, mode="edit", form_data=form_data, source=source)
@@ -390,7 +394,7 @@ async def driver_document_update(request: Request, entry_id: UUID, db: AsyncSess
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
     if not can_edit_driver_documents(user, source.driver):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     raw = _submitted(await request.form())
     values = {name: raw.get(name) for name in FORM_FIELDS}
     try:
@@ -424,7 +428,7 @@ async def driver_document_renew_form(request: Request, entry_id: UUID, db: Async
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
     if not can_edit_driver_documents(user, source.driver):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     form_data = {**service.renewal_proposal(source), "document_type": source.document_type}
     return await _render_form(request, user, source.driver, mode="renew", form_data=form_data, source=source)
 
@@ -439,7 +443,7 @@ async def driver_document_renew(request: Request, entry_id: UUID, db: AsyncSessi
     if not source:
         return RedirectResponse(url="/drivers", status_code=302)
     if not can_edit_driver_documents(user, source.driver):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     raw = _submitted(await request.form())
     try:
         if not is_manager(user):

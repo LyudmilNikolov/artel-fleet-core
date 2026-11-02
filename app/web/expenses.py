@@ -22,6 +22,7 @@ from app.vehicle_rules import LIST_TYPE_FILTERS, RETIRED_EXPENSE_CATEGORIES, veh
 from app.services.policy_privacy import expense_description_for
 from app.web import repeat_submit
 from app.web.form_errors import banner_for, field_errors_from
+from app.web.flash import deny
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -229,7 +230,7 @@ async def expense_form_new(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if not can_contribute(request, user):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     vehicle_id = vehicle_choice_for(request, vehicle_id)
     form_data = {
         "vehicle_id": vehicle_id,
@@ -245,7 +246,7 @@ async def expense_create(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if not can_contribute(request, user):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     scope = driver_scope_of(request)
     raw = _submitted(await request.form())
     if earlier := repeat_submit.saved_url(request, raw.get(repeat_submit.FIELD)):

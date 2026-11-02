@@ -9,6 +9,7 @@ from app.database import get_db
 from app.i18n.locales import resolve_locale
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.web.flash import flash
 from app.services.driver_scope import UNRESTRICTED, DriverScope, driver_may_open, resolve_scope
 from app.utils.security import password_fingerprint
 
@@ -50,6 +51,8 @@ async def get_web_user(request: Request, db: AsyncSession = Depends(get_db)) -> 
     if scope.restricted and not driver_may_open(request.url.path, request.method, scope):
         if request.headers.get("HX-Request") == "true":
             raise HTTPException(status_code=403, detail="errors.forbidden")
+        if request.url.path != "/":  # "/" is the normal landing page for a driver, not a refused request
+            flash(request, "errors.access_denied", "error")
         raise WebRedirectException(scope.home)  # a driver only has their profile and assigned vehicles
     return user
 
@@ -93,6 +96,7 @@ def web_require_roles(*roles: UserRole):
         if not user:
             raise WebRedirectException("/login")
         if user.role not in roles:
+            flash(request, "errors.access_denied", "error")
             raise WebRedirectException("/")
         return user
 

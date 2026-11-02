@@ -663,3 +663,31 @@ async def test_asking_to_redo_needs_a_note(client, db_session, pair, fleet_manag
     assert ok.status_code == 303
     await db_session.refresh(change)
     assert change.status == "revision" and change.decision_note == "Photo is unreadable"
+
+
+# --- QA #37: the manager sees what happened -------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_manager_gets_a_message_after_approve_reject_and_request_changes(
+    client, db_session, pair, fleet_manager_user
+):
+    await login(client, "mine")
+    await submit_edit(client, pair["entry"], number="NO-1")
+    await manager_login(client)
+    [change] = [c for c in await changes_for(db_session, pair["mine"]) if c.status == "pending"]
+    await client.post(f"/driver-documents/changes/{change.id}/request-changes", data={"note": "Please redo"})
+    assert "Changes requested" in (await client.get("/driver-documents/pending")).text
+    assert "Changes requested" not in (await client.get("/driver-documents/pending")).text  # shown once
+    await login(client, "mine")
+    await submit_edit(client, pair["entry"], number="AGAIN-1")
+    await manager_login(client)
+    [change] = [c for c in await changes_for(db_session, pair["mine"]) if c.status == "pending"]
+    await client.post(f"/driver-documents/changes/{change.id}/approve", data={"next": "/driver-documents/pending"})
+    assert "Request approved" in (await client.get("/driver-documents/pending")).text
+    await login(client, "mine")
+    await submit_edit(client, pair["entry"], number="AGAIN-2")
+    await manager_login(client)
+    [change] = [c for c in await changes_for(db_session, pair["mine"]) if c.status == "pending"]
+    await client.post(f"/driver-documents/changes/{change.id}/reject")
+    assert "Request rejected" in (await client.get("/driver-documents/pending?lang=en")).text

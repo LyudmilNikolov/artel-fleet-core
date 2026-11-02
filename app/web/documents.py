@@ -14,6 +14,7 @@ from app.services.driver_access import can_upload_scans, can_view_scans
 from app.services.errors import render_error
 from app.utils.s3 import MAX_FILE_SIZE
 from app.utils.upload_validation import read_limited
+from app.web.flash import deny
 from app.web.deps import get_web_user
 
 router = APIRouter(prefix="/documents", tags=["web-documents"])
@@ -159,7 +160,7 @@ async def download_document(
     service = DocumentService(db)
     doc = await service.get(doc_id)
     if doc and not await can_view_scans(db, user, doc.entity_type, doc.entity_id):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     url = await service.get_download_url(doc_id)
     if not url:
         return RedirectResponse(url="/", status_code=302)

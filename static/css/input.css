@@ -184,3 +184,10 @@ a.fc-notice-warning:hover { background-color: #fef9c3; }
 
 /* filter form that takes a full row on narrow screens and sits beside the action buttons on wide ones */
 .fc-filters-row{flex:1 1 40rem;min-width:0}
+
+/* shared one-time toast (app/web/flash.py): never wider than a phone screen */
+#toast-container { max-width: min(26rem, calc(100vw - 2rem)); }
+#toast-container .fc-notice { background-clip: padding-box; }
+.dark #toast-container .fc-notice-danger { background-color: #3b1517; }
+.dark #toast-container .fc-notice-success { background-color: #10301d; }
+.dark #toast-container .fc-notice-info { background-color: #17274a; }
