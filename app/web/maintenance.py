@@ -20,6 +20,7 @@ from app.services.service_due_service import ServiceDueService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, vehicle_type_filter
 from app.web.form_errors import banner_for, field_errors_from
+from app.web.flash import deny
 from app.web.deps import can_contribute, driver_scope_of, get_web_user, vehicle_choice_for, web_require_roles
 from app.web.pickers import option_rows, picker_state
 
@@ -225,7 +226,7 @@ async def maintenance_form_new(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if not can_contribute(request, user):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     form_data = {"vehicle_id": vehicle_choice_for(request, vehicle_id), "status": "scheduled"}
     return await _render_form(request, db, user, form_data=form_data)
 
@@ -236,7 +237,7 @@ async def maintenance_create(request: Request, db: AsyncSession = Depends(get_db
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if not can_contribute(request, user):
-        return RedirectResponse(url="/", status_code=302)
+        return deny(request)
     raw = _submitted(await request.form())
     try:
         if not raw.get("vehicle_id"):

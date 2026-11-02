@@ -169,7 +169,10 @@
 {% endblock %}
 
 <!-- Toast container -->
-<div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+<div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2">
+    {# one-time messages left by the previous request (app/web/flash.py) #}
+    {% if take_flashes is defined %}{% for f in take_flashes() %}{% with type=f.kind, message=f.text %}{% include 'components/toast.html' %}{% endwith %}{% endfor %}{% endif %}
+</div>
 
 <script src="/static/js/app.js"></script>
 <script src="/static/vendor/js/chart.umd.min.js"></script>

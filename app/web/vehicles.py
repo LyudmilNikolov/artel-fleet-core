@@ -33,6 +33,7 @@ from app.vehicle_rules import (
     vehicle_type_filter,
 )
 from app.web.form_errors import banner_for, field_errors_from
+from app.web.flash import deny, flash
 from app.web.deps import can_contribute, driver_scope_of, get_web_user
 
 router = APIRouter(prefix="/vehicles", tags=["web-vehicles"])
@@ -204,7 +205,7 @@ async def vehicle_form_new(request: Request, license_plate: str | None = None, d
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if user.role.value not in ("admin", "fleet_manager"):
-        return RedirectResponse(url="/vehicles", status_code=303)
+        return deny(request, "/vehicles", 303)
     form_data = None
     if license_plate and license_plate.strip():  # e.g. an unknown plate from a toll import
         form_data = {"vehicle_type": "tractor_unit", **CREATE_DEFAULTS["tractor_unit"], "license_plate": license_plate.strip()[:20]}
@@ -217,7 +218,7 @@ async def vehicle_create(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if user.role.value not in ("admin", "fleet_manager"):
-        return RedirectResponse(url="/vehicles", status_code=303)
+        return deny(request, "/vehicles", 303)
     return await save_form(request, db, user)
 
 
@@ -254,7 +255,7 @@ async def vehicle_form_edit(request: Request, vehicle_id: UUID, db: AsyncSession
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if user.role.value not in ("admin", "fleet_manager"):
-        return RedirectResponse(url="/vehicles", status_code=303)
+        return deny(request, "/vehicles", 303)
     vehicle = await VehicleService(db).get_by_id(vehicle_id)
     if not vehicle:
         return RedirectResponse(url="/vehicles", status_code=302)
@@ -267,7 +268,7 @@ async def vehicle_update(request: Request, vehicle_id: UUID, db: AsyncSession = 
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if user.role.value not in ("admin", "fleet_manager"):
-        return RedirectResponse(url="/vehicles", status_code=303)
+        return deny(request, "/vehicles", 303)
     vehicle = await VehicleService(db).get_by_id(vehicle_id)
     if not vehicle:
         return RedirectResponse(url="/vehicles", status_code=302)
@@ -283,8 +284,11 @@ async def vehicle_delete(request: Request, vehicle_id: UUID, db: AsyncSession = 
         return RedirectResponse(url=f"/vehicles/{vehicle_id}", status_code=303)
     try:
         await VehicleService(db).delete(vehicle_id)
-    except DomainError:
-        pass
+    except DomainError as exc:
+        flash(request, "flash.vehicle_delete_failed", "error")
+        gone = exc.key == "error.vehicle_not_found"
+        return RedirectResponse(url="/vehicles" if gone else f"/vehicles/{vehicle_id}", status_code=303)
+    flash(request, "flash.vehicle_deleted")
     return RedirectResponse(url="/vehicles", status_code=303)
 
 
