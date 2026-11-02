@@ -265,3 +265,24 @@ async def test_top_expensive_vehicle_links_to_its_filtered_expenses(client, db_s
     assert 'href="/expenses?q=CA1111AA"' in widget and f'href="/vehicles/{fleet["tractor"].id}"' not in widget
     listed = (await client.get("/expenses", params={"q": "CA1111AA"})).text
     assert "Tractor vendor" in listed and "Van vendor" not in listed
+
+
+@pytest.mark.asyncio
+async def test_driver_list_filters_apply_as_you_change_them(client, db_session, fleet_manager_user):
+    """QA #32: the drivers list behaves like vehicles and expenses (HTMX results, Filter button kept as fallback)."""
+    from tests.test_web.test_driver_access import make_driver
+
+    await make_driver(db_session, "Findable Fiona")
+    await make_driver(db_session, "Other Oscar")
+    await db_session.commit()
+    await login(client, "testmanager")
+    page = (await client.get("/drivers")).text
+    assert 'hx-get="/drivers"' in page and 'hx-target="#driver-results"' in page and 'id="driver-search"' in page
+    assert 'type="submit"' in page  # without JavaScript the button still filters
+    assert "Findable Fiona" in page and "Other Oscar" in page
+    partial = await client.get("/drivers", params={"q": "Fiona"}, headers={**HX, "HX-Target": "driver-results"})
+    assert "<html" not in partial.text and "Findable Fiona" in partial.text and "Other Oscar" not in partial.text
+    assert 'id="driver-search"' not in partial.text
+    plain = (await client.get("/drivers", params={"q": "Fiona"})).text
+    assert "<html" in plain and "Findable Fiona" in plain and "Other Oscar" not in plain
+    assert 'value="Fiona"' in plain

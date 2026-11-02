@@ -89,9 +89,11 @@ async def driver_list(
     alerts = await DriverDocumentService(db).alert_counts_by_driver([d.id for d in drivers]) if show_docs else {}
     pages = BaseRepository.calc_pages(total, size)
 
+    partial = request.headers.get("HX-Request") == "true" and request.headers.get("HX-Target") == "driver-results"
+
     return request.app.state.templates.TemplateResponse(
         request=request,
-        name="drivers/list.html",
+        name="drivers/partials/list_results.html" if partial else "drivers/list.html",
         context=_ctx(
             request,
             user,
