@@ -1,7 +1,8 @@
 {# Searchable vehicle picker. Needs `picker`, `options_url`; `locked` shows the vehicle read-only;
+   `picker_required` marks the label with the required asterisk (forms, not filters);
    `options_include` (CSS selector) adds other fields, e.g. a type select, to the options request.
    The enclosing element must use x-data="vehiclePicker(...)" (static/js/app.js). #}
-<label class="fc-label" for="vehicle-search">{{ _('picker.vehicle') }}</label>
+<label class="fc-label {{ 'fc-req' if picker_required }}" for="vehicle-search">{{ _('picker.vehicle') }}</label>
 {% if locked %}
 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ picker.label }}</p>
 {% else %}

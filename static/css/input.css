@@ -208,3 +208,7 @@ a.fc-notice-warning:hover { background-color: #fef9c3; }
 /* category colour dot of the dashboard legend (colours: app/chart_palette.py) */
 .fc-cat-dot { display: inline-block; flex: none; width: 0.75rem; height: 0.75rem; border-radius: 9999px; background: var(--cat-light); }
 .dark .fc-cat-dot { background: var(--cat-dark); }
+
+/* required-field marker: the same red asterisk after the label on every form */
+.fc-req::after { content: " *"; color: #ef4444; }
+.dark .fc-req::after { color: #f87171; }

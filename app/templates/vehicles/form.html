@@ -37,22 +37,23 @@
     },
     applies(field) { return (this.rules.applicable[this.kind] || []).includes(field); }
 }' x-init="syncGroup(); initType()">
+        {% include 'components/required_hint.html' %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div><label for="vehicle_group" class="fc-label">{{ _('vehicle.vehicle_type') }}</label>
+<div><label for="vehicle_group" class="fc-label fc-req">{{ _('vehicle.vehicle_type') }}</label>
 <select id="vehicle_group" x-model="group" @change="setGroup()" required class="fc-select">
 {% for group in vehicle_groups %}<option value="{{ group }}">{{ _('vehicle_type.' ~ group) }}</option>{% endfor %}
 </select><input type="hidden" id="vehicle_type" name="vehicle_type" :value="kind">{{ errors('vehicle_type') }}</div>
-<div x-show="group === 'trailer'"><label for="trailer_kind" class="fc-label">{{ _('vehicle.trailer_kind') }}</label>
+<div x-show="group === 'trailer'"><label for="trailer_kind" class="fc-label fc-req">{{ _('vehicle.trailer_kind') }}</label>
 <select id="trailer_kind" x-model="trailerKind" @change="setTrailer()" :required="group === 'trailer'" class="fc-select">
 {% for opt in trailer_types %}<option value="{{ opt.value }}">{{ _('vehicle_type.' ~ opt.value) }}</option>{% endfor %}
 </select></div>
-<div x-show="kind !== 'forklift'"><label for="license_plate" class="fc-label">{{ _('vehicle.license_plate') }}</label><input id="license_plate" {% if field_errors.get('license_plate') %}aria-invalid="true"{% endif %} name="license_plate" value="{{ form_data.get('license_plate') or '' }}" :disabled="kind === 'forklift'" :required="kind !== 'forklift'" maxlength="20" class="fc-input">{{ errors('license_plate') }}</div>
+<div x-show="kind !== 'forklift'"><label for="license_plate" class="fc-label fc-req">{{ _('vehicle.license_plate') }}</label><input id="license_plate" {% if field_errors.get('license_plate') %}aria-invalid="true"{% endif %} name="license_plate" value="{{ form_data.get('license_plate') or '' }}" :disabled="kind === 'forklift'" :required="kind !== 'forklift'" maxlength="20" class="fc-input">{{ errors('license_plate') }}</div>
 <div x-show="kind === 'forklift'"><label class="fc-label">{{ _('vehicle.internal_id') }}</label><p>{{ vehicle.license_plate if vehicle and vehicle.vehicle_type.value == 'forklift' else _('vehicle.identifier_generated') }}</p></div>
 {% for name in ['brand', 'model', 'vin', 'year', 'color', 'purchase_date', 'purchase_price'] %}
-<div><label for="{{ name }}" class="fc-label">{{ _('vehicle.' ~ name) }}{% if name == 'purchase_price' %} (EUR){% endif %}</label>
+<div><label for="{{ name }}" class="fc-label{{ ' fc-req' if name in ['brand', 'model'] }}">{{ _('vehicle.' ~ name) }}{% if name == 'purchase_price' %} (EUR){% endif %}</label>
 <input id="{{ name }}" {% if field_errors.get(name) %}aria-invalid="true"{% endif %} name="{{ name }}" value="{{ form_data.get(name) if form_data.get(name) is not none else '' }}" type="{{ 'text' if field_errors.get(name) else 'number' if name in ['year','purchase_price'] else 'date' if name == 'purchase_date' else 'text' }}" {% if name in ['brand','model'] %}required maxlength="100"{% endif %} {% if name == 'vin' %}minlength="17" maxlength="17"{% endif %} {% if name == 'color' %}maxlength="50"{% endif %} {% if name == 'purchase_price' %}step="0.01" min="0"{% endif %} {% if name == 'year' %}min="1900" max="2100" step="1"{% endif %} class="fc-input">{{ errors(name) }}</div>
 {% endfor %}
-<div><label for="department" class="fc-label">{{ _('vehicle.department') }}</label><select id="department" name="department" required class="fc-select"><option value="">—</option>{% for name in departments %}<option value="{{ name }}" {% if form_data.get('department') == name %}selected{% endif %}>{{ dept(name) }}</option>{% endfor %}</select>{{ errors('department') }}</div>
+<div><label for="department" class="fc-label fc-req">{{ _('vehicle.department') }}</label><select id="department" name="department" required class="fc-select"><option value="">—</option>{% for name in departments %}<option value="{{ name }}" {% if form_data.get('department') == name %}selected{% endif %}>{{ dept(name) }}</option>{% endfor %}</select>{{ errors('department') }}</div>
 {% if vehicle %}<div><label class="fc-label">{{ _('common.status') }}</label><select name="status" class="fc-select">{% for opt in statuses %}<option value="{{ opt.value }}" {% if form_data.get('status') == opt.value %}selected{% endif %}>{{ _('status.' ~ opt.value) }}</option>{% endfor %}</select></div>{% endif %}
 </div>
 {% if vehicle %}<p class="text-sm text-amber-700">{{ _('vehicle.type_change_warning') }}</p>{% endif %}

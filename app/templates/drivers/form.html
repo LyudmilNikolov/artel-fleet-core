@@ -6,9 +6,10 @@
 <div class="max-w-3xl">
     {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
     <form method="POST" class="fc-card p-6 space-y-6">
+        {% include 'components/required_hint.html' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="fc-label" for="full_name">{{ _('driver.full_name') }}</label>
+                <label class="fc-label fc-req" for="full_name">{{ _('driver.full_name') }}</label>
                 <input id="full_name" type="text" name="full_name" value="{{ value('full_name') }}" required maxlength="255" class="fc-input">
             </div>
             <div>

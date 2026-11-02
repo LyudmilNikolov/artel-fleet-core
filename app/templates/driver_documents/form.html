@@ -24,6 +24,7 @@
               selectedType: {{ selected_type | tojson }} || {{ (types[0].code if types else "") | tojson }},
               get spec() { return this.types.find(t => t.code === this.selectedType) || { number_required: false, has_categories: false } }
           }'>
+        {% include 'components/required_hint.html' %}
         <input type="hidden" name="driver_id" value="{{ driver.id }}">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">

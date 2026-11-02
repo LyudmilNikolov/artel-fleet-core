@@ -23,6 +23,7 @@
   "auth.invalid_credentials": "Невалидно потребителско име или парола",
   "btn.save": "Запазване",
   "btn.cancel": "Отказ",
+  "form.required_hint": "Полетата, отбелязани със *, са задължителни.",
   "btn.delete": "Изтриване",
   "btn.edit": "Редактиране",
   "btn.create": "Създаване",
