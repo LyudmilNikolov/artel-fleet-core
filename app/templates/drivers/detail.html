@@ -6,7 +6,7 @@
     {% if not (driver_scope and driver_scope.restricted) %}<a href="/drivers" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="{{ _('btn.back') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>{% endif %}
     <span class="fc-badge {% if driver.status.value == 'active' %}fc-badge-success{% elif driver.status.value == 'on_leave' %}fc-badge-warning{% else %}fc-badge-neutral{% endif %}">{{ _('status.' + driver.status.value) }}</span>
     {% if can_edit %}
-    <a href="/drivers/{{ driver.id }}/edit" class="ml-auto px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.edit') }}</a>
+    <a href="/drivers/{{ driver.id }}/edit" class="ml-auto px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
     <form method="POST" action="/drivers/{{ driver.id }}/delete" onsubmit="return confirm({{ _('driver.confirm_delete') | tojson | forceescape }})">
         <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
     </form>
