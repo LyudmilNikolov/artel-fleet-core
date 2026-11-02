@@ -92,11 +92,16 @@ class S3Client:
         return s3_key
 
     def get_presigned_url(
-        self, s3_key: str, expires: int = 3600, filename: str | None = None, mime_type: str | None = None
+        self,
+        s3_key: str,
+        expires: int = 3600,
+        filename: str | None = None,
+        mime_type: str | None = None,
+        attachment: bool = False,
     ) -> str:
         params = {"Bucket": self.bucket, "Key": s3_key}
-        if mime_type is not None and mime_type not in INLINE_TYPES:
-            # Office files are downloaded, never rendered in the browser
+        if attachment or (mime_type is not None and mime_type not in INLINE_TYPES):
+            # Office files are downloaded, never rendered in the browser; so is anything asked for as a download
             name = quote(filename or "download")
             params["ResponseContentDisposition"] = f"attachment; filename*=UTF-8''{name}"
         return self._presign_client.generate_presigned_url("get_object", Params=params, ExpiresIn=expires)

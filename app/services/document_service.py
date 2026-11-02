@@ -60,12 +60,14 @@ class DocumentService:
         """Return one document row, or None."""
         return await self.session.get(Document, doc_id)
 
-    async def get_download_url(self, doc_id: UUID) -> str | None:
+    async def get_download_url(self, doc_id: UUID, attachment: bool = False) -> str | None:
+        """A short-lived storage link; ``attachment`` makes the browser save the file instead of showing it."""
         doc = await self.session.get(Document, doc_id)
         if not doc:
             return None
         s3 = get_s3_client()
-        return s3.get_presigned_url(doc.s3_key, filename=doc.filename, mime_type=doc.mime_type)
+        extra = {"attachment": True} if attachment else {}
+        return s3.get_presigned_url(doc.s3_key, filename=doc.filename, mime_type=doc.mime_type, **extra)
 
     async def list_for_entity(self, entity_type: EntityType, entity_id: UUID) -> list[Document]:
         result = await self.session.execute(
