@@ -16,26 +16,47 @@ from app.utils.rate_limit import RateLimitedError
 from app.utils.security import password_fingerprint
 from app.web.csrf import rotate_token
 from app.web.deps import get_web_user
+from app.web.login_next import safe_next
 
 router = APIRouter(tags=["web-auth"])
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, user=Depends(get_web_user)):
+async def login_page(request: Request, next: str = "", user=Depends(get_web_user)):
     if user:
-        return RedirectResponse(url="/", status_code=302)
+        return RedirectResponse(url=safe_next(next), status_code=302)
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="auth/login.html",
-        context={"request": request, "error": None, **request.app.state.template_globals(request)},
+        context={
+            "request": request,
+            "error": None,
+            "next_url": safe_next(next, ""),
+            **request.app.state.template_globals(request),
+        },
     )
 
 
-def _login_error(request: Request, message: str, status_code: int, headers: dict | None = None):
+def _login_error(
+    request: Request,
+    message: str,
+    status_code: int,
+    headers: dict | None = None,
+    *,
+    username: str = "",
+    next_url: str = "",
+):
+    """The login form again with the message; the username (never the password) and the return page are kept."""
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="auth/login.html",
-        context={"request": request, "error": message, **request.app.state.template_globals(request)},
+        context={
+            "request": request,
+            "error": message,
+            "username": username,
+            "next_url": safe_next(next_url, ""),
+            **request.app.state.template_globals(request),
+        },
         status_code=status_code,
         headers=headers,
     )
@@ -46,6 +67,7 @@ async def login_submit(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    next: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     ip = request_ip(request)
@@ -55,13 +77,21 @@ async def login_submit(
         message = request.app.state.get_translation(
             "auth.too_many_attempts", request, minutes=-(-blocked.retry_after // 60)
         )
-        return _login_error(request, message, 429, {"Retry-After": str(blocked.retry_after)})
+        return _login_error(
+            request, message, 429, {"Retry-After": str(blocked.retry_after)}, username=username, next_url=next
+        )
     service = AuthService(db)
     try:
         user, _, _ = await service.authenticate(username, password)
     except ValueError:
         rate_limit.limiter.failure(ip, username)
-        return _login_error(request, request.app.state.get_translation("auth.invalid_credentials", request), 401)
+        return _login_error(
+            request,
+            request.app.state.get_translation("auth.invalid_credentials", request),
+            401,
+            username=username,
+            next_url=next,
+        )
     rate_limit.limiter.success(ip, username)
     # A fresh session on every login (no session fixation), carrying only the language choice
     language = request.session.get("lang")
@@ -83,7 +113,7 @@ async def login_submit(
         entity_id=user.id,
         changes={"channel": "web"},
     )
-    return RedirectResponse(url="/", status_code=302)
+    return RedirectResponse(url=safe_next(next), status_code=302)
 
 
 @router.post("/logout")
