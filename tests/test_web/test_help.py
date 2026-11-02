@@ -84,7 +84,7 @@ FULL_GUIDE_ONLY = [
     "Giving a driver a login",
     "System Overview",
     "Audit Log",
-    "Users → New user",
+    "Users → Add user",
     "Planned services",
     "Settings",
 ]

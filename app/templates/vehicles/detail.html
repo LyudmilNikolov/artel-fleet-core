@@ -17,7 +17,7 @@
     </span>
     {% if user.role.value in ['admin', 'fleet_manager'] %}
     <div class="ml-auto flex items-center gap-3">
-        <a href="/vehicles/{{ vehicle.id }}/edit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.edit') }}</a>
+        <a href="/vehicles/{{ vehicle.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
         <form method="POST" action="/vehicles/{{ vehicle.id }}/delete" onsubmit="return confirm({{ _('vehicle.confirm_delete') | tojson | forceescape }})">
             <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
         </form>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ _('btn.edit') if vehicle else _('btn.create') }} — {{ _('nav.vehicles') }}{% endblock %}
-{% block page_title %}{{ _('btn.edit') ~ ': ' ~ vehicle.license_plate if vehicle else _('btn.create') }}{% endblock %}
+{% block title %}{{ _('btn.edit') if vehicle else _('vehicle.add') }} — {{ _('nav.vehicles') }}{% endblock %}
+{% block page_title %}{{ _('btn.edit') ~ ': ' ~ vehicle.license_plate if vehicle else _('vehicle.add') }}{% endblock %}
 {% block content %}
 {% macro errors(name) %}{% if field_errors.get(name) %}<p class="text-sm text-red-600">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
 <div class="max-w-3xl">

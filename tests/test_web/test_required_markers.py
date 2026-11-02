@@ -47,3 +47,40 @@ async def test_optional_fields_have_no_asterisk(client, db_session, admin_user):
     parsed.feed(page)
     for optional in ("vin", "year", "color", "purchase_price"):
         assert "fc-req" not in parsed.labels[optional], optional
+
+
+# --- QA #32 (2/3): the same words and styles for the same things ---------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,label",
+    [
+        ("/vehicles", "Add vehicle"),
+        ("/drivers", "Add driver"),
+        ("/expenses", "Add expense"),
+        ("/maintenance", "Add maintenance"),
+        ("/compliance", "Add document"),
+        ("/settings/users", "Add user"),
+    ],
+)
+async def test_every_list_page_primary_button_says_add(client, db_session, admin_user, path, label):
+    await _login(client, "testadmin")
+    page = (await client.get(f"{path}?lang=en")).text
+    assert f"+ {label}" in page or f"{label}\n" in page, (path, label)
+    assert ">Create<" not in page and "+ Create" not in page
+
+
+@pytest.mark.asyncio
+async def test_edit_button_is_the_outline_style_on_every_detail_page(client, db_session, admin_user):
+    from tests.test_web.test_expenses import _vehicle
+    from tests.test_web.test_driver_access import make_driver
+
+    await _login(client, "testadmin")
+    truck = await _vehicle(db_session)
+    driver = await make_driver(db_session, "Edit Style Driver")
+    await db_session.commit()
+    for path in (f"/vehicles/{truck.id}", f"/drivers/{driver.id}"):
+        page = (await client.get(f"{path}?lang=en")).text
+        edit = next(line for line in page.splitlines() if f'href="{path}/edit"' in line)
+        assert "border border-gray-300" in edit and "bg-primary-600" not in edit, path
