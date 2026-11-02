@@ -3,6 +3,7 @@
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
+from urllib.parse import quote
 from uuid import uuid4
 
 import pytest
@@ -65,7 +66,11 @@ async def test_maintenance_report_page_and_export_exist(client, db_session, admi
 async def test_reports_require_login(client):
     for path in [*PAGES, "/reports/export/maintenance.xlsx", "/reports/vehicle-options"]:
         response = await client.get(path, follow_redirects=False)
-        assert response.status_code == 302 and response.headers["location"] == "/login", path
+        assert response.status_code == 302, path
+        # pages come back after the login (QA #35); downloads and fragments just go to the login form
+        assert response.headers["location"] in ("/login", "/login?next=" + quote(path, safe="")), path
+        if "export" in path:
+            assert response.headers["location"] == "/login", path
 
 
 @pytest.mark.asyncio

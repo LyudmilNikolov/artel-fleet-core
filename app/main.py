@@ -15,6 +15,7 @@ from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
 from app.web.flash import take as flash_take
+from app.web.login_next import LoginNextMiddleware
 from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
 from app.services.errors import render_error
 from app.services.notification_text import notification_target, notification_text
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     )
 
     application.add_middleware(AuditContextMiddleware)
+    application.add_middleware(LoginNextMiddleware)
     # Outermost last: headers wrap everything (also the 403 page), the country check runs before the app
     application.add_middleware(GeoRestrictionMiddleware)
     application.add_middleware(SecurityHeadersMiddleware)
