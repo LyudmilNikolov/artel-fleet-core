@@ -378,6 +378,8 @@ class DriverDocumentChangeService:
                         type=_("driver_document_type." + change.document_type, lang),
                     ),
                     type=NotificationType.SYSTEM,
+                    entity_type="driver_document_change",
+                    entity_id=change.id,
                     title_key="driver_doc.notify_pending_title",
                     message_key="driver_doc.notify_pending_message",
                     params={"driver": driver.full_name, "type": {"t": "driver_document_type." + change.document_type}},
@@ -401,6 +403,8 @@ class DriverDocumentChangeService:
                 title=_(f"driver_doc.notify_{outcome}_title", lang),
                 message=message,
                 type=NotificationType.SYSTEM,
+                entity_type="driver_documents",
+                entity_id=change.driver_id,
                 title_key=f"driver_doc.notify_{outcome}_title",
                 message_key=f"driver_doc.notify_{outcome}_message",
                 params={

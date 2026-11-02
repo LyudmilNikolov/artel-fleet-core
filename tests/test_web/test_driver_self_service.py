@@ -691,3 +691,50 @@ async def test_manager_gets_a_message_after_approve_reject_and_request_changes(
     [change] = [c for c in await changes_for(db_session, pair["mine"]) if c.status == "pending"]
     await client.post(f"/driver-documents/changes/{change.id}/reject")
     assert "Request rejected" in (await client.get("/driver-documents/pending?lang=en")).text
+
+
+# --- QA #22: messages open the thing they are about ------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_change_notifications_point_at_the_queue_and_the_licences_tab(
+    client, db_session, pair, fleet_manager_user
+):
+    from app.services.notification_text import notification_target
+
+    await login(client, "mine")
+    await submit_edit(client, pair["entry"])
+    manager_note = await db_session.scalar(
+        select(Notification).where(Notification.user_id == fleet_manager_user.id)
+    )
+    assert notification_target(manager_note) == "/driver-documents/pending"
+
+    await manager_login(client)
+    [change] = await changes_for(db_session, pair["mine"])
+    await client.post(f"/driver-documents/changes/{change.id}/approve")
+    driver_note = await db_session.scalar(select(Notification).where(Notification.user_id == pair["me"].id))
+    assert notification_target(driver_note) == f"/drivers/{pair['mine'].id}#licences"
+
+    # opening it (as the driver) marks it read and goes to the licences tab; the list links to it
+    await login(client, "mine")
+    inbox = await client.get("/notifications?tab=messages")
+    assert f"/notifications/{driver_note.id}/open" in inbox.text
+    opened = await client.get(f"/notifications/{driver_note.id}/open", follow_redirects=False)
+    assert opened.status_code == 303 and opened.headers["location"] == f"/drivers/{pair['mine'].id}#licences"
+    await db_session.refresh(driver_note)
+    assert driver_note.is_read
+    # a manager's message is not the driver's to open or read
+    other = await client.get(f"/notifications/{manager_note.id}/open", follow_redirects=False)
+    assert other.headers["location"] == "/notifications?tab=messages"
+    await db_session.refresh(manager_note)
+    assert not manager_note.is_read
+
+
+def test_old_and_plain_messages_have_no_target():
+    from types import SimpleNamespace
+
+    from app.services.notification_text import notification_target
+
+    assert notification_target(SimpleNamespace(entity_type=None, entity_id=None)) is None
+    assert notification_target(SimpleNamespace(entity_type="notification_rule", entity_id="x")) is None
+    assert notification_target(SimpleNamespace(entity_type="driver_documents", entity_id=None)) is None
