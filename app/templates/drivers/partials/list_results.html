@@ -1,0 +1,30 @@
+{# Driver table; swapped into #driver-results when the filters change. #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('nav.drivers') }}</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.phone') }}</th>
+                {% if show_docs %}<th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('driver_doc.documents') }}</th>{% endif %}
+                <th class="px-4 py-3 text-left font-medium text-gray-500">{{ _('common.status') }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for d in drivers %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='/drivers/{{ d.id }}'">
+                    <td class="px-4 py-3"><div class="font-medium">{{ d.full_name }}</div><div class="text-xs text-gray-500">{{ dept(d.department) }}</div></td>
+                    <td class="px-4 py-3 text-gray-500">{{ d.phone or '—' }}</td>
+                    {% if show_docs %}
+                    {% set a = alerts.get(d.id, {}) %}
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        {% if a.get('expired') %}<span class="fc-badge fc-badge-danger">{{ _('driver_doc.summary_expired', count=a.get('expired')) }}</span>{% endif %}
+                        {% if a.get('expiring_soon') %}<span class="fc-badge fc-badge-warning">{{ _('driver_doc.summary_expiring', count=a.get('expiring_soon')) }}</span>{% endif %}
+                        {% if not a.get('expired') and not a.get('expiring_soon') %}<span class="text-gray-400">—</span>{% endif %}
+                    </td>
+                    {% endif %}
+                    <td class="px-4 py-3"><span class="fc-badge {% if d.status.value == 'active' %}fc-badge-success{% elif d.status.value == 'on_leave' %}fc-badge-warning{% else %}fc-badge-neutral{% endif %}">{{ _('status.' + d.status.value) }}</span></td>
+                </tr>
+                {% else %}<tr><td colspan="{{ 4 if show_docs else 3 }}" class="px-4 py-8 text-center text-gray-400">{{ _('common.no_data') }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
