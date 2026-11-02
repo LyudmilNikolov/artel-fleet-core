@@ -209,18 +209,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const textColor = isDark ? '#9ca3af' : '#6b7280';
     const gridColor = isDark ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.8)';
 
-    const categoryColors = {
-        'fuel': '#3b82f6',
-        'parts': '#f97316',
-        'service': '#22c55e',
-        'insurance': '#a855f7',
-        'tax': '#ef4444',
-        'fine': '#ec4899',
-        'parking': '#06b6d4',
-        'toll': '#6366f1',
-        'washing': '#14b8a6',
-        'other': '#6b7280'
-    };
+    // one colour per category, shared with the dashboard (app/chart_palette.py)
+    const categoryColors = {{ chart_palette | tojson }}[isDark ? 'dark' : 'light'];
 
     {% if data.by_category %}
     // Category Doughnut Chart
@@ -230,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const categoryValuesExact = [{% for row in data.by_category %}{{ (row.total | string) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
         const categoryValuesDisplay = [{% for row in data.by_category %}{{ money(row.total) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
         const categoryValues = categoryValuesExact.map(Number);
-        const categoryBgColors = categoryLabels.map(c => categoryColors[c] || '#6b7280');
+        const categoryBgColors = categoryLabels.map(c => categoryColors[c] || categoryColors.other);
 
         new Chart(categoryCtx, {
             type: 'doughnut',
@@ -277,11 +267,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Monthly Trend Bar Chart
     const monthlyCtx = document.getElementById('monthlyChart');
     if (monthlyCtx) {
-        const monthLabels = {{ data.monthly | map(attribute='month') | list | tojson }};
-        const monthlyTotalsExact = [{% for row in data.monthly %}{{ (row.total | string) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
-        const monthlyTotalsDisplay = [{% for row in data.monthly %}{{ money(row.total) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const monthLabels = {{ data.monthly_chart | map(attribute='month') | list | tojson }};
+        const monthlyTotalsExact = [{% for row in data.monthly_chart %}{{ (row.total | string) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const monthlyTotalsDisplay = [{% for row in data.monthly_chart %}{{ money(row.total) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
         const monthlyTotals = monthlyTotalsExact.map(Number);
-        const monthlyCounts = {{ data.monthly | map(attribute='count') | list | tojson }};
+        const monthlyCounts = {{ data.monthly_chart | map(attribute='count') | list | tojson }};
 
         new Chart(monthlyCtx, {
             type: 'bar',
@@ -350,10 +340,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         ticks: {
                             color: textColor,
                             font: { size: 11 },
+                            maxTicksLimit: 6,
                             callback: function(v) {
-                                if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
-                                if (v >= 1000) return (v / 1000).toFixed(0) + 'k';
-                                return v;
+                                // round ticks in the page language: 500, 2,5k, 1 M
+                                if (v >= 1000000) return fcNumber(v / 1000000, v % 1000000 ? 1 : 0) + 'M';
+                                if (v >= 1000) return fcNumber(v / 1000, v % 1000 ? 1 : 0) + 'k';
+                                return fcNumber(v, 0);
                             }
                         }
                     },
@@ -364,7 +356,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         ticks: {
                             color: textColor,
                             font: { size: 11 },
-                            stepSize: 1
+                            precision: 0,
+                            maxTicksLimit: 6,
+                            callback: function(v) { return Number.isInteger(v) ? fcNumber(v, 0) : ''; }
                         }
                     }
                 }

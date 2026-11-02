@@ -9,6 +9,7 @@ from app.models.maintenance import MaintenanceStatus
 from app.schemas.report import ExpenseReportFilters, MaintenanceReportFilters, ReportFilters, parse_report_filters
 from app.services.audit_service import AuditService
 from app.services.errors import DomainError, render_error
+from app.services.report_months import fill_months
 from app.services.report_service import ReportService
 from app.services.vehicle_service import VehicleService
 from app.vehicle_rules import LIST_TYPE_FILTERS, vehicle_type_filter
@@ -19,8 +20,14 @@ from app.web.pickers import option_rows, picker_state
 router = APIRouter(prefix="/reports", tags=["web-reports"])
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-EMPTY_EXPENSES = {"by_category": [], "monthly": [], "grand_total": Decimal("0"), "total_count": 0}
+EMPTY_EXPENSES = {"by_category": [], "monthly": [], "monthly_chart": [], "grand_total": Decimal("0"), "total_count": 0}
 EMPTY_MAINTENANCE = {"rows": [], "total": 0, "total_cost": Decimal("0"), "completed": 0, "pages": 1}
+
+
+async def _expense_page_data(svc, filters) -> dict:
+    """The expense analysis plus a gap-free month series for the chart (table and exports keep the real rows)."""
+    data = await svc.expense_analysis(filters)
+    return {**data, "monthly_chart": fill_months(data["monthly"])}
 
 
 @router.get("", response_class=HTMLResponse)
@@ -101,7 +108,7 @@ async def report_expenses(request: Request, db: AsyncSession = Depends(get_db)):
         request,
         db,
         "reports/expenses.html",
-        lambda svc, f: svc.expense_analysis(f),
+        _expense_page_data,
         EMPTY_EXPENSES,
         ExpenseReportFilters,
     )
