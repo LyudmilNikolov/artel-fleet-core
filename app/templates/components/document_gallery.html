@@ -1,14 +1,28 @@
 {# Document gallery component — shows uploaded files with preview/download/delete #}
 {# Variables: documents, entity_type, entity_id, can_edit; optional can_delete_own + viewer_id (a driver removes their own uploads) #}
 
-<div id="doc-gallery" class="space-y-3">
+{# Photos open in an in-page viewer (previous / next, Esc or backdrop closes, download); PDFs and other files open in a new tab #}
+{% set images = [] %}
+{% for doc in documents %}{% if doc.mime_type and doc.mime_type.startswith('image/') and doc._preview_url %}{% set _ = images.append({'id': doc.id | string, 'url': doc._preview_url, 'name': doc.filename}) %}{% endif %}{% endfor %}
+<div id="doc-gallery" class="space-y-3"
+     x-data="{ images: {{ images | tojson | forceescape }}, open: false, i: 0,
+               show(id) { this.i = Math.max(0, this.images.findIndex(d => d.id === id)); this.open = true; this.$nextTick(() => this.$refs.close && this.$refs.close.focus()); },
+               close() { this.open = false; },
+               next() { this.i = (this.i + 1) % this.images.length; },
+               prev() { this.i = (this.i - 1 + this.images.length) % this.images.length; } }"
+     x-effect="document.body.style.overflow = open ? 'hidden' : ''"
+     @keydown.escape.window="if (open) close()"
+     @keydown.arrow-right.window="if (open && images.length > 1) next()"
+     @keydown.arrow-left.window="if (open && images.length > 1) prev()">
     {% if documents %}
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {% for doc in documents %}
         <div id="doc-{{ doc.id }}" class="group relative bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
             {# Preview area #}
-            <a href="/documents/{{ doc.id }}/download" target="_blank" class="block">
-                {% if doc.mime_type and doc.mime_type.startswith('image/') and doc._preview_url %}
+            {% set is_image = doc.mime_type and doc.mime_type.startswith('image/') and doc._preview_url %}
+            <a href="/documents/{{ doc.id }}/download" target="_blank" rel="noopener" class="block"
+               {% if is_image %}@click.prevent="show('{{ doc.id }}')"{% endif %}>
+                {% if is_image %}
                 <div class="aspect-square bg-gray-100 dark:bg-gray-800">
                     <img src="{{ doc._preview_url }}" alt="{{ doc.filename }}" class="w-full h-full object-cover" loading="lazy">
                 </div>
@@ -62,6 +76,21 @@
         </div>
         {% endfor %}
     </div>
+    <template x-if="images.length">
+        <div x-show="open" x-transition.opacity style="display: none" class="fc-lightbox" role="dialog" aria-modal="true"
+             aria-label="{{ _('docs.viewer') }}" @click.self="close()">
+            <button type="button" x-ref="close" @click="close()" class="fc-lightbox-close" aria-label="{{ _('docs.close') }}">&times;</button>
+            <div class="fc-lightbox-stage" @click.self="close()">
+                <img :src="images[i].url" :alt="images[i].name">
+            </div>
+            <div class="fc-lightbox-bar">
+                <button type="button" @click="prev()" x-show="images.length > 1" class="fc-lightbox-btn" aria-label="{{ _('docs.previous') }}">&lsaquo;</button>
+                <span class="fc-lightbox-caption"><span x-text="images[i].name"></span> <span x-show="images.length > 1" class="opacity-70" x-text="'(' + (i + 1) + '/' + images.length + ')'"></span></span>
+                <button type="button" @click="next()" x-show="images.length > 1" class="fc-lightbox-btn" aria-label="{{ _('docs.next') }}">&rsaquo;</button>
+                <a :href="'/documents/' + images[i].id + '/download?attachment=1'" class="fc-lightbox-download">{{ _('docs.download') }}</a>
+            </div>
+        </div>
+    </template>
     {% else %}
     <div class="text-center py-8 text-gray-400 dark:text-gray-500">
         <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">

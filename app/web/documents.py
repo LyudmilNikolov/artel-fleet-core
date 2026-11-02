@@ -150,9 +150,10 @@ async def document_gallery(
 async def download_document(
     request: Request,
     doc_id: UUID,
+    attachment: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    """Redirect to presigned S3 URL for download."""
+    """Redirect to presigned S3 URL for download (``?attachment=1`` saves the file instead of showing it)."""
     user = await get_web_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
@@ -161,7 +162,7 @@ async def download_document(
     doc = await service.get(doc_id)
     if doc and not await can_view_scans(db, user, doc.entity_type, doc.entity_id):
         return deny(request)
-    url = await service.get_download_url(doc_id)
+    url = await service.get_download_url(doc_id, attachment=attachment)
     if not url:
         return RedirectResponse(url="/", status_code=302)
     return RedirectResponse(url=url, status_code=302)

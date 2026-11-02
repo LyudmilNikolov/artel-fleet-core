@@ -19,3 +19,16 @@
 .dark #toast-container .fc-notice-danger { background-color: #3b1517; }
 .dark #toast-container .fc-notice-success { background-color: #10301d; }
 .dark #toast-container .fc-notice-info { background-color: #17274a; }
+
+/* in-page photo viewer (components/document_gallery.html) */
+.fc-lightbox { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.88); }
+.fc-lightbox-stage { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 3.25rem 1rem 0.5rem; }
+.fc-lightbox-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; }
+.fc-lightbox-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.75rem; padding: 0.75rem 1rem 1rem; color: #fff; font-size: 0.875rem; }
+.fc-lightbox-caption { flex: 1 1 8rem; min-width: 0; text-align: center; overflow-wrap: anywhere; }
+.fc-lightbox-btn, .fc-lightbox-close { width: 2.5rem; height: 2.5rem; border-radius: 9999px; border: 0; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.fc-lightbox-btn:hover, .fc-lightbox-close:hover { background: rgba(255, 255, 255, 0.3); }
+.fc-lightbox-btn:focus-visible, .fc-lightbox-close:focus-visible, .fc-lightbox-download:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fc-lightbox-close { position: absolute; top: 0.75rem; right: 0.75rem; }
+.fc-lightbox-download { padding: 0.5rem 0.9rem; border-radius: 0.5rem; background: #2563eb; color: #fff; text-decoration: none; white-space: nowrap; }
+.fc-lightbox-download:hover { background: #1d4ed8; }
