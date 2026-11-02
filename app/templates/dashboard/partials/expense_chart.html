@@ -23,14 +23,8 @@
             {% for cat in data.categories[:5] %}
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full
-                        {% if cat.category == 'fuel' %}bg-blue-500
-                        {% elif cat.category == 'parts' %}bg-orange-500
-                        {% elif cat.category == 'service' %}bg-green-500
-                        {% elif cat.category == 'insurance' %}bg-purple-500
-                        {% elif cat.category == 'tax' %}bg-red-500
-                        {% else %}bg-gray-500{% endif %}
-                    "></div>
+                    {# one colour per category, light / dark: app/chart_palette.py #}
+                    <span class="fc-cat-dot" style="--cat-light: {{ chart_palette.light.get(cat.category, chart_palette.light.other) }}; --cat-dark: {{ chart_palette.dark.get(cat.category, chart_palette.dark.other) }}"></span>
                     <span class="text-sm text-gray-700 dark:text-gray-300">{{ _('expense_category.' + cat.category) }}</span>
                 </div>
                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ money(cat.total) }}</span>

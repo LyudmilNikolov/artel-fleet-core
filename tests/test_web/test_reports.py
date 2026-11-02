@@ -1,5 +1,7 @@
 """Report pages: the Maintenance report exists, shared filters, validation and exports."""
 
+import json
+import re
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
@@ -221,3 +223,20 @@ async def test_vehicle_options_narrow_by_type(client, db_session, admin_user):
     # forklifts carry their generated identifier, shown after brand and model
     assert forklift.license_plate.startswith("PRIVATE-") and forklift.license_plate in everything.text
     assert "CB5555" in (await client.get("/reports/vehicle-options?q=cb-5555-ee")).text
+
+
+@pytest.mark.asyncio
+async def test_expense_chart_has_a_gap_free_month_axis_and_the_shared_palette(client, db_session, admin_user):
+    """QA #25: months without expenses are on the axis (the table keeps only real months); one colour per category."""
+    truck = await vehicle(db_session, "tractor_unit", "CB4444DD")
+    for month, category in ((10, ExpenseCategory.TOLL), (1, ExpenseCategory.PARKING)):
+        year = 2025 if month == 10 else 2026
+        db_session.add(Expense(vehicle_id=truck.id, category=category, amount=Decimal("5"), date=date(year, month, 5)))
+    await db_session.commit()
+    await login(client)
+    page = (await client.get("/reports/expenses")).text
+    labels = re.search(r"const monthLabels = (\[.*?\]);", page).group(1)
+    assert json.loads(labels) == ["2025-10-01", "2025-11-01", "2025-12-01", "2026-01-01"]
+    assert page.count("2025-11-01") == 1  # only in the chart: the month table lists months that have expenses
+    assert '"toll": "#78350f"' in page and '"toll": "#d6b98c"' in page  # light and dark colours, not the grey fallback
+    assert "stepSize" not in page and "precision: 0" in page

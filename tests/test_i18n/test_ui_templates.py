@@ -31,7 +31,10 @@ def test_all_templates_parse(templates):
 
 
 def test_dashboard_money_remains_exact(templates):
+    from app.chart_palette import CHART_PALETTE
+
     rendered = templates.get_template("dashboard/partials/expense_chart.html").render(
+        chart_palette=CHART_PALETTE,
         data={
             "period_months": 1,
             "total": Decimal("0.30"),
@@ -63,7 +66,10 @@ def report_filter_context():
     from app.vehicle_rules import LIST_TYPE_FILTERS
     from app.web.pickers import picker_state
 
+    from app.chart_palette import CHART_PALETTE
+
     return {
+        "chart_palette": CHART_PALETTE,
         "filters": ReportFilters(),
         "picker": picker_state(None),
         "type_filters": LIST_TYPE_FILTERS,
@@ -128,6 +134,7 @@ def test_report_templates_render_decimal_and_missing_purchase_price(templates):
             "total_count": 1,
             "by_category": [{"category": "fuel", "total": Decimal("0.30"), "count": 1}],
             "monthly": [{"month": "2026-10", "total": Decimal("0.30"), "count": 1}],
+            "monthly_chart": [{"month": "2026-10", "total": Decimal("0.30"), "count": 1}],
         },
     )
     assert 'const monthlyTotalsExact = ["0.30"]' in expense
@@ -152,6 +159,7 @@ def test_monthly_chart_accepts_full_iso_dates(templates):
             "total_count": 1,
             "by_category": [],
             "monthly": [{"month": "2026-10-01", "total": Decimal("0.30"), "count": 1}],
+            "monthly_chart": [{"month": "2026-10-01", "total": Decimal("0.30"), "count": 1}],
         },
     )
     callback = re.search(r"labels: monthLabels.map\(l => \{(.*?)\}\),", rendered, re.S).group(1)

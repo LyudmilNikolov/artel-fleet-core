@@ -14,6 +14,7 @@ from app.audit_context import AuditContextMiddleware
 from app.config import settings
 from app.i18n import _, get_available_languages, load_translations
 from app.i18n.locales import resolve_locale
+from app.chart_palette import CHART_PALETTE
 from app.web.flash import take as flash_take
 from app.web.login_next import LoginNextMiddleware
 from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
             "password_max": PASSWORD_MAX,
             "dept": lambda value: department_label(value, lang),
             "take_flashes": lambda: flash_take(request, lang),
+            "chart_palette": CHART_PALETTE,
             "notice_text": lambda notification: notification_text(notification, lang),
             "notice_target": notification_target,
             "fmt_number": lambda value, decimals=0: format_number(value, lang, decimals),

@@ -32,3 +32,7 @@
 .fc-lightbox-close { position: absolute; top: 0.75rem; right: 0.75rem; }
 .fc-lightbox-download { padding: 0.5rem 0.9rem; border-radius: 0.5rem; background: #2563eb; color: #fff; text-decoration: none; white-space: nowrap; }
 .fc-lightbox-download:hover { background: #1d4ed8; }
+
+/* category colour dot of the dashboard legend (colours: app/chart_palette.py) */
+.fc-cat-dot { display: inline-block; flex: none; width: 0.75rem; height: 0.75rem; border-radius: 9999px; background: var(--cat-light); }
+.dark .fc-cat-dot { background: var(--cat-dark); }
