@@ -1027,6 +1027,8 @@
   "notifications.back_to_list": "Back to notifications",
   "notifications.status": "Status",
   "notifications.messages_empty": "No messages",
+  "notifications.open": "Open",
+  "notifications.unread": "Unread",
   "nav.notifications_section": "Notifications",
   "nav.notification_inbox": "Inbox",
   "nav.notification_rules": "Rules",

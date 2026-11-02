@@ -1027,6 +1027,8 @@
   "notifications.back_to_list": "Обратно към известията",
   "notifications.status": "Статус",
   "notifications.messages_empty": "Няма съобщения",
+  "notifications.open": "Отвори",
+  "notifications.unread": "Непрочетено",
   "nav.notifications_section": "Известия",
   "nav.notification_inbox": "Входящи",
   "nav.notification_rules": "Правила",

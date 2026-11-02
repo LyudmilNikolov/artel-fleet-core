@@ -23,7 +23,9 @@ from app.services.attention_service import (
 )
 from app.services.errors import DomainError
 from app.services.notification_rule_service import NotificationRuleService, preview_text
+from app.models.notification import Notification
 from app.services.notification_service import NotificationService
+from app.services.notification_text import notification_target
 from app.services.reminder_info_service import ReminderInfoService
 from app.services.reminder_stop_service import MAY_STOP, ReminderStopService
 from app.services.validity import local_today
@@ -108,6 +110,19 @@ async def mark_read(notification_id: UUID, request: Request, db: AsyncSession = 
         return HTMLResponse("")
     await NotificationService(db).mark_as_read(notification_id, user.id)
     return HTMLResponse("")
+
+
+@router.get("/{notification_id}/open")
+async def open_notification(notification_id: UUID, request: Request, db: AsyncSession = Depends(get_db)):
+    """Mark one of the reader's own messages as read and go to the page it is about."""
+    user = await get_web_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    notification = await db.get(Notification, notification_id)
+    if notification is None or notification.user_id != user.id:  # someone else's message: same as a missing one
+        return RedirectResponse(url="/notifications?tab=messages", status_code=303)
+    await NotificationService(db).mark_as_read(notification_id, user.id)
+    return RedirectResponse(url=notification_target(notification) or "/notifications?tab=messages", status_code=303)
 
 
 @router.post("/mark-all-read", response_class=HTMLResponse)

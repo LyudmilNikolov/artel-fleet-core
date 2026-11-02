@@ -20,15 +20,19 @@
     </div>
     <div class="divide-y divide-gray-100 dark:divide-gray-700">
         {% for n in messages %}
-        <div class="p-4 {% if not n.is_read %}bg-blue-50/30 dark:bg-blue-900/10{% endif %}"
-             {% if not n.is_read %}hx-post="/notifications/{{ n.id }}/read" hx-swap="none" hx-trigger="click"{% endif %}>
-            {% set text = notice_text(n) %}
+        {% set text = notice_text(n) %}
+        {% set target = notice_target(n) %}
+        <div class="p-4 {% if target %}cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40{% endif %}"
+             x-data="{ unread: {{ 'false' if n.is_read else 'true' }} }"
+             :class="unread ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''"
+             {% if target %}@click="if (!$event.target.closest('a')) window.location = '/notifications/{{ n.id }}/open'"
+             {% elif not n.is_read %}hx-post="/notifications/{{ n.id }}/read" hx-swap="none" hx-trigger="click" @click="unread = false"{% endif %}>
             <div class="flex items-center justify-between">
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ text[0] }}</p>
-                {% if not n.is_read %}<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></span>{% endif %}
+                <span x-show="unread" class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2" role="img" aria-label="{{ _('notifications.unread') }}"></span>
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ text[1] }}</p>
-            {% if n.entity_type == 'expense_import' and n.entity_id %}<a href="/expenses/imports/{{ n.entity_id }}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">{{ _('toll_import.open_import') }}</a>{% endif %}
+            {% if target %}<a href="/notifications/{{ n.id }}/open" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">{{ _(n.entity_type == 'expense_import' and 'toll_import.open_import' or 'notifications.open') }}</a>{% endif %}
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ local_dt(n.created_at) }}</p>
         </div>
         {% else %}

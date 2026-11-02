@@ -1,5 +1,6 @@
 """Toll import pages: upload -> preview -> import, managers only, problems stay visible."""
 
+import re
 from decimal import Decimal
 
 import pytest
@@ -72,7 +73,9 @@ async def test_upload_preview_then_import(client, db_session, fleet_manager_user
     index = await client.get("/expenses/imports")
     assert "Waiting to be imported (1)" in index.text and "Priced_Transaction.csv" in index.text
     inbox = await client.get("/notifications", params={"tab": "messages"})
-    assert detail_url in inbox.text
+    open_link = re.search(r'href="(/notifications/[0-9a-f-]+/open)"', inbox.text).group(1)
+    opened = await client.get(open_link, follow_redirects=False)  # marks the message read, then opens the import
+    assert opened.status_code == 303 and opened.headers["location"] == detail_url
 
     again = await client.post(detail_url + "/apply")
     assert "already" in (await client.get(again.headers["location"])).text

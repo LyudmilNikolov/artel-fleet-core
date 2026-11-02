@@ -17,7 +17,7 @@ from app.i18n.locales import resolve_locale
 from app.web.flash import take as flash_take
 from app.security import GeoRestrictionMiddleware, SecurityHeadersMiddleware
 from app.services.errors import render_error
-from app.services.notification_text import notification_text
+from app.services.notification_text import notification_target, notification_text
 from app.utils.password_policy import MAX_LENGTH as PASSWORD_MAX, MIN_LENGTH as PASSWORD_MIN
 from app.utils.formatting import department_label, format_local_date, format_local_datetime, format_number, format_percent, money
 from app.utils.rate_limit import configure_limiter
@@ -84,6 +84,7 @@ def create_app() -> FastAPI:
             "dept": lambda value: department_label(value, lang),
             "take_flashes": lambda: flash_take(request, lang),
             "notice_text": lambda notification: notification_text(notification, lang),
+            "notice_target": notification_target,
             "fmt_number": lambda value, decimals=0: format_number(value, lang, decimals),
             "fmt_percent": lambda value, decimals=1: format_percent(value, lang, decimals),
             "local_date": lambda value: format_local_date(value, lang),
