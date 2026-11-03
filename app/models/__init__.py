@@ -43,6 +43,7 @@ from app.models.document import Document  # noqa: E402, F401
 from app.models.maintenance import MaintenanceRecord  # noqa: E402, F401
 from app.models.expense import Expense  # noqa: E402, F401
 from app.models.compliance import ComplianceDocument  # noqa: E402, F401
+from app.models.company_licence import CompanyLicence  # noqa: E402, F401
 from app.models.audit_log import AuditLog  # noqa: E402, F401
 from app.models.notification import Notification, NotificationPreference  # noqa: E402, F401
 from app.models.notification_rule import NotificationRule, NotificationRuleRecipient, NotificationSettings  # noqa: E402, F401

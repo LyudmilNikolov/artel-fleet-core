@@ -15,6 +15,7 @@ class EntityType(str, enum.Enum):
     MAINTENANCE = "maintenance"
     COMPLIANCE_DOCUMENT = "compliance_document"
     EXPENSE = "expense"
+    COMPANY_LICENCE = "company_licence"
 
 
 class DocumentType(str, enum.Enum):

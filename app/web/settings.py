@@ -229,6 +229,7 @@ AUDIT_ENTITY_TYPES = (
     "maintenance",
     "expense",
     "compliance_document",
+    "company_licence",
     "mileage_log",
     "document",
     "user",

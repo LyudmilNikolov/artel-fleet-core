@@ -4,6 +4,15 @@
 {% block page_title %}{{ _('nav.dashboard') }}{% endblock %}
 
 {% block content %}
+{% if licence_alert %}
+<div class="mb-6 fc-notice {{ 'fc-notice-danger' if licence_alert.status == 'expired' else 'fc-notice-warning' }} flex flex-wrap items-center gap-3">
+    <span>
+        {% if licence_alert.status == 'expired' %}{{ _('company_licence.alert_expired', number=licence_alert.licence_number, date=local_date(licence_alert.end_date)) }}
+        {% else %}{{ _('company_licence.alert_expiring', number=licence_alert.licence_number, date=local_date(licence_alert.end_date), days=licence_alert.days_left) }}{% endif %}
+    </span>
+    <a href="/company-licence" class="ml-auto underline font-medium">{{ _('company_licence.alert_open') }}</a>
+</div>
+{% endif %}
 <!-- Fleet Overview Stats -->
 <div id="fleet-overview" hx-get="/widgets/fleet-overview" hx-trigger="load" hx-swap="innerHTML">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">

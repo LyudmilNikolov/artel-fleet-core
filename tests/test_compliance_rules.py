@@ -20,7 +20,7 @@ ROAD = {"civil_liability", "casco", "technical_inspection"}
 
 def test_matrix_covers_every_vehicle_type():
     assert set(COMPLIANCE_TYPES) == {t.value for t in VehicleType}
-    assert set(compliance_types_for("tractor_unit")) == ROAD | {"tachograph"}
+    assert set(compliance_types_for("tractor_unit")) == ROAD | {"tachograph", "transport_licence"}
     for kind in ("container_semi_trailer", "curtain_side_semi_trailer", "van", "passenger_car"):
         assert set(compliance_types_for(kind)) == ROAD
     assert compliance_types_for(VehicleType.FORKLIFT) == ()
@@ -31,6 +31,11 @@ def test_matrix_covers_every_vehicle_type():
     "vehicle_type,document_type,error",
     [
         ("van", "tachograph", "error.compliance_type_not_applicable"),
+        ("van", "transport_licence", "error.compliance_type_not_applicable"),
+        ("container_semi_trailer", "transport_licence", "error.compliance_type_not_applicable"),
+        ("curtain_side_semi_trailer", "transport_licence", "error.compliance_type_not_applicable"),
+        ("passenger_car", "transport_licence", "error.compliance_type_not_applicable"),
+        ("forklift", "transport_licence", "error.compliance_type_not_applicable"),
         ("container_semi_trailer", "tachograph", "error.compliance_type_not_applicable"),
         ("forklift", "civil_liability", "error.compliance_type_not_applicable"),
         ("tractor_unit", "leasing", "error.compliance_type_unknown"),
@@ -43,6 +48,7 @@ def test_incompatible_pairs_rejected(vehicle_type, document_type, error):
 
 def test_compatible_pair_accepted():
     validate_compliance_type(VehicleType.TRACTOR_UNIT, ComplianceType.TACHOGRAPH)
+    validate_compliance_type(VehicleType.TRACTOR_UNIT, ComplianceType.TRANSPORT_LICENCE)
 
 
 @pytest.mark.parametrize("lang", ["bg", "en"])

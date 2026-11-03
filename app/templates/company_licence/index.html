@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from 'components/compliance_status.html' import status_badge with context %}
+{% block title %}{{ _('company_licence.title') }} — {{ _('app_name') }}{% endblock %}
+{% block page_title %}{{ _('company_licence.title') }}{% endblock %}
+{% macro field(label, value) %}<div><dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</dt><dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ value if value is not none and value != '' else '—' }}</dd></div>{% endmacro %}
+{% block content %}
+{% set subtitle %}<p class="mb-4 text-sm text-gray-600 dark:text-gray-400">{{ _('company_licence.subtitle') }}</p>{% endset %}
+{% if not current %}
+{{ subtitle }}
+<div class="fc-card p-6 text-center">
+    <p class="text-gray-500 dark:text-gray-400">{{ _('company_licence.none') }}</p>
+    {% if can_edit %}<a href="/company-licence/new" class="fc-btn-add mt-4">+ {{ _('company_licence.add') }}</a>{% endif %}
+</div>
+{% else %}
+<div class="mb-4 flex flex-wrap items-center gap-3">
+    {{ status_badge(current) }}
+    {% if can_edit %}
+    <div class="ml-auto flex items-center gap-2">
+        <a href="/company-licence/{{ current.id }}/renew" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('company_licence.renew') }}</a>
+        <a href="/company-licence/{{ current.id }}/edit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">{{ _('btn.edit') }}</a>
+        <form method="POST" action="/company-licence/{{ current.id }}/delete" onsubmit="return confirm({{ _('company_licence.delete_confirm') | tojson | forceescape }})">
+            <button type="submit" class="fc-btn-danger">{{ _('btn.delete') }}</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{{ subtitle }}
+
+<div class="fc-card p-6">
+    <dl class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {{ field(_('company_licence.number'), current.licence_number) }}
+        {{ field(_('company_licence.holder'), current.holder) }}
+        {{ field(_('company_licence.issued_by'), current.issued_by) }}
+        {{ field(_('company_licence.start_date'), local_date(current.start_date)) }}
+        {{ field(_('company_licence.end_date'), local_date(current.end_date)) }}
+    </dl>
+    {% if current.notes %}
+    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('company_licence.notes') }}</dt>
+        <dd class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ current.notes }}</dd>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-6 fc-card p-6">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('company_licence.attachment') }}</h3>
+    <div hx-get="/documents/gallery/company_licence/{{ current.id }}" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-4 text-gray-400">
+            <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </div>
+    </div>
+    {% if can_edit %}
+    {% with entity_type='company_licence', entity_id=current.id|string, doc_type='license' %}
+    {% include 'components/upload.html' %}
+    {% endwith %}
+    {% endif %}
+</div>
+
+{% if history %}
+<div class="mt-6 fc-card p-6">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ _('company_licence.history') }}</h3>
+    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for old in history %}
+        <li class="py-3 flex flex-wrap items-center gap-3 text-sm">
+            <span class="font-medium text-gray-900 dark:text-white">№ {{ old.licence_number }}</span>
+            <span class="text-gray-500 dark:text-gray-400">{{ local_date(old.start_date) }} — {{ local_date(old.end_date) }}</span>
+            <span class="fc-badge fc-badge-neutral">{{ _('compliance_status.replaced') }}</span>
+            {% if can_edit %}
+            <span class="ml-auto flex items-center gap-3">
+                <a href="/company-licence/{{ old.id }}/edit" class="text-primary-600 hover:underline">{{ _('btn.edit') }}</a>
+                <form method="POST" action="/company-licence/{{ old.id }}/delete" onsubmit="return confirm({{ _('company_licence.delete_confirm') | tojson | forceescape }})">
+                    <button type="submit" class="text-red-600 hover:underline">{{ _('btn.delete') }}</button>
+                </form>
+            </span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

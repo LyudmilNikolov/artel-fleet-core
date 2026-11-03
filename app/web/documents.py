@@ -27,6 +27,7 @@ ENTITY_RETURN_URLS = {
     "maintenance": "/maintenance/{id}",
     "compliance_document": "/compliance/{id}",
     "expense": "/expenses/{id}",
+    "company_licence": "/company-licence",
 }
 
 
