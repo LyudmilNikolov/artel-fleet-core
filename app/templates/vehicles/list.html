@@ -29,7 +29,7 @@
         <a href="/vehicles" x-show="q || status || type" {% if not (q or status_filter or type_filter) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
     </form>
     {% if user.role.value in ['admin', 'fleet_manager'] %}
-    <a href="/vehicles/new" class="fc-btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto sm:ml-auto">
+    <a href="/vehicles/new" class="fc-btn-add gap-2 w-full sm:w-auto sm:ml-auto">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14"/></svg>
         {{ _('vehicle.add') }}
     </a>

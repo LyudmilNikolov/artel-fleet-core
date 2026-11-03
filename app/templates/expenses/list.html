@@ -32,10 +32,10 @@
     {% if can_edit or can_add %}
     <div class="w-full sm:w-auto flex flex-wrap gap-3 sm:ml-auto">
         {% if can_edit %}
-        <a href="/expenses/imports" class="flex-1 sm:flex-none h-10 px-4 inline-flex items-center justify-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{{ _('toll_import.button') }}</a>
+        <a href="/expenses/imports" class="fc-btn-warn flex-1 sm:flex-none">{{ _('toll_import.button') }}</a>
         {% endif %}
         {% if can_add %}
-        <a href="/expenses/new" class="flex-1 sm:flex-none h-10 px-4 inline-flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium whitespace-nowrap">+ {{ _('expense.add') }}</a>
+        <a href="/expenses/new" class="fc-btn-add flex-1 sm:flex-none">+ {{ _('expense.add') }}</a>
         {% endif %}
     </div>
     {% endif %}
