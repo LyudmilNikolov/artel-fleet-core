@@ -2,9 +2,11 @@
 
 ## 🎯 Project Overview
 
-Build a **corporate fleet management system** (codename: **FleetCore**) — a self-hosted web application for managing a vehicle fleet of 500+ vehicles. The system should be comparable to Odoo Fleet in functionality but built as a standalone, enterprise-grade Python monorepo application.
+**FleetCore** (Bulgarian UI name **Автопарк**) is a corporate fleet management system: a standalone Python monorepo web application (UI + REST API). It is built and running; this file describes the system as it is, so update it whenever behaviour, structure or deployment changes.
 
-**Target users**: Fleet managers, administrators, drivers, and executives at a large enterprise.
+**Target users**: fleet managers, administrators, drivers and viewers of a haulage company (tractor units, semi-trailers, vans, cars, forklifts). The live fleet is about 50 vehicles; the design and performance targets are 500+.
+
+**Where things are documented**: feature rules live in `docs/` (`vehicle-workflow.md`, `compliance-documents.md`, `company-licence.md`, `driver-documents.md`, `maintenance-service-items.md`, `reports.md`, `toll-import.md`, `eur-deployment.md`); production setup and runbook in `docs/production-sevalla.md` (generic guide `docs/deploy-sevalla.md`, `docs/deployment.md`). Prefer those docs and the code over this file when they disagree, then fix this file.
 
 ---
 
@@ -12,175 +14,63 @@ Build a **corporate fleet management system** (codename: **FleetCore**) — a se
 
 ### Core Stack (Python-only monorepo)
 - **Backend**: FastAPI (async) + SQLAlchemy 2.0 (async ORM) + Alembic (migrations)
-- **Frontend**: Jinja2 templates + HTMX + Alpine.js + TailwindCSS (via CDN or pre-built)
+- **Frontend**: Jinja2 templates + HTMX + Alpine.js + TailwindCSS (prebuilt `static/css/app.css`; rebuild with `make css`)
 - **Database**: PostgreSQL 16
 - **Cache / Queue broker**: Redis 7
-- **Task Queue**: Celery (async background tasks: notifications, reports, reminders)
-- **File Storage**: MinIO (S3-compatible, self-hosted) for document scans and vehicle photos
-- **Auth**: JWT tokens (access + refresh) with cookie-based sessions for web UI
-- **Containerization**: Docker + Docker Compose (full dev environment in one `docker compose up`)
+- **Task Queue**: Celery worker + beat (notifications, reminders)
+- **File Storage**: S3-compatible: MinIO in development, Cloudflare R2 (via Sevalla) in production
+- **Secrets**: HashiCorp Vault in dev Compose (`vault`, `vault-init`; `app/utils/vault.py`); plain environment variables in production
+- **Auth**: JWT tokens (access + refresh) for the API, signed session cookie for the web UI
+- **Email**: Brevo API (production; Sevalla blocks SMTP), Gmail API or SMTP (`app/utils/email.py`); **Telegram** Bot API for chat messages
+- **Containerization**: Docker + Docker Compose for development (`docker compose up -d`); production runs on **Sevalla** (see `docs/production-sevalla.md`)
+- **CI**: GitHub Actions (`.github/workflows/`: `ci.yml`, `release-pr.yml`, `post-deploy-check.yml`)
 
 ### Project Structure (monorepo)
 
 ```
 fleetcore/
-├── docker-compose.yml
-├── Dockerfile
-├── .env.example
-├── alembic/
-│   ├── alembic.ini
-│   └── versions/
+├── docker-compose.yml           # dev stack: app, db, redis, minio, vault, celery worker + beat
+├── docker-compose.prod.yml      # own-server production stack (docs/deployment.md)
+├── Dockerfile, docker-entrypoint.sh   # entrypoint runs migrations for the web command
+├── alembic/versions/            # one revision per schema change; never edit historical ones
 ├── app/
-│   ├── __init__.py
-│   ├── main.py                  # FastAPI app factory
-│   ├── config.py                # Pydantic Settings (env-based config)
-│   ├── database.py              # Async SQLAlchemy engine + session
-│   ├── dependencies.py          # FastAPI dependency injection
-│   │
-│   ├── models/                  # SQLAlchemy ORM models
-│   │   ├── __init__.py
-│   │   ├── user.py
-│   │   ├── vehicle.py
-│   │   ├── driver.py
-│   │   ├── mileage.py
-│   │   ├── maintenance.py
-│   │   ├── expense.py
-│   │   ├── compliance.py
-│   │   ├── document.py
-│   │   └── audit_log.py
-│   │
-│   ├── schemas/                 # Pydantic schemas (request/response)
-│   │   ├── __init__.py
-│   │   ├── user.py
-│   │   ├── vehicle.py
-│   │   ├── driver.py
-│   │   ├── mileage.py
-│   │   ├── maintenance.py
-│   │   ├── expense.py
-│   │   ├── compliance.py
-│   │   └── common.py            # Pagination, filters, shared schemas
-│   │
-│   ├── api/                     # REST API endpoints (versioned)
-│   │   ├── __init__.py
-│   │   ├── v1/
-│   │   │   ├── __init__.py
-│   │   │   ├── router.py        # Main v1 router aggregator
-│   │   │   ├── auth.py
-│   │   │   ├── vehicles.py
-│   │   │   ├── drivers.py
-│   │   │   ├── mileage.py
-│   │   │   ├── maintenance.py
-│   │   │   ├── expenses.py
-│   │   │   ├── compliance.py
-│   │   │   ├── reports.py
-│   │   │   ├── documents.py
-│   │   │   └── users.py
-│   │   └── deps.py              # API-specific dependencies
-│   │
-│   ├── web/                     # Web UI (Jinja2 + HTMX)
-│   │   ├── __init__.py
-│   │   ├── router.py            # Web routes aggregator
-│   │   ├── auth.py
-│   │   ├── dashboard.py
-│   │   ├── vehicles.py
-│   │   ├── drivers.py
-│   │   ├── maintenance.py
-│   │   ├── expenses.py
-│   │   ├── compliance.py
-│   │   ├── reports.py
-│   │   └── settings.py
-│   │
-│   ├── services/                # Business logic layer
-│   │   ├── __init__.py
-│   │   ├── vehicle_service.py
-│   │   ├── driver_service.py
-│   │   ├── mileage_service.py
-│   │   ├── maintenance_service.py
-│   │   ├── expense_service.py
-│   │   ├── compliance_service.py
-│   │   ├── report_service.py
-│   │   ├── notification_service.py
-│   │   ├── document_service.py
-│   │   └── audit_service.py
-│   │
-│   ├── repositories/            # Data access layer (repository pattern)
-│   │   ├── __init__.py
-│   │   ├── base.py              # Generic CRUD repository
-│   │   ├── vehicle_repo.py
-│   │   ├── driver_repo.py
-│   │   └── ...
-│   │
-│   ├── tasks/                   # Celery tasks
-│   │   ├── __init__.py
-│   │   ├── celery_app.py
-│   │   ├── notifications.py     # Email + Telegram notifications
-│   │   ├── reminders.py         # Scheduled maintenance/document deadline checks
-│   │   └── reports.py           # Async report generation
-│   │
-│   ├── i18n/                    # Internationalization
-│   │   ├── __init__.py
-│   │   ├── babel.py             # i18n config + helpers
-│   │   ├── ru/
-│   │   │   └── messages.json
-│   │   ├── kz/
-│   │   │   └── messages.json
-│   │   ├── en/
-│   │   │   └── messages.json
-│   │   └── tr/
-│   │       └── messages.json
-│   │
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── security.py          # Password hashing, JWT
-│   │   ├── s3.py                # MinIO/S3 client wrapper
-│   │   ├── export.py            # Excel (openpyxl) + CSV export
-│   │   ├── telegram.py          # Telegram Bot API notifications
-│   │   └── email.py             # SMTP email sender
-│   │
-│   └── templates/               # Jinja2 templates
-│       ├── base.html            # Base layout (sidebar, topbar, i18n switcher)
-│       ├── components/          # Reusable HTMX partials
-│       │   ├── table.html
-│       │   ├── modal.html
-│       │   ├── pagination.html
-│       │   ├── filters.html
-│       │   ├── toast.html
-│       │   └── stats_card.html
-│       ├── auth/
-│       │   ├── login.html
-│       │   └── profile.html
-│       ├── dashboard/
-│       │   └── index.html
-│       ├── vehicles/
-│       │   ├── list.html
-│       │   ├── detail.html
-│       │   └── form.html
-│       ├── drivers/
-│       ├── maintenance/
-│       ├── expenses/
-│       ├── compliance/
-│       ├── reports/
-│       └── settings/
-│
-├── static/                      # Static files
-│   ├── css/
-│   ├── js/
-│   └── img/
-│
-├── tests/
-│   ├── conftest.py
-│   ├── test_api/
-│   ├── test_services/
-│   └── test_web/
-│
-├── scripts/
-│   ├── seed_data.py             # Generate demo data (500+ vehicles)
-│   └── create_superuser.py
-│
-├── pyproject.toml               # uv / pip dependencies
-├── Makefile                     # Shortcuts: make up, make migrate, make seed, make test
+│   ├── main.py                  # app factory, middleware, error pages, template globals
+│   ├── config.py                # Pydantic Settings (env-based)
+│   ├── database.py, dependencies.py, security.py (geo restriction, headers), audit_context.py, audit_events.py
+│   ├── vehicle_rules.py         # vehicle types, technical applicability, COMPLIANCE_TYPES (authoritative)
+│   ├── maintenance_rules.py     # planned service items
+│   ├── driver_document_rules.py # driver document types
+│   ├── notification_rules.py    # reminder sources and schedule rules
+│   ├── chart_palette.py
+│   ├── models/                  # SQLAlchemy models: user, vehicle, driver, driver_document(+_change), mileage,
+│   │                            #   maintenance, expense, compliance, company_licence, document, notification(+_dispatch, _rule),
+│   │                            #   toll_import, audit_log
+│   ├── schemas/                 # Pydantic v2 request/response schemas
+│   ├── api/v1/                  # REST API: auth, users, vehicles, drivers, driver_documents, mileage, maintenance,
+│   │                            #   expenses, compliance, documents, reports, plus /health
+│   ├── web/                     # Jinja2 + HTMX routes (CSRF on every form): auth, dashboard, vehicles, drivers,
+│   │                            #   driver_documents, maintenance, expenses, toll_imports, compliance, company_licence, reports,
+│   │                            #   notifications, notification_settings, settings (users, audit log), documents, help
+│   ├── services/                # business logic (validity.py = shared computed expiry status)
+│   ├── repositories/            # data access (base.py generic CRUD, report_repo.py report queries, ...)
+│   ├── tasks/                   # Celery: celery_app.py (beat schedule), notifications.py, reminders.py
+│   ├── i18n/                    # locales.py + bg/messages.json + en/messages.json (only these two)
+│   ├── utils/                   # s3, export (Excel), email, telegram, plates, formatting, rate_limit, vault, ...
+│   └── templates/               # base.html, components/ (HTMX partials), one folder per module
+├── static/                      # css (Tailwind input/output), js (app.js), img
+├── tests/                       # pytest: test_api, test_services, test_web, test_migrations, test_money, test_i18n, ...
+├── scripts/                     # seed_data.py, create_superuser.py, check_eur_readiness.py, gmail_refresh_token.py, ...
+├── docs/                        # feature docs, deployment, production runbook
+├── testing/                     # manual QA reports and test accounts (not part of the app)
+├── toll-export/                 # sample Shell Card exports for the toll importer
+├── pyproject.toml, requirements.txt, Makefile
 └── README.md
 ```
+
+### Development commands
+- Start: `docker compose up -d`; containers do **not** reload code, so after editing run `docker compose restart app celery_worker celery_beat` (rebuild with `docker compose up -d --build` after dependency changes).
+- Tests: run inside the app container with `python -m pytest` (image is non-root) against a disposable PostgreSQL database whose name contains `test`; never against the dev database (see the EUR section below).
+- Lint/format: `make lint`, `make format` (Ruff, line length 120). Migrations: `make migrate`, `make migrate-gen msg="..."`.
 
 ---
 
@@ -233,11 +123,11 @@ fleetcore/
 
 **UI Features:**
 - Table view with sorting, filtering, search (by plate, VIN, brand, status)
-- Card view option (with photo thumbnail)
+- Card view option (with photo thumbnail) *(not implemented)*
 - Detail page: vehicle card with tabs (info, mileage history, maintenance, expenses, documents & deadlines, documents)
 - HTMX-powered inline editing for quick status changes
 - Photo gallery upload (multiple photos per vehicle)
-- QR code generation for each vehicle (links to vehicle detail page)
+- QR code generation for each vehicle (links to vehicle detail page) *(not implemented)*
 
 ### 3. 📏 Mileage Tracking (Учёт пробега)
 
@@ -256,8 +146,8 @@ fleetcore/
 - Auto-update `vehicle.current_mileage` on new log entry
 - Monthly mileage delta calculation
 - Average daily/monthly mileage per vehicle
-- Alert if mileage jump is abnormal (> 1000km/day threshold, configurable)
-- Bulk mileage entry form (enter readings for multiple vehicles at once)
+- Alert if mileage jump is abnormal (> 1000km/day threshold, configurable) *(not implemented)*
+- Bulk mileage entry (API `POST /mileage/bulk`; no web form)
 
 ### 4. 🔧 Maintenance & Inspections (ТО и Техосмотры)
 
@@ -282,7 +172,7 @@ fleetcore/
 - `documents` (relation — invoices, acts, photos)
 - `created_by` (FK to User)
 
-**Maintenance Schedule Templates:**
+**Maintenance Schedule Templates** *(not implemented)*:
 - Predefined service templates (e.g., "ТО каждые 10,000 км or 6 months")
 - Auto-generate next maintenance based on template rules
 - Kanban board view: Scheduled → In Progress → Completed
@@ -320,7 +210,7 @@ fleetcore/
 - Fuel efficiency report: L/100km per vehicle
 - Monthly cost trends (bar chart)
 - Top-10 most expensive vehicles
-- Budget vs actual comparison
+- Budget vs actual comparison *(not implemented)*
 
 ### 6. 👤 Driver Management (Водители)
 
@@ -339,8 +229,8 @@ fleetcore/
 - Licence, ID card and similar data live in `driver_documents` (below), not on `drivers`
 
 **Features:**
-- Driver ↔ Vehicle assignment (one driver can have multiple vehicles, configurable)
-- Driver document deadlines (computed status, 30-day window); reminders are not implemented yet
+- Driver ↔ Vehicle assignment: a driver has at most one vehicle (partial unique index on `vehicles.assigned_driver_id`)
+- Driver document deadlines (computed status, 30-day window); daily Celery reminders `check_driver_document_expiry`
 - Driver history: which vehicles they drove and when
 - Violation / fine tracking linked to driver
 
@@ -362,7 +252,7 @@ Replaces the former Contracts module. See `docs/compliance-documents.md`.
 
 **ComplianceDocument model (`compliance_documents`):**
 - `id` (UUID), `vehicle_id` (FK, cascade)
-- `document_type` (string from `ComplianceType` in `app/vehicle_rules.py`: civil_liability, casco, technical_inspection, tachograph)
+- `document_type` (string from `ComplianceType` in `app/vehicle_rules.py`: civil_liability, casco, technical_inspection, tachograph, transport_licence)
 - `start_date`, `end_date` (dates, inclusive, end >= start)
 - `amount` (optional EUR Decimal, NUMERIC(12,2), >= 0)
 - `provider`, `policy_number`, `notes` (optional)
@@ -370,11 +260,12 @@ Replaces the former Contracts module. See `docs/compliance-documents.md`.
 - Scans via the documents feature (`entity_type=compliance_document`)
 
 **Rules:**
-- Applicability per vehicle type is defined only in `COMPLIANCE_TYPES` (`app/vehicle_rules.py`) and enforced in `ComplianceService`; forklifts have none, only tractor units have tachograph
+- Applicability per vehicle type is defined only in `COMPLIANCE_TYPES` (`app/vehicle_rules.py`) and enforced in `ComplianceService`; forklifts have none, only tractor units have tachograph and the transport licence copy (the certified copy of the company haulage licence, its own number in `policy_number`)
 - Status (valid / expiring soon / expired) is computed from `end_date` with `COMPLIANCE_EXPIRING_SOON_DAYS`, never stored
 - Per vehicle and type the entry with the latest `end_date` is current; older entries are history and never warn
 - Renew creates a new entry (same vehicle/type, new dates, may overlap); the old entry stays as history
-- Reminders are not implemented yet
+- Daily Celery check `check_compliance_expiry` counts expiring/expired current entries and feeds the reminder rules
+- The company's own haulage licence is a separate record, `company_licences` (page `/company-licence`, number, holder, dates, scan, history, dashboard banner when expiring; no bell/email reminders yet). See `docs/company-licence.md`
 - A document's amount and its expense are linked (`expense_id`) and synced both ways; document-category expenses (civil_liability, casco, technical_inspection, tachograph) can create the document. Deleting a document never deletes its expense. See `docs/compliance-documents.md`
 
 ### 8. 📊 Reports & Dashboards
@@ -387,80 +278,67 @@ Replaces the former Contracts module. See `docs/compliance-documents.md`.
 - Expiring documents widget (licenses, medical certs, insurance)
 - Recent activity feed (last 20 actions from audit log)
 
-**Report Types:**
-- Vehicle Total Cost of Ownership (TCO) report
-- Fleet utilization report (active vs idle vehicles)
+**Report Types** (see `docs/reports.md`):
+- Vehicle Total Cost of Ownership (TCO)
+- Fuel consumption analysis (L/100 km, full-to-full)
+- Expense analysis (by category and month)
 - Maintenance history per vehicle / fleet-wide
-- Fuel consumption analysis
-- Driver performance summary
-- Insurance and inspection coverage overview
-- Custom date range filtering on all reports
+- Custom date range, vehicle and vehicle-type filtering on all of them
 
 **Export:**
-- All reports exportable to Excel (.xlsx) using `openpyxl`; every report has vehicle / vehicle type / date filters shared by page, API and export (see `docs/reports.md`)
+- Every report exports to Excel (.xlsx) using `openpyxl`; filters are shared by page, API and export
 - PDF report export is not implemented; do not advertise it
-- CSV export for raw data
+- Toll expenses can be imported from Shell Card CSV files (`docs/toll-import.md`)
 
 ### 9. 📄 Document Management
 
 **Document model:**
 - `id` (UUID)
-- `entity_type` (enum: vehicle, driver, maintenance, compliance_document, expense)
+- `entity_type` (enum: vehicle, driver, driver_document, maintenance, compliance_document, expense, company_licence)
 - `entity_id` (UUID — polymorphic FK)
 - `type` (enum: photo, scan, invoice, act, contract, license, medical, insurance, other)
 - `filename` (original filename)
-- `s3_key` (path in MinIO)
+- `s3_key` (path in the bucket)
 - `mime_type` (string)
 - `size_bytes` (integer)
 - `uploaded_by` (FK to User)
 - `uploaded_at` (datetime)
 
 **Features:**
-- Upload via drag-and-drop in UI
-- Image preview in modal
-- PDF viewer inline
-- MinIO presigned URLs for secure downloads
-- Auto-generate thumbnails for photos
-- Bulk upload support
+- Upload via drag-and-drop in UI, bulk upload
+- In-app photo viewer for the gallery, image preview, inline PDF
+- Presigned URLs for secure downloads
+- Upload and delete require admin or fleet_manager; type and size are validated (`app/utils/upload_validation.py`)
 
 ### 10. 🔔 Notifications
 
-**Channels:**
-- **Email**: SMTP (configurable in settings)
-- **Telegram**: Bot API integration (fleet managers get a Telegram group/private notifications)
+**Channels:** email (Brevo / Gmail API / SMTP) and Telegram (chat messages), plus the in-app notification center (bell with unread badge, inbox, per-item pages).
 
-**Notification Types:**
-- Maintenance reminders (upcoming / overdue)
-- Vehicle document (insurance, ГТП, tachograph) expiry warnings
-- Driver license / medical cert expiry
-- Abnormal mileage alerts
-- Budget threshold alerts (configurable)
-- System notifications (new user registered, etc.)
+**Sources** (each one a rule in `notification_rules.py`, configured in the UI under notification settings): maintenance reminders (upcoming / overdue), service items due (km or date), vehicle document expiry, driver document expiry.
 
 **Implementation:**
-- `NotificationPreference` per user (enable/disable channels per notification type)
-- Celery Beat for scheduled checks (run daily at 08:00)
-- In-app notification center (bell icon in header, unread count badge)
+- Settings, one rule per source, and recipients are stored in the database (`notification_settings`, `notification_rules`); dispatch is tracked per item (`notification_dispatch`) so a reminder is not repeated
+- Celery Beat (`app/tasks/celery_app.py`): `send_due_reminders` every 15 minutes, the four `check_*` tasks daily at 08:00
+- In production the worker runs beat inside (`-B`) with exactly one instance; the app may hibernate and then catches up on wake (`docs/production-sevalla.md`)
+- Reminder texts are stored as translation keys and rendered per recipient language
 
 ### 11. 📋 Audit Log
 
-**AuditLog model:**
-- `id` (UUID)
-- `user_id` (FK)
-- `action` (enum: create, update, delete, login, logout, export)
-- `entity_type` (string)
-- `entity_id` (UUID)
-- `changes` (JSONB — diff of old/new values)
-- `ip_address` (string)
-- `user_agent` (string)
-- `timestamp` (datetime)
+**AuditLog model (`audit_logs`):**
+- `id` (UUID), `user_id` (FK)
+- `action` (create, update, delete, login, logout, export, plus import actions)
+- `entity_type` (string), `entity_id` (UUID)
+- `changes` (JSONB — diff of old/new values; sensitive numbers are masked)
+- `ip_address`, `user_agent`, `timestamp`
 
 **Features:**
-- Automatic logging via SQLAlchemy events or middleware
-- Searchable audit log page (admin only)
-- Filter by user, action, entity type, date range
-- Cannot be modified or deleted (append-only)
-- Retention policy: configurable (default 2 years)
+- Automatic logging through SQLAlchemy events plus a request context middleware (`audit_events.py`, `audit_context.py`)
+- Searchable audit log page (admin only) with filters by user, action, entity type, date range
+- Append-only
+- No retention/purge job exists yet
+
+### Specified earlier but not implemented
+QR codes per vehicle, vehicle card view, kanban and calendar views and maintenance schedule templates (auto-generated next maintenance), abnormal mileage jump alerts, budget alerts and budget-vs-actual, automatic photo thumbnails, audit log retention, fleet utilization / driver performance / coverage reports, PDF export. Do not claim these exist; ask before building them.
 
 ---
 
@@ -480,48 +358,7 @@ Replaces the former Contracts module. See `docs/compliance-documents.md`.
 
 ## 🐳 Docker Compose
 
-```yaml
-services:
-  app:
-    build: .
-    ports: ["8000:8000"]
-    depends_on: [db, redis, minio]
-    env_file: .env
-    volumes: ["./app:/app/app"]  # dev hot-reload
-
-  db:
-    image: postgres:16-alpine
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-    environment:
-      POSTGRES_DB: fleetcore
-      POSTGRES_USER: fleetcore
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-
-  redis:
-    image: redis:7-alpine
-
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    ports: ["9000:9000", "9001:9001"]
-    volumes: ["minio_data:/data"]
-
-  celery_worker:
-    build: .
-    command: celery -A app.tasks.celery_app worker -l info
-    depends_on: [db, redis]
-    env_file: .env
-
-  celery_beat:
-    build: .
-    command: celery -A app.tasks.celery_app beat -l info
-    depends_on: [db, redis]
-    env_file: .env
-
-volumes:
-  pgdata:
-  minio_data:
-```
+`docker-compose.yml` is the development stack: `app` (port 8000), `db` (postgres:16-alpine), `redis`, `minio`, `vault` + `vault-init` (seeds all secrets, keeps an existing `SECRET_KEY`), `celery_worker` and `celery_beat`. Volumes: `pgdata`, `minio_data`. Read the file for the details rather than copying it here. `docker-compose.prod.yml` is for a self-run server; the live deployment is on Sevalla (web + one worker process with `-B`, managed PostgreSQL and Redis, R2 bucket).
 
 ---
 
@@ -556,39 +393,9 @@ volumes:
 
 ---
 
-## 🚀 Implementation Order (Phases)
+## 🚀 Status
 
-### Phase 1 — Foundation
-1. Docker Compose setup (all services up and running)
-2. FastAPI app scaffold, config, database connection
-3. Alembic setup + User model + auth (login, JWT, sessions)
-4. RBAC middleware/dependencies
-5. Base Jinja2 layout (sidebar, topbar, i18n skeleton)
-6. Base CRUD repository pattern
-
-### Phase 2 — Core Modules
-7. Vehicle registry (model, API, web UI, CRUD)
-8. Driver management (model, API, web UI, CRUD)
-9. Mileage tracking (model, API, web UI, bulk entry)
-10. Document upload/download (MinIO integration)
-
-### Phase 3 — Business Logic
-11. Maintenance module (CRUD + Kanban + Calendar)
-12. Expense tracking (CRUD + fuel sub-form)
-13. Documents & deadlines (CRUD + renewal + computed expiry status)
-14. Audit logging (middleware + admin view)
-
-### Phase 4 — Intelligence
-15. Dashboard with charts and widgets
-16. Reports with Excel/CSV export
-17. Notification system (email + Telegram + in-app)
-18. Celery Beat scheduled reminders
-
-### Phase 5 — Polish
-19. i18n (Bulgarian and English)
-20. Seed data script (500+ realistic vehicles)
-21. Tests
-22. README + deployment docs
+All five original phases (foundation, core modules, business logic, intelligence, polish) are delivered, and the app is live. Work now comes as numbered QA issues fixed one commit per step on feature branches (`Fix #NN (k/n): ...`), merged `master` → `production` by the owner. Remaining open items are in `docs/production-sevalla.md` (Open items) and the "Specified earlier but not implemented" list above.
 
 ---
 
@@ -611,9 +418,11 @@ volumes:
 - This is a **monorepo**: one `pyproject.toml`, one Docker image, one deployment unit
 - The web UI and REST API coexist in the same FastAPI app (different route prefixes: `/` for web, `/api/v1/` for API)
 - Web UI should feel snappy — leverage HTMX for SPA-like experience without JavaScript frameworks
-- All UI text must go through i18n — no hardcoded strings in templates
-- The seed script should generate realistic Kazakh/Russian vehicle data (local license plate formats, local brands popular in KZ like Toyota, Hyundai, Kia, Chevrolet, Lada)
-- License plate format for Kazakhstan: `123 ABC 01` (3 digits, 3 letters, 2-digit region code)
+- All UI text must go through i18n — no hardcoded strings in templates; every key exists in both `bg` and `en`
+- All shown times use Europe/Sofia (`APP_TIMEZONE`); storage stays UTC
+- Every web form carries a hidden `csrf_token`; `app/web/csrf.py` strips it after verification. Test form handling with the hidden field, as `tests/test_web/test_csrf.py` does
+- Working agreement: do not commit or push unless asked (the owner commits and merges); secrets are entered by the owner in the Sevalla dashboard, never pasted into chat; ask before billable or irreversible production actions
+- The seed script (`scripts/seed_data.py`) still generates demo data with Kazakhstan-style plates (`123 ABC 01`) and local brands. It is demo data only; the real fleet is Bulgarian, and real road vehicles need a real plate
 
 ## EUR and locale deployment constraints
 
