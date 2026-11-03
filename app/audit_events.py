@@ -23,6 +23,7 @@ AUDITED_TABLES = {
     "maintenance_records": "maintenance",
     "expenses": "expense",
     "compliance_documents": "compliance_document",
+    "company_licences": "company_licence",
     "documents": "document",
     "mileage_logs": "mileage_log",
     "users": "user",
@@ -69,6 +70,8 @@ def _label(obj) -> str | None:
             return f"{json_safe(obj.category)} {json_safe(obj.amount)} EUR"
         if table == "compliance_documents":
             return str(json_safe(obj.document_type))
+        if table == "company_licences":
+            return f"{obj.licence_number}"
         if table == "documents":
             return obj.filename
         if table == "mileage_logs":

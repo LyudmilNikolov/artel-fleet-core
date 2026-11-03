@@ -245,3 +245,36 @@ async def test_delete_dialog_and_scopes(client, db_session, fleet_manager_user):
     response = await client.post(f"/compliance/{second.id}/delete", data={"scope": "all"})
     assert response.status_code == 303 and response.headers["location"] == f"/vehicles/{vehicle.id}"
     assert await count(db_session) == 0
+
+
+@pytest.mark.asyncio
+async def test_form_hides_cost_and_provider_for_the_transport_licence_copy(client, db_session, fleet_manager_user):
+    vehicle = await make_vehicle(db_session)
+    await login(client, "testmanager")
+    form = await client.get("/compliance/new", params={"vehicle_id": str(vehicle.id), "document_type": "transport_licence"})
+    assert form.text.count("selectedType !== 'transport_licence'") == 2  # amount and provider blocks
+    response = await client.post(
+        "/compliance/new",
+        data={
+            "vehicle_id": str(vehicle.id),
+            "document_type": "transport_licence",
+            "start_date": "2026-01-01",
+            "end_date": "2030-05-13",
+            "policy_number": "22098-001",
+        },
+    )
+    assert response.status_code == 302
+    detail = await client.get(response.headers["location"])
+    assert "22098-001" in detail.text and "Insurer / provider" not in detail.text
+    # a hand-made request with a provider is refused with a message, nothing is stored
+    refused = await client.post(
+        "/compliance/new",
+        data={
+            "vehicle_id": str(vehicle.id),
+            "document_type": "transport_licence",
+            "start_date": "2026-01-01",
+            "end_date": "2030-05-13",
+            "provider": "Some insurer",
+        },
+    )
+    assert refused.status_code == 422 and "no cost and no insurer" in refused.text

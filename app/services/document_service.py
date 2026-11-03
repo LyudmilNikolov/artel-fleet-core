@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.company_licence import CompanyLicence
 from app.models.compliance import ComplianceDocument
 from app.models.document import Document, DocumentType, EntityType
 from app.models.driver_document import DriverDocument
@@ -28,6 +29,8 @@ class DocumentService:
     ) -> Document:
         if entity_type == EntityType.COMPLIANCE_DOCUMENT and not await self.session.get(ComplianceDocument, entity_id):
             raise DomainError("error.compliance_not_found")
+        if entity_type == EntityType.COMPANY_LICENCE and not await self.session.get(CompanyLicence, entity_id):
+            raise DomainError("error.company_licence_not_found")
         if entity_type == EntityType.DRIVER_DOCUMENT and not await self.session.get(DriverDocument, entity_id):
             raise DomainError("error.driver_document_not_found")
         if mime_type not in ALLOWED_MIME_TYPES:

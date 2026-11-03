@@ -22,7 +22,7 @@ from app.services import document_expense_sync as sync
 from app.services.errors import DomainError
 from app.services.validity import local_today, renewal_dates, validity_status
 from app.utils.s3 import get_s3_client
-from app.vehicle_rules import compliance_types_for, validate_compliance_type
+from app.vehicle_rules import compliance_types_for, validate_compliance_type, validate_cost_and_provider
 
 
 def compliance_status(end_date: date, today: date, window: int) -> str:
@@ -82,6 +82,13 @@ class ComplianceService:
             raise DomainError(str(exc)) from exc
         return vehicle
 
+    @staticmethod
+    def _check_cost_and_provider(document_type: str, amount, provider) -> None:
+        try:
+            validate_cost_and_provider(document_type, amount, provider)
+        except ValueError as exc:
+            raise DomainError(str(exc)) from exc
+
     async def get(self, entry_id: UUID) -> ComplianceView | None:
         """Return one entry with computed status, or None."""
         row = await self.repo.get_row(entry_id)
@@ -125,6 +132,7 @@ class ComplianceService:
     async def create(self, data: ComplianceCreate, user_id: UUID | None) -> ComplianceView:
         """Create an entry after checking the type applies to the (locked) vehicle."""
         await self._vehicle_for_write(data.vehicle_id, data.document_type)
+        self._check_cost_and_provider(data.document_type, data.amount, data.provider)
         entry = await self.repo.create(**data.model_dump(), created_by=user_id)
         await sync.sync_from_document(self.session, entry, user_id)
         return await self._require(entry.id)
@@ -136,6 +144,7 @@ class ComplianceService:
         """
         source = await self._require(source_id)
         await self._vehicle_for_write(source.vehicle_id, source.document_type)
+        self._check_cost_and_provider(source.document_type, data.amount, data.provider)
         entry = await self.repo.create(
             **data.model_dump(),
             vehicle_id=source.vehicle_id,
@@ -159,6 +168,9 @@ class ComplianceService:
         end = values.get("end_date", view.end_date)
         if end < start:
             raise DomainError("error.compliance_end_before_start")
+        self._check_cost_and_provider(
+            view.document_type, values.get("amount", view.amount), values.get("provider", view.provider)
+        )
         await self.repo.update(view.entry, **values)
         if "amount" in values or "provider" in values:
             await sync.sync_from_document(self.session, view.entry, view.entry.created_by)

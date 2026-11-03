@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.web.auth import router as auth_router
 from app.web.csrf import csrf_protect
+from app.web.company_licence import router as company_licence_router
 from app.web.compliance import router as compliance_router
 from app.web.dashboard import router as dashboard_router
 from app.web.documents import router as documents_router
@@ -29,6 +30,7 @@ web_router.include_router(maintenance_router)
 web_router.include_router(toll_imports_router)
 web_router.include_router(expenses_router)
 web_router.include_router(compliance_router)
+web_router.include_router(company_licence_router)
 web_router.include_router(reports_router)
 web_router.include_router(notifications_router)
 web_router.include_router(notification_settings_router)

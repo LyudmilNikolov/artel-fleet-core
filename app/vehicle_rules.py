@@ -136,6 +136,8 @@ class ComplianceType(StrEnum):
     CASCO = "casco"
     TECHNICAL_INSPECTION = "technical_inspection"
     TACHOGRAPH = "tachograph"
+    # Certified copy of the company's international haulage licence; one per tractor unit, with its own number.
+    TRANSPORT_LICENCE = "transport_licence"
 
 
 # Applicable compliance document types per vehicle type, in display order.
@@ -143,7 +145,7 @@ class ComplianceType(StrEnum):
 # under compliance_type.*) needs no migration.
 _ROAD_COMPLIANCE = ("civil_liability", "casco", "technical_inspection")
 COMPLIANCE_TYPES = {
-    "tractor_unit": (*_ROAD_COMPLIANCE, "tachograph"),
+    "tractor_unit": (*_ROAD_COMPLIANCE, "tachograph", "transport_licence"),
     "container_semi_trailer": _ROAD_COMPLIANCE,
     "curtain_side_semi_trailer": _ROAD_COMPLIANCE,
     "van": _ROAD_COMPLIANCE,
@@ -151,6 +153,18 @@ COMPLIANCE_TYPES = {
     "forklift": (),
 }
 COMPLIANCE_VEHICLE_TYPES = {t for t, types in COMPLIANCE_TYPES.items() if types}
+
+
+# Types that carry no cost and no insurer / provider (the licence copy is issued with the company licence).
+NO_COST_COMPLIANCE_TYPES = frozenset({"transport_licence"})
+
+
+def validate_cost_and_provider(compliance_type, amount, provider) -> None:
+    """Raise ValueError when an amount or provider is given for a type that has neither."""
+    if str(getattr(compliance_type, "value", compliance_type)) in NO_COST_COMPLIANCE_TYPES and (
+        amount is not None or provider
+    ):
+        raise ValueError("error.compliance_no_cost_or_provider")
 
 
 def compliance_types_for(vehicle_type) -> tuple[str, ...]:

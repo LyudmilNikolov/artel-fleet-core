@@ -59,8 +59,10 @@
         {{ field(_('compliance.type'), _('compliance_type.' + entry.document_type)) }}
         {{ field(_('compliance.start_date'), entry.start_date) }}
         {{ field(_('compliance.end_date'), entry.end_date) }}
+        {% if entry.document_type != 'transport_licence' %}
         {{ field(_('compliance.amount'), money(entry.amount) if entry.amount is not none else none) }}
         {{ field(_('compliance.provider'), entry.provider) }}
+        {% endif %}
         {% if entry.expense_id %}
         <div>
             <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ _('compliance.linked_expense') }}</dt>

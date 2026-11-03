@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% if mode == 'renew' %}{% set heading = _('company_licence.renew_title') %}
+{% elif mode == 'edit' %}{% set heading = _('company_licence.edit') %}
+{% else %}{% set heading = _('company_licence.add') %}{% endif %}
+{% block title %}{{ heading }} — {{ _('company_licence.title') }}{% endblock %}
+{% block page_title %}{{ heading }}{% endblock %}
+{% macro field_error(name) %}{% if field_errors.get(name) %}<p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ field_errors[name] }}</p>{% endif %}{% endmacro %}
+{% macro value(name) %}{{ form_data.get(name) if form_data.get(name) is not none else '' }}{% endmacro %}
+{% block content %}
+<div class="max-w-3xl">
+    {% if error %}<div class="mb-4 fc-notice fc-notice-danger">{{ error }}</div>{% endif %}
+    {% if mode == 'renew' %}
+    <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">{{ _('company_licence.renew_hint', start=local_date(source.start_date), end=local_date(source.end_date)) }}</p>
+    {% endif %}
+    <form method="POST" action="{{ action }}" class="fc-card p-6 space-y-6">
+        {% include 'components/required_hint.html' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="fc-label fc-req" for="licence_number">{{ _('company_licence.number') }}</label>
+                <input id="licence_number" type="text" name="licence_number" required maxlength="60" value="{{ value('licence_number') }}" class="fc-input">
+                {{ field_error('licence_number') }}
+            </div>
+            <div>
+                <label class="fc-label" for="issued_by">{{ _('company_licence.issued_by') }}</label>
+                <input id="issued_by" type="text" name="issued_by" maxlength="300" value="{{ value('issued_by') }}" class="fc-input">
+                {{ field_error('issued_by') }}
+            </div>
+            <div class="md:col-span-2">
+                <label class="fc-label fc-req" for="holder">{{ _('company_licence.holder') }}</label>
+                <input id="holder" type="text" name="holder" required maxlength="300" value="{{ value('holder') }}" class="fc-input">
+                {{ field_error('holder') }}
+            </div>
+            <div>
+                <label class="fc-label fc-req" for="start_date">{{ _('company_licence.start_date') }}</label>
+                <input id="start_date" type="date" name="start_date" required value="{{ value('start_date') }}" class="fc-input-date">
+                {{ field_error('start_date') }}
+            </div>
+            <div>
+                <label class="fc-label fc-req" for="end_date">{{ _('company_licence.end_date') }}</label>
+                <input id="end_date" type="date" name="end_date" required value="{{ value('end_date') }}" class="fc-input-date">
+                {{ field_error('end_date') }}
+            </div>
+        </div>
+        <div>
+            <label class="fc-label" for="notes">{{ _('company_licence.notes') }}</label>
+            <textarea id="notes" name="notes" rows="3" class="fc-textarea">{{ value('notes') }}</textarea>
+        </div>
+        {% if mode != 'edit' %}
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ _('company_licence.attachment_after_save') }}</p>
+        {% endif %}
+        <div class="flex items-center gap-3">
+            <button type="submit" class="fc-btn-primary">{{ _('btn.save') }}</button>
+            <a href="/company-licence" class="fc-btn-secondary">{{ _('btn.cancel') }}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
