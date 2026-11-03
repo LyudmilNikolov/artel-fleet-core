@@ -26,9 +26,9 @@
         <a href="/maintenance" x-show="q || type || status || when" {% if not (q or type_filter or status_filter or when_filter) %}style="display: none"{% endif %} class="fc-btn-reset">{{ _('btn.reset') }}</a>
     </form>
     <div class="w-full sm:w-auto flex flex-wrap items-center gap-3 sm:ml-auto">
-        <a href="/maintenance/due" class="flex-1 sm:flex-none justify-center h-10 px-4 inline-flex items-center border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{{ _('maintenance.service_due') }}</a>
+        <a href="/maintenance/due" class="fc-btn-warn flex-1 sm:flex-none">{{ _('maintenance.service_due') }}</a>
         {% if can_add %}
-        <a href="/maintenance/new" class="flex-1 sm:flex-none justify-center h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium whitespace-nowrap">+ {{ _('maintenance.add') }}</a>
+        <a href="/maintenance/new" class="fc-btn-add flex-1 sm:flex-none">+ {{ _('maintenance.add') }}</a>
         {% endif %}
     </div>
 </div>

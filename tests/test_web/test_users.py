@@ -50,7 +50,7 @@ async def test_form_renders_clean_options_and_headings(client, db_session, admin
     for role in ("admin", "fleet_manager", "driver", "viewer"):
         assert f'<option value="{role}"' in page.text
     assert "settings.account_section" not in page.text and "Account" in page.text  # translated headings
-    assert 'class="fc-btn-primary inline-flex' in (await client.get("/settings/users")).text
+    assert 'class="fc-btn-add' in (await client.get("/settings/users")).text
 
 
 @pytest.mark.asyncio
