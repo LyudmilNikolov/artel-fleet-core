@@ -278,3 +278,43 @@ async def test_delete_scope_entry_restores_previous_and_all_removes_history(db_s
 
     with pytest.raises(DomainError):
         await svc.delete(casco.id, "everything")
+
+
+@pytest.mark.asyncio
+async def test_transport_licence_copy_is_for_tractor_units_only(db_session):
+    tractor = await vehicle(db_session)
+    created = await service(db_session).create(
+        entry(tractor.id, "transport_licence", policy_number="22098-001", end=TODAY + timedelta(days=20)), None
+    )
+    assert created.status == "expiring_soon" and created.policy_number == "22098-001" and created.applicable
+    renewed = await service(db_session).renew(
+        created.id,
+        ComplianceRenew(
+            start_date=TODAY + timedelta(days=21), end_date=TODAY + timedelta(days=400), policy_number="22098-002"
+        ),
+        None,
+    )
+    assert renewed.is_current and renewed.policy_number == "22098-002"
+    for kind in ("container_semi_trailer", "curtain_side_semi_trailer", "van", "passenger_car", "forklift"):
+        other = await vehicle(db_session, kind)
+        with pytest.raises(DomainError, match="error.compliance_type_not_applicable"):
+            await service(db_session).create(entry(other.id, "transport_licence"), None)
+
+
+@pytest.mark.asyncio
+async def test_transport_licence_copy_has_no_cost_and_no_provider(db_session):
+    tractor = await vehicle(db_session)
+    for extra in ({"amount": Decimal("10.00")}, {"provider": "Some insurer"}):
+        with pytest.raises(DomainError, match="error.compliance_no_cost_or_provider"):
+            await service(db_session).create(entry(tractor.id, "transport_licence", **extra), None)
+    created = await service(db_session).create(entry(tractor.id, "transport_licence"), None)
+    with pytest.raises(DomainError, match="error.compliance_no_cost_or_provider"):
+        await service(db_session).update(created.id, ComplianceUpdate(amount=Decimal("5.00")))
+    with pytest.raises(DomainError, match="error.compliance_no_cost_or_provider"):
+        await service(db_session).renew(
+            created.id,
+            ComplianceRenew(start_date=TODAY, end_date=TODAY + timedelta(days=300), provider="Some insurer"),
+            None,
+        )
+    # other types keep both fields
+    await service(db_session).create(entry(tractor.id, "casco", amount=Decimal("10.00"), provider="DZI"), None)

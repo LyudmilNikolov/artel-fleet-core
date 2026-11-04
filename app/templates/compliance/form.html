@@ -74,15 +74,15 @@
                 <input id="end_date" type="date" name="end_date" required value="{{ value('end_date') }}" class="fc-input-date">
                 {{ field_error('end_date') }}
             </div>
-            <div>
+            <div x-show="selectedType !== 'transport_licence'">
                 <label class="fc-label" for="amount">{{ _('compliance.amount') }} (EUR)</label>
-                <input id="amount" type="text" inputmode="decimal" name="amount" value="{{ value('amount') }}" class="fc-input">
+                <input id="amount" type="text" inputmode="decimal" name="amount" value="{{ value('amount') }}" class="fc-input" :disabled="selectedType === 'transport_licence'">
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('compliance.amount_hint') }}</p>
                 {{ field_error('amount') }}
             </div>
-            <div>
+            <div x-show="selectedType !== 'transport_licence'">
                 <label class="fc-label" for="provider">{{ _('compliance.provider') }}</label>
-                <input id="provider" type="text" name="provider" maxlength="300" value="{{ value('provider') }}" class="fc-input">
+                <input id="provider" type="text" name="provider" maxlength="300" value="{{ value('provider') }}" class="fc-input" :disabled="selectedType === 'transport_licence'">
                 {{ field_error('provider') }}
             </div>
             <div>

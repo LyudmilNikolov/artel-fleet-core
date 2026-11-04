@@ -64,7 +64,7 @@ async def test_rules_page_lists_every_source_with_defaults(client, admin_user):
     page = response.text
     for label in ("CASCO insurance", "Tachograph inspection", "ID card", "ADR certificate (dangerous goods)"):
         assert label in page
-    assert page.count("data-rule-card") == 11
+    assert page.count("data-rule-card") == 12
     assert "30, 15, 10 days before expiry, then every day until renewed" in page
     assert "Not set up yet: nothing is sent" in page
     assert "Apply to all vehicle documents" in page and "Apply to all driver documents" in page
@@ -205,15 +205,16 @@ async def test_apply_to_all_vehicle_documents(client, db_session, admin_user):
     await login(client, "testadmin")
     await client.post(f"{RULES}/vehicle:casco", data=form(milestones="45,20", recipient_roles=["admin"]))
     response = await client.post(f"{RULES}/apply", data={"owner": "vehicle", "from_source": "vehicle:casco"})
-    assert response.status_code in (302, 303) and "applied=3" in response.headers["location"]
+    assert response.status_code in (302, 303) and "applied=4" in response.headers["location"]
     rows = await stored(db_session)
     assert set(rows) == {
         "vehicle:casco",
         "vehicle:civil_liability",
         "vehicle:technical_inspection",
         "vehicle:tachograph",
+        "vehicle:transport_licence",
     }
-    assert "3 rules updated" in (await client.get(response.headers["location"])).text
+    assert "4 rules updated" in (await client.get(response.headers["location"])).text
     bad = await client.post(f"{RULES}/apply", data={"owner": "vehicle", "from_source": "driver:id_card"})
     assert bad.headers["location"].startswith(RULES) and "applied" not in bad.headers["location"]
 

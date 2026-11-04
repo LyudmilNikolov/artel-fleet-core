@@ -102,7 +102,7 @@ async def test_types_endpoint(client, db_session, manager_token):
         o["code"]
         for o in (await client.get(f"{BASE}/types", params={"vehicle_id": str(tractor.id)}, headers=headers)).json()
     ]
-    assert codes == ["civil_liability", "casco", "technical_inspection", "tachograph"]
+    assert codes == ["civil_liability", "casco", "technical_inspection", "tachograph", "transport_licence"]
     options = (await client.get(f"{BASE}/types", params={"vehicle_id": str(van.id)}, headers=headers)).json()
     assert [o["code"] for o in options] == ["civil_liability", "casco", "technical_inspection"]
     assert options[1]["label"] == "Каско"

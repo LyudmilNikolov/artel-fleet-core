@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.user import UserRole
+from app.services.company_licence_service import CompanyLicenceService
 from app.services.dashboard_service import DashboardService
 from app.web.deps import get_web_user
 
@@ -15,6 +17,8 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
+    # Managers and viewers are warned on the dashboard when the company licence expires or has expired.
+    licence_alert = None if user.role == UserRole.DRIVER else await CompanyLicenceService(db).alert()
     return request.app.state.templates.TemplateResponse(
         request=request,
         name="dashboard/index.html",
@@ -22,6 +26,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
             "request": request,
             "user": user,
             "active_page": "dashboard",
+            "licence_alert": licence_alert,
             **request.app.state.template_globals(request),
         },
     )

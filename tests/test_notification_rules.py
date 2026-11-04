@@ -13,7 +13,7 @@ I18N = Path(__file__).resolve().parents[1] / "app" / "i18n"
 def test_every_document_type_is_a_source():
     codes = {s.code for s in SOURCES}
     assert codes == {f"vehicle:{t.value}" for t in ComplianceType} | {f"driver:{t.value}" for t in DriverDocumentType}
-    assert len(codes) == len(SOURCES) == 11
+    assert len(codes) == len(SOURCES) == 12
 
 
 def test_every_source_has_a_label_in_bg_and_en():

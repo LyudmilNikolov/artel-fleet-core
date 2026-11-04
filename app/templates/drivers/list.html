@@ -24,10 +24,10 @@
             {% for ds in ['expired', 'expiring_soon'] %}<option value="{{ ds }}" {% if doc_status == ds %}selected{% endif %}>{{ _('compliance_status.' + ds) }}</option>{% endfor %}
         </select>
         {% endif %}
-        <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+        <button type="submit" class="fc-btn-filter">{{ _('btn.filter') }}</button>
     </form>
     {% if can_edit %}
-    <a href="/drivers/new" class="w-full sm:w-auto justify-center whitespace-nowrap h-10 px-4 inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg font-medium">+ {{ _('driver.add') }}</a>
+    <a href="/drivers/new" class="fc-btn-add w-full sm:w-auto">+ {{ _('driver.add') }}</a>
     {% endif %}
 </div>
 <div id="driver-results">

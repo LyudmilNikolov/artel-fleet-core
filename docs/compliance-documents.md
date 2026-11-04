@@ -9,18 +9,28 @@ the stored `end_date` is what they will build on.
 
 `app/vehicle_rules.py` is the single authority (`ComplianceType`, `COMPLIANCE_TYPES`):
 
-| Vehicle type | Civil liability | CASCO | ГТП (technical inspection) | Tachograph |
-|---|---|---|---|---|
-| tractor_unit | ✓ | ✓ | ✓ | ✓ |
-| container / curtain-side semi-trailer | ✓ | ✓ | ✓ | |
-| van, passenger_car | ✓ | ✓ | ✓ | |
-| forklift | | | | |
+| Vehicle type | Civil liability | CASCO | ГТП (technical inspection) | Tachograph | Transport licence (copy) |
+|---|---|---|---|---|---|
+| tractor_unit | ✓ | ✓ | ✓ | ✓ | ✓ |
+| container / curtain-side semi-trailer | ✓ | ✓ | ✓ | | |
+| van, passenger_car | ✓ | ✓ | ✓ | | |
+| forklift | | | | | |
 
 Types are stored as plain strings (`VARCHAR(40)`), so adding a type means editing
 `ComplianceType`/`COMPLIANCE_TYPES` and adding `compliance_type.<code>` labels to
 both catalogs; no migration. The database does **not** enforce applicability;
 `ComplianceService` does, under a `FOR SHARE` lock on the vehicle row. Direct SQL
 writes bypass it.
+
+### Transport licence (copy)
+
+`transport_licence` is the certified copy of the company's international haulage licence that a tractor unit
+carries; each truck has its own copy number. Enter the copy's number in the *policy number* field and its validity
+dates; upload the full licence PDF as the scan, so what is sent to port customs is the whole licence. It behaves like
+every other type: computed status, renewal, dashboard and bell warnings, reminder rule `vehicle:transport_licence`.
+The company's own licence is a separate record, see [company-licence.md](company-licence.md). It has no cost and no
+insurer / provider: the form hides both fields and the service refuses them (`NO_COST_COMPLIANCE_TYPES` in
+`app/vehicle_rules.py`, error `error.compliance_no_cost_or_provider`), so it never creates an expense.
 
 ## Data
 

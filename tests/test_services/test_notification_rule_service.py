@@ -264,8 +264,13 @@ async def test_apply_to_group_copies_one_rule_to_every_source_of_that_owner(db_s
         manager.id,
     )
     changed = await svc.apply_to_group("vehicle", SOURCE, manager.id)
-    assert changed == 3  # the other three vehicle sources
-    for source in ("vehicle:civil_liability", "vehicle:technical_inspection", "vehicle:tachograph"):
+    assert changed == 4  # the other four vehicle sources
+    for source in (
+        "vehicle:civil_liability",
+        "vehicle:technical_inspection",
+        "vehicle:tachograph",
+        "vehicle:transport_licence",
+    ):
         copy = await svc.rule(source)
         assert copy.milestone_days == (45, 20) and copy.repeat_every_days is None and copy.email_enabled
         assert [r.user_id for r in copy.recipients] == [manager.id]

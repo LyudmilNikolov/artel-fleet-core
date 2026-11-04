@@ -9,7 +9,7 @@
             <option value="">{{ _('service_due.all') }}</option>
             {% for s in due_statuses %}<option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ _('service_due.' + s) }}</option>{% endfor %}
         </select>
-        <button type="submit" class="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg">{{ _('btn.filter') }}</button>
+        <button type="submit" class="fc-btn-filter">{{ _('btn.filter') }}</button>
     </form>
     <a href="/maintenance" class="text-sm text-primary-600 hover:underline">{{ _('maintenance.back_to_list') }}</a>
 </div>
