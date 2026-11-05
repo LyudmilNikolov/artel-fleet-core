@@ -3,7 +3,7 @@
 # Refresh after changing pyproject.toml dependencies; Dependabot proposes updates.
 aiosmtplib==5.1.3
 alembic==1.20.0
-amqp==5.4.1
+amqp==5.4.2
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
