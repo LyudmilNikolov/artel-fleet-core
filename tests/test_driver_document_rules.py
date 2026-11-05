@@ -33,6 +33,12 @@ def test_every_type_has_both_labels_and_a_valid_scan_type():
     )
 
 
+def test_only_the_driving_licence_is_tagged_as_a_driving_licence_scan():
+    """The `license` scan type is labelled "driving licence"; ADR and other certificates must not use it."""
+    tagged = [c for c, spec in DRIVER_DOCUMENT_TYPES.items() if spec.upload_doc_type == "license"]
+    assert tagged == ["driving_licence"]
+
+
 def test_number_required_flags():
     assert DRIVER_DOCUMENT_TYPES["id_card"].number_required
     assert DRIVER_DOCUMENT_TYPES["driving_licence"].number_required
