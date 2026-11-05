@@ -160,3 +160,23 @@ async def test_scans_attach_only_to_an_existing_licence(db_session):
             entity_type=EntityType.COMPANY_LICENCE,
             entity_id=uuid4(),
         )
+
+
+@pytest.mark.asyncio
+async def test_scan_upload_is_not_tagged_as_a_driving_licence(client, db_session, admin_user):
+    """Regression: the scan used the `license` type, whose label is "driving licence"."""
+    from app.services.company_licence_service import CompanyLicenceService
+    from app.schemas.company_licence import CompanyLicenceInput
+    from datetime import date, timedelta
+
+    today = date.today()
+    await CompanyLicenceService(db_session).create(
+        CompanyLicenceInput(
+            licence_number="1", holder="Test", start_date=today - timedelta(days=5), end_date=today + timedelta(days=300)
+        ),
+        admin_user.id,
+    )
+    await db_session.commit()
+    await client.post("/login", data={"username": "testadmin", "password": "testpass123"})
+    page = await client.get("/company-licence")
+    assert 'name="doc_type" value="scan"' in page.text and 'value="license"' not in page.text

@@ -50,7 +50,7 @@
         </div>
     </div>
     {% if can_edit %}
-    {% with entity_type='company_licence', entity_id=current.id|string, doc_type='license' %}
+    {% with entity_type='company_licence', entity_id=current.id|string, doc_type='scan' %}
     {% include 'components/upload.html' %}
     {% endwith %}
     {% endif %}
